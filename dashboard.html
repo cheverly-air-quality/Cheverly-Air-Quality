@@ -242,7 +242,7 @@
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
       document.getElementById("statAQI").innerText = lastAQI; document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
       document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-      extraLabel.innerText = "PM2.5 Concentration:"; extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
+      extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
       chart.data.datasets[0].data = series;
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start });
@@ -253,7 +253,7 @@
         document.getElementById("statName").innerText = SENSORS[id];
         document.getElementById("statAQI").innerText = cur; document.getElementById("statAQI").style.color = getAQIColor(cur);
         document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-        extraLabel.innerText = "PM2.5 Concentration:"; extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
+        extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
         chart.data.datasets[0].data = series;
       }
     }
