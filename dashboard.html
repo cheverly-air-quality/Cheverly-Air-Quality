@@ -75,20 +75,23 @@
     </div>
 
     <div class="card" style="min-height: 250px;">
-      <label>Live Station Reading</label>
-      <div id="details">
-        <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
-        <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
-        <div class="sublabel" style="color:var(--brand-navy)">Current AQI</div>
-        
-        <div id="statCE" class="subval" style="color:#ccc;">--</div>
-        <div class="sublabel">24 Hour AQI</div> <div id="extraDetails" class="kv">
-          <div class="k" id="label_param">Concentration:</div>
-          <div class="v" id="val_param">--</div>
+        <label>Live Station Reading</label>
+        <div id="details">
+          <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
+          
+          <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
+          <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">Current AQI</div>
+          
+          <div id="statCE" class="aqi-val" style="color:#ccc;">--</div>
+          <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">24 Hour AQI</div>
+          
+          <div id="extraDetails" class="kv" style="text-align:center;">
+            <div class="subval" id="val_param" style="color:#ccc; font-size:1.1rem; font-weight:bold;">--</div>
+            <div class="sublabel">Concentration</div>
+          </div>
         </div>
       </div>
-    </div>
-  </aside>
+    </aside>
 
   <div id="main-content">
     <div id="map"></div>
@@ -239,7 +242,7 @@
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
       document.getElementById("statAQI").innerText = lastAQI; document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
       document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-      extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
+      extraLabel.innerText = "PM2.5 Concentration:"; extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
       chart.data.datasets[0].data = series;
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start });
@@ -250,7 +253,7 @@
         document.getElementById("statName").innerText = SENSORS[id];
         document.getElementById("statAQI").innerText = cur; document.getElementById("statAQI").style.color = getAQIColor(cur);
         document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-        extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
+        extraLabel.innerText = "PM2.5 Concentration:"; extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
         chart.data.datasets[0].data = series;
       }
     }
