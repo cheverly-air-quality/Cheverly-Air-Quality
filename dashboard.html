@@ -80,11 +80,8 @@
           <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
           <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">Current AQI</div>
           
-          <div id="statCE" class="aqi-val" style="color:#ccc;">--</div>
-          <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">24 Hour AQI</div>
-          
           <div id="extraDetails" class="kv" style="text-align:center; display: block;">
-            <div id="val_param" class="subval" style="color:black; font-size:1.1rem; font-weight:bold;">--</div>
+            <div id="val_param" class="subval" style="color:black; font-size:1.1rem; font-weight:bold; text-shadow:none;">--</div>
             <div id="label_param" class="sublabel">Concentration</div>
           </div>
         </div>
@@ -180,15 +177,6 @@
     return c > 250.4 ? 301 : null;
   }
 
-  function computeCEAQIFromAQIs(aqis) {
-    const list = aqis.filter(v => Number.isFinite(v));
-    if (!list.length) return 0;
-    const base = Math.max(...list);
-    let adders = 0;
-    list.forEach(a => { if (a !== base) { const pct = a >= 120 ? 0.03 : (a >= 100 ? 0.02 : (a >= 80 ? 0.01 : 0)); adders += base * pct; }});
-    return Math.round(base + adders);
-  }
-
   async function proxyGet(params) {
     try {
       const url = API_PROXY + "?" + new URLSearchParams(params).toString();
@@ -201,111 +189,127 @@
 
   function handleDropdownChange(id, userTriggered = false) { 
     if(markerMap[id]) { 
-        if (userTriggered) {
-            map.flyTo(markerMap[id].getLatLng(), 15); 
-        }
+        if (userTriggered) { map.flyTo(markerMap[id].getLatLng(), 15); }
         updateDisplay(id); 
     }
   }
 
   async function updateDisplay(id) {
-    const start = Math.floor(Date.now() / 1000) - 86400;
+    // History ranges
+    const nowSec = Math.floor(Date.now() / 1000);
+    const start24h = nowSec - 86400; // 24 hours for PA
+    const start18h = nowSec - 64800; // 18 hours for QuantAQ
+
     const extraLabel = document.getElementById("label_param"), extraVal = document.getElementById("val_param");
     
+    // DC Comparative Trend (Always Pull 24h)
     let dcSeries = [];
-    const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start });
+    const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
         dcSeries = dcJson.data.map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a, b) => a.x - b.x);
     }
     chart.data.datasets[1].data = dcSeries;
 
     if (id.startsWith("C12-")) {
+      // LIVE DATA ONLY - No Chart
       const compId = id.replace("C12-", "");
       const res = await proxyGet({ action: "grove_last", compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
       const bc = rows.find(r => r.streamId === "880nm")?.data;
       const cur = bc ? Math.round((bc / 600) * 100) : 0;
+      
       document.getElementById("statName").innerText = C12S.find(x => x.compId === compId).name;
       document.getElementById("statAQI").innerText = cur;
       document.getElementById("statAQI").style.color = getAQIColor(cur);
-      document.getElementById("statCE").innerText = cur;
-      document.getElementById("statCE").style.color = getAQIColor(cur);
+      
       extraLabel.innerText = "Black Carbon Concentration"; 
       extraVal.innerText = bc ? `${bc} ng/m³` : "--";
-      chart.data.datasets[0].data = [];
+      
+      chart.data.datasets[0].data = []; // Clear chart for C12
     } else if (id.startsWith("MOD-")) {
+      // 18 HOUR HISTORY for QuantAQ
       const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: new Date().toISOString().split('T')[0] });
       const series = (resA?.data || []).map(r => {
         const localT = new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime();
         return { x: localT, y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) };
-      }).sort((a,b) => a.x - b.x);
+      }).filter(p => p.x >= start18h * 1000).sort((a,b) => a.x - b.x);
+
       const last = (resA?.data || []).slice(-1)[0];
       const lastAQI = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
-      const ce = computeCEAQIFromAQIs(series.map(p => p.y));
+      
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
-      document.getElementById("statAQI").innerText = lastAQI; document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
-      document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
+      document.getElementById("statAQI").innerText = lastAQI; 
+      document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
+      
       extraLabel.innerText = "PM2.5 Concentration"; 
       extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
+      
       chart.data.datasets[0].data = series;
     } else {
-      const json = await proxyGet({ action: "purpleair_history", id, start });
+      // 24 HOUR HISTORY for PurpleAir
+      const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json && json.data) {
         const series = json.data.map(r => ({ x: r[0]*1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a,b) => a.x - b.x);
         const cur = series[series.length-1]?.y || 0;
-        const ce = computeCEAQIFromAQIs(series.map(p => p.y));
+        
         document.getElementById("statName").innerText = SENSORS[id];
-        document.getElementById("statAQI").innerText = cur; document.getElementById("statAQI").style.color = getAQIColor(cur);
-        document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
+        document.getElementById("statAQI").innerText = cur; 
+        document.getElementById("statAQI").style.color = getAQIColor(cur);
+        
         extraLabel.innerText = "PM2.5 Concentration"; 
         extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
+        
         chart.data.datasets[0].data = series;
       }
     }
     chart.update();
   }
 
-  function createInteractiveMarker(id, lat, lon, ceVal) {
-    const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(ceVal), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
-    m.bindTooltip(`AQI: ${ceVal}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own' });
+  function createInteractiveMarker(id, lat, lon, liveVal) {
+    const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(liveVal), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
+    m.bindTooltip(`AQI: ${liveVal}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own' });
     m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id, true); });
     markerMap[id] = m;
   }
 
   async function init() {
     const sel = document.getElementById("devSel");
+    // QuantAQ Init
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
-      const ce = computeCEAQIFromAQIs((res?.data || []).map(p => aqiFromBreakpoints(safeNum(p.pm25 || p.pm2_5), BP_PM25_24H)));
-      createInteractiveMarker(s.sn, s.lat, s.lon, ce); sel.add(new Option(s.name, s.sn));
+      const last = (res?.data || []).slice(-1)[0];
+      const val = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
+      createInteractiveMarker(s.sn, s.lat, s.lon, val); 
+      sel.add(new Option(s.name, s.sn));
     }
+    // PurpleAir Init
     const pa = await proxyGet({ action: "purpleair_box" });
     if (pa?.data) {
       for (const r of pa.data) {
         const id = String(r[0]); if (!SENSORS[id]) continue;
-        const h = await proxyGet({ action: "purpleair_history", id, start: Math.floor(Date.now()/1000)-86400 });
-        const ce = computeCEAQIFromAQIs((h?.data || []).map(x => aqiFromBreakpoints(safeNum(x[1]), BP_PM25_24H)));
-        createInteractiveMarker(id, r[1], r[2], ce); sel.add(new Option(SENSORS[id], id));
+        const val = aqiFromBreakpoints(safeNum(r[4]), BP_PM25_24H) || 0;
+        createInteractiveMarker(id, r[1], r[2], val); 
+        sel.add(new Option(SENSORS[id], id));
       }
     }
+    // C12 Init
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
       const lat = safeNum(rows.find(r=>r.streamId==="lat")?.data);
       const lon = safeNum(rows.find(r=>r.streamId==="long")?.data);
       const bcVal = safeNum(rows.find(r=>r.streamId==="880nm")?.data);
-      const ceVal = bcVal ? Math.round((bcVal / 600) * 100) : 0;
+      const liveAQI = bcVal ? Math.round((bcVal / 600) * 100) : 0;
       if (lat && lon) { 
-        createInteractiveMarker(`C12-${c.compId}`, lat, lon, ceVal); 
+        createInteractiveMarker(`C12-${c.compId}`, lat, lon, liveAQI); 
         sel.add(new Option(c.name, `C12-${c.compId}`)); 
       }
     }
     
-    // Updated logic: Select a station for data but do not fly/zoom to it automatically
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
-      updateDisplay(target); // Only updates charts/sidebar, no map zoom
+      updateDisplay(target); 
     }
   }
 
