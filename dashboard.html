@@ -134,7 +134,13 @@
       currentLiveValue = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
       document.getElementById("val_param").innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
-      chart.data.datasets[0].data = (dataRoot?.data || []).map(r => ({ x: new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime(), y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) })).sort((a,b) => a.x - b.x);
+      
+      // Fixed: 20-hour window for QuantAQ Chart
+      const start20h = Date.now() - (20 * 60 * 60 * 1000);
+      chart.data.datasets[0].data = (dataRoot?.data || [])
+        .map(r => ({ x: new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime(), y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) }))
+        .filter(p => p.x >= start20h)
+        .sort((a,b) => a.x - b.x);
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data) {
@@ -170,22 +176,17 @@
       sel.add(new Option(s.name, s.sn));
     }
 
-    // 2. PurpleAir - CORRECTED DATA TRAVERSAL
+    // 2. PurpleAir - Robust Traversal & Index Fix
     const pa = await proxyGet({ action: "purpleair_box" });
-    if (pa?.data && Array.isArray(pa.data)) { // If proxy returns the array directly
-       for (const r of pa.data) {
-         const id = String(r[0]); if (!SENSORS[id]) continue;
-         const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
-         createMarker(id, r[1], r[2], val); 
-         sel.add(new Option(SENSORS[id], id));
-       }
-    } else if (pa?.data?.data) { // If proxy returns {data: {data: []}}
-       for (const r of pa.data.data) {
-         const id = String(r[0]); if (!SENSORS[id]) continue;
-         const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
-         createMarker(id, r[1], r[2], val); 
-         sel.add(new Option(SENSORS[id], id));
-       }
+    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+    
+    for (const r of paDataArr) {
+      const id = String(r[0]); 
+      if (!SENSORS[id]) continue;
+      // Index 3 is pm2.5_atm based on fields=sensor_index,latitude,longitude,pm2.5_atm
+      const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
+      createMarker(id, r[1], r[2], val); 
+      sel.add(new Option(SENSORS[id], id));
     }
 
     // 3. C-12
@@ -197,7 +198,11 @@
       if (lat && lon) { createMarker(`C12-${c.compId}`, lat, lon, val); sel.add(new Option(c.name, `C12-${c.compId}`)); }
     }
 
-    if (sel.options.length) { const t = markerMap["203601"] ? "203601" : sel.options[0].value; sel.value = t; updateDisplay(t); }
+    if (sel.options.length) { 
+      const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
+      sel.value = defaultId; 
+      updateDisplay(defaultId); 
+    }
   }
 
   init();
