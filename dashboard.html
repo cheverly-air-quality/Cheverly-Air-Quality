@@ -130,17 +130,25 @@
     } else if (id.startsWith("MOD-")) {
       const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: new Date().toISOString().split('T')[0] });
       const dataRoot = resA?.resolved_sn ? resA.data : resA;
-      const last = (dataRoot?.data || []).slice(-1)[0];
+      const allData = dataRoot?.data || [];
+      const last = allData.slice(-1)[0];
+      
       currentLiveValue = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
       document.getElementById("val_param").innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
       
-      // Fixed: 20-hour window for QuantAQ Chart
-      const start20h = Date.now() - (20 * 60 * 60 * 1000);
-      chart.data.datasets[0].data = (dataRoot?.data || [])
-        .map(r => ({ x: new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime(), y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) }))
-        .filter(p => p.x >= start20h)
-        .sort((a,b) => a.x - b.x);
+      const series = allData.map(r => ({ 
+        x: new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime(), 
+        y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) 
+      })).sort((a,b) => a.x - b.x);
+
+      // STRICT 20-HOUR CUTOFF BASED ON DATASET
+      if (series.length > 0) {
+        const cutoff20h = series[series.length - 1].x - (20 * 60 * 60 * 1000);
+        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff20h);
+      } else {
+        chart.data.datasets[0].data = [];
+      }
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data) {
@@ -176,14 +184,13 @@
       sel.add(new Option(s.name, s.sn));
     }
 
-    // 2. PurpleAir - Robust Traversal & Index Fix
+    // 2. PurpleAir - ROBUST TRAVERSAL
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
     
     for (const r of paDataArr) {
       const id = String(r[0]); 
       if (!SENSORS[id]) continue;
-      // Index 3 is pm2.5_atm based on fields=sensor_index,latitude,longitude,pm2.5_atm
       const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
       createMarker(id, r[1], r[2], val); 
       sel.add(new Option(SENSORS[id], id));
