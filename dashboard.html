@@ -198,7 +198,7 @@
     
     let currentLiveValue = 0;
 
-    // DC Trend
+    // Fetch DC Trend for comparison
     let dcSeries = [];
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
@@ -246,11 +246,11 @@
       }
     }
 
-    // Sidebar Update
+    // Force updates to the UI
     document.getElementById("statAQI").innerText = currentLiveValue;
     document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
     
-    // Sync Map Hover/Color
+    // SYNC MAP TOOLTIP AND COLOR IMMEDIATELY
     if (markerMap[id]) {
         markerMap[id].setTooltipContent(`AQI: ${currentLiveValue}`);
         markerMap[id].setStyle({ fillColor: getAQIColor(currentLiveValue) });
@@ -269,6 +269,7 @@
         fillOpacity: 0.9 
     }).addTo(map);
     
+    // This creates the tooltip with the ACTUAL value immediately
     m.bindTooltip(`AQI: ${liveVal}`, { 
         permanent: false, 
         direction: 'top', 
@@ -286,7 +287,7 @@
   async function init() {
     const sel = document.getElementById("devSel");
     
-    // 1. QuantAQ - Wait for data before placing marker
+    // 1. QuantAQ - Sequential data fetch
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const last = (res?.data || []).slice(-1)[0];
@@ -295,22 +296,24 @@
       sel.add(new Option(s.name, s.sn));
     }
 
-    // 2. PurpleAir - Fetch all in one "box" call
+    // 2. PurpleAir - Using the current reading from the box API (index 4)
     const pa = await proxyGet({ action: "purpleair_box" });
     if (pa?.data) {
       for (const r of pa.data) {
         const id = String(r[0]); if (!SENSORS[id]) continue;
-        const val = aqiFromBreakpoints(safeNum(r[4]), BP_PM25_24H) || 0;
-        createInteractiveMarker(id, r[1], r[2], val); 
+        const currentPM = safeNum(r[4]);
+        const aqiVal = aqiFromBreakpoints(currentPM, BP_PM25_24H) || 0;
+        createInteractiveMarker(id, r[1], r[2], aqiVal); 
         sel.add(new Option(SENSORS[id], id));
       }
     }
 
-    // 3. C-12 - Wait for data before placing marker
+    // 3. C-12 - Sequential data fetch
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
-      const lat = safeNum(rows.find(r=>r.streamId==="lat")?.data), lon = safeNum(rows.find(r=>r.streamId==="long")?.data);
+      const lat = safeNum(rows.find(r=>r.streamId==="lat")?.data);
+      const lon = safeNum(rows.find(r=>r.streamId==="long")?.data);
       const bcVal = safeNum(rows.find(r=>r.streamId==="880nm")?.data);
       const liveAQI = bcVal ? Math.round((bcVal / 600) * 100) : 0;
       if (lat && lon) { 
@@ -319,7 +322,7 @@
       }
     }
 
-    // Final Setup
+    // Set initial station (ESSIC)
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
