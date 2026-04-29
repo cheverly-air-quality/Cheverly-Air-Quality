@@ -85,9 +85,9 @@
           <div id="statCE" class="aqi-val" style="color:#ccc;">--</div>
           <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">24 Hour AQI</div>
           
-          <div id="extraDetails" class="kv" style="text-align:center;">
-            <div class="subval" id="val_param" style="color:#ccc; font-size:1.1rem; font-weight:bold;">--</div>
-            <div class="sublabel">Concentration</div>
+          <div id="extraDetails" class="kv" style="text-align:center; display: block;">
+            <div id="val_param" class="subval" style="color:#ccc; font-size:1.1rem; font-weight:bold;">--</div>
+            <div id="label_param" class="sublabel">Concentration</div>
           </div>
         </div>
       </div>
@@ -111,7 +111,6 @@
 <script>
   const API_PROXY = "/api/aq";
   
-  // Reverted to original list + new Mount Hope sensor
   const SENSORS = { 
     "284362": "EJAT.PG.1.284362", 
     "52823": "EJAT.CV.6.52823", 
