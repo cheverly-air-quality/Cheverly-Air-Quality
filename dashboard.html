@@ -198,7 +198,7 @@
     
     let currentLiveValue = 0;
 
-    // Fetch DC Trend
+    // DC Trend
     let dcSeries = [];
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
@@ -246,11 +246,11 @@
       }
     }
 
-    // Update Sidebar
+    // Sidebar Update
     document.getElementById("statAQI").innerText = currentLiveValue;
     document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
     
-    // SYNC MAP TOOLTIP AND COLOR
+    // Sync Map Hover/Color
     if (markerMap[id]) {
         markerMap[id].setTooltipContent(`AQI: ${currentLiveValue}`);
         markerMap[id].setStyle({ fillColor: getAQIColor(currentLiveValue) });
@@ -285,7 +285,8 @@
 
   async function init() {
     const sel = document.getElementById("devSel");
-    // 1. QuantAQ
+    
+    // 1. QuantAQ - Wait for data before placing marker
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const last = (res?.data || []).slice(-1)[0];
@@ -293,7 +294,8 @@
       createInteractiveMarker(s.sn, s.lat, s.lon, val); 
       sel.add(new Option(s.name, s.sn));
     }
-    // 2. PurpleAir
+
+    // 2. PurpleAir - Fetch all in one "box" call
     const pa = await proxyGet({ action: "purpleair_box" });
     if (pa?.data) {
       for (const r of pa.data) {
@@ -303,7 +305,8 @@
         sel.add(new Option(SENSORS[id], id));
       }
     }
-    // 3. C-12
+
+    // 3. C-12 - Wait for data before placing marker
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
@@ -315,6 +318,8 @@
         sel.add(new Option(c.name, `C12-${c.compId}`)); 
       }
     }
+
+    // Final Setup
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
@@ -334,6 +339,7 @@
       if (nearestId) { document.getElementById("devSel").value = nearestId; handleDropdownChange(nearestId, true); }
     }
   };
+
   init();
 </script>
 </body>
