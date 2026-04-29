@@ -45,7 +45,7 @@
     .sublabel { font-size: 0.75rem; color: #777; font-weight: bold; margin-top: 4px; text-align: center; text-transform: uppercase; }
     .subval { margin-top: 10px; font-size: 1.1rem; font-weight: 800; text-align: center; }
     .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 0.9rem; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
-    .leaflet-tooltip-own { background: #333; color: white; border: none; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 8px; }
+    .leaflet-tooltip-own { background: #333 !important; color: white !important; border: 2px solid white !important; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 8px; opacity: 1 !important; }
   </style>
 </head>
 
@@ -76,10 +76,8 @@
         <label>Live Station Reading</label>
         <div id="details">
           <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
-          
           <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
           <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">Current AQI</div>
-          
           <div id="extraDetails" class="kv" style="text-align:center; display: block;">
             <div id="val_param" class="subval" style="color:black; font-size:1.1rem; font-weight:bold; text-shadow:none;">--</div>
             <div id="label_param" class="sublabel">Concentration</div>
@@ -199,7 +197,6 @@
 
     const extraLabel = document.getElementById("label_param"), extraVal = document.getElementById("val_param");
     
-    // DC Trend (24h)
     let dcSeries = [];
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
@@ -221,7 +218,6 @@
       chart.options.scales.x.min = null;
       chart.data.datasets[0].data = []; 
     } else if (id.startsWith("MOD-")) {
-      // 18 Hour History for QuantAQ
       const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: new Date().toISOString().split('T')[0] });
       const series = (resA?.data || []).map(r => {
         const localT = new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime();
@@ -237,12 +233,11 @@
       chart.options.scales.x.min = start18h * 1000;
       chart.data.datasets[0].data = series;
     } else {
-      // 24 Hour History for PurpleAir
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json && json.data) {
         const series = json.data.map(r => ({ x: r[0]*1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a,b) => a.x - b.x);
         const cur = series[series.length-1]?.y || 0;
-        document.getElementById("statName").innerText = SENSORS[id];
+        document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
         document.getElementById("statAQI").innerText = cur; 
         document.getElementById("statAQI").style.color = getAQIColor(cur);
         extraLabel.innerText = "PM2.5 Concentration"; 
@@ -255,8 +250,9 @@
   }
 
   function createInteractiveMarker(id, lat, lon, liveVal) {
+    if (!lat || !lon) return;
     const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(liveVal), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
-    m.bindTooltip(`AQI: ${liveVal}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own' });
+    m.bindTooltip(`AQI: ${liveVal}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own', sticky: true });
     m.on("click", () => { 
         document.getElementById("devSel").value = id; 
         handleDropdownChange(id, true); 
@@ -266,7 +262,7 @@
 
   async function init() {
     const sel = document.getElementById("devSel");
-    // QuantAQ Markers
+    // 1. QuantAQ
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const last = (res?.data || []).slice(-1)[0];
@@ -274,7 +270,7 @@
       createInteractiveMarker(s.sn, s.lat, s.lon, val); 
       sel.add(new Option(s.name, s.sn));
     }
-    // PurpleAir Markers
+    // 2. PurpleAir
     const pa = await proxyGet({ action: "purpleair_box" });
     if (pa?.data) {
       for (const r of pa.data) {
@@ -284,7 +280,7 @@
         sel.add(new Option(SENSORS[id], id));
       }
     }
-    // C-12 Markers
+    // 3. C-12
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
@@ -296,7 +292,6 @@
         sel.add(new Option(c.name, `C12-${c.compId}`)); 
       }
     }
-    // Set default station
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
