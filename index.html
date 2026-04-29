@@ -124,7 +124,7 @@
 
       <a class="tile tile-3" href="writeup.html#methodology">
         <h3>The Methodology</h3>
-        <p>Understand why the Cumulative Exposure Air Quality Index is a better communication tool for Cheverly than the standard Environmental Protection Agency's AQI.</p>
+        <p>Understand why the CE-AQI is a better tool for Cheverly than the standard EPA AQI.</p>
       </a>      
 
       <a class="tile tile-4" href="writeup.html#health">
@@ -169,7 +169,8 @@
 
     const API_PROXY = "/api/aq";
     
-    const SENSORS = { "284362": "EJAT.PG.1.284362", "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57841": "EJAT.CV.3.57841", "57955": "EJAT.FH.1.57955", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.160037", "178169": "EJAT.PG.1.178169", "184191": "EJAT.PG.1.184191", "197937": "EJAT.PG.1.197937", "203577": "EJAT.CV.2.203577", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273" };
+    // Aligned with Dashboard SENSORS
+    const SENSORS = { "284362": "EJAT.PG.1.284362", "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57811": "EJAT.CV.4.57811", "57841": "EJAT.CV.3.57841", "57955": "EJAT.FH.1.57955", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.175563", "178169": "EJAT.PG.1.178169", "181253": "EJAT.CH.1.181253", "184191": "EJAT.PG.1.184191", "185085": "EJAT.FH.1.185085", "197937": "EJAT.PG.1.197937", "203577": "EJAT.CV.2.203577", "203597": "EJAT.FH.1.203597", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273", "156595": "EJAT.CV.156595" };
 
     const SPODS = [ 
       { sn: "MOD-00745", lat: 38.9051, lon: -76.9100 }, 
@@ -187,66 +188,58 @@
       if (aqi <= 50) return "#00e400";
       if (aqi <= 100) return "#ffff00";
       if (aqi <= 150) return "#ff7e00";
-      return "#ff0000";
+      if (aqi <= 200) return "#ff0000";
+      if (aqi <= 300) return "#8f3f97";
+      return "#7e0023";
     }
 
     function aqiFromBreakpoints(C, table) {
       if (C === null || !Number.isFinite(Number(C))) return null;
       const c = Number(C);
       for (const bp of table) { if (c >= bp.cLow && c <= bp.cHigh) return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow); }
-      return c > 150.4 ? 201 : null;
-    }
-
-    function computeCEAQIFromAQIs(aqis) {
-      const list = aqis.filter(v => Number.isFinite(v));
-      if (!list.length) return 0;
-      const base = Math.max(...list);
-      let adders = 0;
-      list.forEach(a => { if (a !== base) { const pct = a >= 120 ? 0.03 : (a >= 100 ? 0.02 : (a >= 80 ? 0.01 : 0)); adders += base * pct; }});
-      return Math.round(base + adders);
+      if (c > 150.4 && c <= 250.4) return Math.round(((300 - 201) / (250.4 - 150.5)) * (c - 150.5) + 201);
+      return c > 250.4 ? 301 : null;
     }
 
     async function proxyGet(params) {
-      const url = API_PROXY + "?" + new URLSearchParams(params).toString();
-      const res = await fetch(url);
-      return res.ok ? await res.json() : null;
+      try {
+        const url = API_PROXY + "?" + new URLSearchParams(params).toString();
+        const res = await fetch(url);
+        return res.ok ? await res.json() : null;
+      } catch(e) { return null; }
     }
 
     async function loadPreviewDots() {
-      const start = Math.floor(Date.now()/1000) - 86400;
-
-      // PurpleAir
+      // PurpleAir Box call
       const paBox = await proxyGet({ action: "purpleair_box" });
-      if (paBox?.data) {
-        for (const r of paBox.data) {
-          const id = String(r[0]);
-          if (id in SENSORS) {
-            const h = await proxyGet({ action: "purpleair_history", id, start });
-            const aqis = (h?.data || []).map(x => aqiFromBreakpoints(Number(x[1]), BP_PM25_24H)).filter(v => v !== null);
-            const finalAQI = aqis.length > 0 ? computeCEAQIFromAQIs(aqis) : aqiFromBreakpoints(Number(r[4]), BP_PM25_24H);
-            L.circleMarker([r[1], r[2]], { radius: 8, fillColor: getAQIColor(finalAQI), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
-          }
+      const paDataArr = Array.isArray(paBox?.data) ? paBox.data : (paBox?.data?.data || []);
+      for (const r of paDataArr) {
+        const id = String(r[0]);
+        if (id in SENSORS) {
+          const val = aqiFromBreakpoints(Number(r[3]), BP_PM25_24H) || 0;
+          L.circleMarker([r[1], r[2]], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
         }
       }
 
       // QuantAQ
       for (const s of SPODS) {
         const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
-        const aqis = (res?.data || []).map(p => aqiFromBreakpoints(Number(p.pm25 || p.pm2_5), BP_PM25_24H)).filter(v => v !== null);
-        const finalAQI = aqis.length > 0 ? computeCEAQIFromAQIs(aqis) : 0;
-        L.circleMarker([s.lat, s.lon], { radius: 8, fillColor: getAQIColor(finalAQI), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
+        const dataRoot = res?.resolved_sn ? res.data : res;
+        const last = (dataRoot?.data || []).slice(-1)[0];
+        const val = last ? aqiFromBreakpoints(Number(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
+        L.circleMarker([s.lat, s.lon], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
       }
 
       // C-12s
       for (const c of C12S) {
         const last = await proxyGet({ action: "grove_last", compId: c.compId });
-        const lastData = Array.isArray(last) ? last : [];
-        const bcVal = Number(lastData.find(r=>r.streamId==="880nm")?.data || 0);
-        const lat = Number(lastData.find(r=>r.streamId==="lat")?.data);
-        const lon = Number(lastData.find(r=>r.streamId==="long")?.data);
-        const finalAQI = bcVal ? Math.round((bcVal / 600) * 100) : 0;
+        const rows = Array.isArray(last) ? last : (last?.data || []);
+        const lat = Number(rows.find(r=>r.streamId==="lat")?.data);
+        const lon = Number(rows.find(r=>r.streamId==="long")?.data);
+        const bcVal = Number(rows.find(r=>r.streamId==="880nm")?.data || 0);
+        const val = bcVal ? Math.round((bcVal / 600) * 100) : 0;
         if (lat && lon) {
-           L.circleMarker([lat, lon], { radius: 8, fillColor: getAQIColor(finalAQI), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
+           L.circleMarker([lat, lon], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
         }
       }
     }
