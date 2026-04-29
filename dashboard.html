@@ -194,9 +194,11 @@
     const nowSec = Math.floor(Date.now() / 1000);
     const start24h = nowSec - 86400; 
     const start18h = nowSec - 64800;
-
     const extraLabel = document.getElementById("label_param"), extraVal = document.getElementById("val_param");
     
+    let currentLiveValue = 0;
+
+    // Fetch DC Trend
     let dcSeries = [];
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
@@ -209,10 +211,9 @@
       const res = await proxyGet({ action: "grove_last", compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
       const bc = rows.find(r => r.streamId === "880nm")?.data;
-      const cur = bc ? Math.round((bc / 600) * 100) : 0;
+      currentLiveValue = bc ? Math.round((bc / 600) * 100) : 0;
+      
       document.getElementById("statName").innerText = C12S.find(x => x.compId === compId).name;
-      document.getElementById("statAQI").innerText = cur;
-      document.getElementById("statAQI").style.color = getAQIColor(cur);
       extraLabel.innerText = "Black Carbon Concentration"; 
       extraVal.innerText = bc ? `${bc} ng/m³` : "--";
       chart.options.scales.x.min = null;
@@ -224,10 +225,9 @@
         return { x: localT, y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) };
       }).sort((a,b) => a.x - b.x);
       const last = (resA?.data || []).slice(-1)[0];
-      const lastAQI = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
+      currentLiveValue = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
+      
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
-      document.getElementById("statAQI").innerText = lastAQI; 
-      document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
       extraLabel.innerText = "PM2.5 Concentration"; 
       extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
       chart.options.scales.x.min = start18h * 1000;
@@ -236,24 +236,39 @@
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json && json.data) {
         const series = json.data.map(r => ({ x: r[0]*1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a,b) => a.x - b.x);
-        const cur = series[series.length-1]?.y || 0;
+        currentLiveValue = series[series.length-1]?.y || 0;
+        
         document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
-        document.getElementById("statAQI").innerText = cur; 
-        document.getElementById("statAQI").style.color = getAQIColor(cur);
         extraLabel.innerText = "PM2.5 Concentration"; 
         extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
         chart.options.scales.x.min = start24h * 1000;
         chart.data.datasets[0].data = series;
       }
     }
+
+    // Update Sidebar
+    document.getElementById("statAQI").innerText = currentLiveValue;
+    document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
+    
+    // SYNC MAP TOOLTIP AND COLOR
+    if (markerMap[id]) {
+        markerMap[id].setTooltipContent(`AQI: ${currentLiveValue}`);
+        markerMap[id].setStyle({ fillColor: getAQIColor(currentLiveValue) });
+    }
+
     chart.update();
   }
 
   function createInteractiveMarker(id, lat, lon, liveVal) {
     if (!lat || !lon) return;
-    const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(liveVal), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
+    const m = L.circleMarker([lat, lon], { 
+        radius: 11, 
+        fillColor: getAQIColor(liveVal), 
+        color: "#000", 
+        weight: 2, 
+        fillOpacity: 0.9 
+    }).addTo(map);
     
-    // Using sticky: true ensures the tooltip is reactive to mouse hover even if data updates
     m.bindTooltip(`AQI: ${liveVal}`, { 
         permanent: false, 
         direction: 'top', 
