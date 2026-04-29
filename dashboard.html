@@ -198,7 +198,7 @@
     
     let currentLiveValue = 0;
 
-    // Fetch DC Trend for comparison
+    // Comparative DC Data
     let dcSeries = [];
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson && dcJson.data) {
@@ -246,11 +246,10 @@
       }
     }
 
-    // Force updates to the UI
     document.getElementById("statAQI").innerText = currentLiveValue;
     document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
     
-    // SYNC MAP TOOLTIP AND COLOR IMMEDIATELY
+    // Explicitly update the marker tooltip and style so hover reflects correct value
     if (markerMap[id]) {
         markerMap[id].setTooltipContent(`AQI: ${currentLiveValue}`);
         markerMap[id].setStyle({ fillColor: getAQIColor(currentLiveValue) });
@@ -269,7 +268,7 @@
         fillOpacity: 0.9 
     }).addTo(map);
     
-    // This creates the tooltip with the ACTUAL value immediately
+    // Bind tooltip immediately with the actual passed value
     m.bindTooltip(`AQI: ${liveVal}`, { 
         permanent: false, 
         direction: 'top', 
@@ -282,12 +281,15 @@
         handleDropdownChange(id, true); 
     });
     markerMap[id] = m;
+    
+    // Final safety: Force the tooltip to set content again
+    m.setTooltipContent(`AQI: ${liveVal}`);
   }
 
   async function init() {
     const sel = document.getElementById("devSel");
     
-    // 1. QuantAQ - Sequential data fetch
+    // 1. QuantAQ - Wait for data
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const last = (res?.data || []).slice(-1)[0];
@@ -296,13 +298,17 @@
       sel.add(new Option(s.name, s.sn));
     }
 
-    // 2. PurpleAir - Using the current reading from the box API (index 4)
+    // 2. PurpleAir - Sequential box fetch
     const pa = await proxyGet({ action: "purpleair_box" });
     if (pa?.data) {
       for (const r of pa.data) {
-        const id = String(r[0]); if (!SENSORS[id]) continue;
+        const id = String(r[0]); 
+        if (!SENSORS[id]) continue;
+        
+        // Use index 4 for current PM2.5, index 1/2 for Lat/Lon
         const currentPM = safeNum(r[4]);
         const aqiVal = aqiFromBreakpoints(currentPM, BP_PM25_24H) || 0;
+        
         createInteractiveMarker(id, r[1], r[2], aqiVal); 
         sel.add(new Option(SENSORS[id], id));
       }
@@ -316,13 +322,14 @@
       const lon = safeNum(rows.find(r=>r.streamId==="long")?.data);
       const bcVal = safeNum(rows.find(r=>r.streamId==="880nm")?.data);
       const liveAQI = bcVal ? Math.round((bcVal / 600) * 100) : 0;
+      
       if (lat && lon) { 
         createInteractiveMarker(`C12-${c.compId}`, lat, lon, liveAQI); 
         sel.add(new Option(c.name, `C12-${c.compId}`)); 
       }
     }
 
-    // Set initial station (ESSIC)
+    // Initial load for ESSIC or first station
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
