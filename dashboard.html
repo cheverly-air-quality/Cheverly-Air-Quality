@@ -69,7 +69,7 @@
 
     <div class="card">
       <label>Station Selection</label>
-      <select id="devSel" onchange="handleDropdownChange(this.value)"></select>
+      <select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
     </div>
 
     <div class="card" style="min-height: 250px;">
@@ -199,8 +199,13 @@
 
   function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
 
-  function handleDropdownChange(id) { 
-    if(markerMap[id]) { map.flyTo(markerMap[id].getLatLng(), 15); updateDisplay(id); }
+  function handleDropdownChange(id, userTriggered = false) { 
+    if(markerMap[id]) { 
+        if (userTriggered) {
+            map.flyTo(markerMap[id].getLatLng(), 15); 
+        }
+        updateDisplay(id); 
+    }
   }
 
   async function updateDisplay(id) {
@@ -263,7 +268,7 @@
   function createInteractiveMarker(id, lat, lon, ceVal) {
     const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(ceVal), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
     m.bindTooltip(`AQI: ${ceVal}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own' });
-    m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id); });
+    m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id, true); });
     markerMap[id] = m;
   }
 
@@ -295,10 +300,12 @@
         sel.add(new Option(c.name, `C12-${c.compId}`)); 
       }
     }
+    
+    // Updated logic: Select a station for data but do not fly/zoom to it automatically
     if (sel.options.length) {
       const target = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = target;
-      handleDropdownChange(target);
+      updateDisplay(target); // Only updates charts/sidebar, no map zoom
     }
   }
 
@@ -311,7 +318,7 @@
       userMarker = L.marker(loc).addTo(map).bindPopup("Your Search Location").openPopup();
       let nearestId = null, minDist = Infinity;
       Object.keys(markerMap).forEach(id => { const d = map.distance(loc, markerMap[id].getLatLng()); if (d < minDist) { minDist = d; nearestId = id; } });
-      if (nearestId) { document.getElementById("devSel").value = nearestId; handleDropdownChange(nearestId); }
+      if (nearestId) { document.getElementById("devSel").value = nearestId; handleDropdownChange(nearestId, true); }
     }
   };
   init();
