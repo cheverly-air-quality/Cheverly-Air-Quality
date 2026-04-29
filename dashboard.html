@@ -101,7 +101,23 @@
   const map = L.map("map").setView([38.9213, -76.9175], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-  const chart = new Chart(document.getElementById("airChart").getContext("2d"), { type: "line", data: { datasets: [ { label: "Station AQI", data: [], borderColor: "#4477ce", tension: 0.1, fill: true, backgroundColor: "rgba(68, 119, 206, 0.1)", spanGaps: true }, { label: "DC Comparative Trend", data: [], borderColor: "rgba(255, 0, 0, 0.6)", borderDash: [5, 5], tension: 0.3, fill: false, pointRadius: 0, spanGaps: true, borderWidth: 2 } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: "time", time: { unit: 'hour' } }, y: { beginAtZero: true } } } });
+  const chart = new Chart(document.getElementById("airChart").getContext("2d"), { 
+    type: "line", 
+    data: { 
+      datasets: [ 
+        { label: "Station AQI", data: [], borderColor: "#4477ce", tension: 0.1, fill: true, backgroundColor: "rgba(68, 119, 206, 0.1)", spanGaps: true }, 
+        { label: "DC Comparative Trend", data: [], borderColor: "rgba(255, 0, 0, 0.6)", borderDash: [5, 5], tension: 0.3, fill: false, pointRadius: 0, spanGaps: true, borderWidth: 2 } 
+      ] 
+    }, 
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: false, 
+      scales: { 
+        x: { type: "time", time: { unit: 'hour' } }, 
+        y: { beginAtZero: true } 
+      } 
+    } 
+  });
 
   const BP_PM25_24H = [ { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 }, { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 }, { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 }, { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 } ];
   function getAQIColor(aqi) { if (aqi <= 50) return "#00e400"; if (aqi <= 100) return "#ffff00"; if (aqi <= 150) return "#ff7e00"; if (aqi <= 200) return "#ff0000"; if (aqi <= 300) return "#8f3f97"; return "#7e0023"; }
@@ -115,6 +131,8 @@
     const nowSec = Math.floor(Date.now() / 1000);
     const start24h = nowSec - 86400; 
     let currentLiveValue = 0;
+
+    // Load DC trend always (24 hours)
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson?.data) chart.data.datasets[1].data = dcJson.data.map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a, b) => a.x - b.x);
 
@@ -142,7 +160,7 @@
         y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) 
       })).sort((a,b) => a.x - b.x);
 
-      // STRICT 20-HOUR CUTOFF BASED ON DATASET
+      // QuantAQ ONLY: Filter blue line to 20 hours
       if (series.length > 0) {
         const cutoff20h = series[series.length - 1].x - (20 * 60 * 60 * 1000);
         chart.data.datasets[0].data = series.filter(p => p.x >= cutoff20h);
@@ -150,6 +168,7 @@
         chart.data.datasets[0].data = [];
       }
     } else {
+      // PurpleAir Stations (24 hours)
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data) {
         const series = json.data.map(r => ({ x: r[0]*1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a,b) => a.x - b.x);
@@ -173,8 +192,6 @@
 
   async function init() {
     const sel = document.getElementById("devSel");
-    
-    // 1. QuantAQ
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const dataRoot = res?.resolved_sn ? res.data : res;
@@ -183,11 +200,8 @@
       createMarker(s.sn, s.lat, s.lon, val); 
       sel.add(new Option(s.name, s.sn));
     }
-
-    // 2. PurpleAir - ROBUST TRAVERSAL
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
-    
     for (const r of paDataArr) {
       const id = String(r[0]); 
       if (!SENSORS[id]) continue;
@@ -195,8 +209,6 @@
       createMarker(id, r[1], r[2], val); 
       sel.add(new Option(SENSORS[id], id));
     }
-
-    // 3. C-12
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
@@ -204,14 +216,12 @@
       const val = Math.round((safeNum(rows.find(r=>r.streamId==="880nm")?.data) / 600) * 100) || 0;
       if (lat && lon) { createMarker(`C12-${c.compId}`, lat, lon, val); sel.add(new Option(c.name, `C12-${c.compId}`)); }
     }
-
     if (sel.options.length) { 
       const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
       sel.value = defaultId; 
       updateDisplay(defaultId); 
     }
   }
-
   init();
 </script>
 </body>
