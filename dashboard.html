@@ -42,11 +42,9 @@
     .legend-item { display: flex; align-items: center; margin-bottom: 6px; font-size: 0.8rem; font-weight: 600; color: #444; }
     .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; border: 1px solid #000; }
     .aqi-val { font-size: 72px; font-weight: 900; display: block; text-align: center; line-height: 1.1; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
-    .subval { margin-top: 10px; font-size: 1.1rem; font-weight: 800; text-align: center; text-shadow: 0.5px 0.5px 0 #000, -0.5px -0.5px 0 #000; }
+    .subval { margin-top: 10px; font-size: 1.1rem; font-weight: 800; text-align: center; }
     .sublabel { font-size: 0.75rem; color: #777; font-weight: bold; margin-top: 4px; text-align: center; text-transform: uppercase; }
     .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 0.9rem; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
-    .kv .k { font-weight: 800; color: #444; }
-    .kv .v { font-weight: 700; color: var(--aqi-red); text-align: left; }
     .leaflet-tooltip-own { background: #333; color: white; border: none; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 8px; }
   </style>
 </head>
@@ -86,7 +84,7 @@
           <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">24 Hour AQI</div>
           
           <div id="extraDetails" class="kv" style="text-align:center; display: block;">
-            <div id="val_param" class="subval" style="color:#ccc; font-size:1.1rem; font-weight:bold;">--</div>
+            <div id="val_param" class="subval" style="color:black; font-size:1.1rem; font-weight:bold;">--</div>
             <div id="label_param" class="sublabel">Concentration</div>
           </div>
         </div>
@@ -227,7 +225,8 @@
       document.getElementById("statAQI").style.color = getAQIColor(cur);
       document.getElementById("statCE").innerText = cur;
       document.getElementById("statCE").style.color = getAQIColor(cur);
-      extraLabel.innerText = "BC Black Carbon:"; extraVal.innerText = bc ? `${bc} ng/m³` : "--";
+      extraLabel.innerText = "Black Carbon Concentration"; 
+      extraVal.innerText = bc ? `${bc} ng/m³` : "--";
       chart.data.datasets[0].data = [];
     } else if (id.startsWith("MOD-")) {
       const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: new Date().toISOString().split('T')[0] });
@@ -241,7 +240,8 @@
       document.getElementById("statName").innerText = SPODS.find(s=>s.sn===id).name;
       document.getElementById("statAQI").innerText = lastAQI; document.getElementById("statAQI").style.color = getAQIColor(lastAQI);
       document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-      extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
+      extraLabel.innerText = "PM2.5 Concentration"; 
+      extraVal.innerText = last ? `${safeNum(last.pm25 || last.pm2_5)} µg/m³` : "--";
       chart.data.datasets[0].data = series;
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start });
@@ -252,7 +252,8 @@
         document.getElementById("statName").innerText = SENSORS[id];
         document.getElementById("statAQI").innerText = cur; document.getElementById("statAQI").style.color = getAQIColor(cur);
         document.getElementById("statCE").innerText = ce; document.getElementById("statCE").style.color = getAQIColor(ce);
-        extraLabel.innerText = "PM2.5 Conc:"; extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
+        extraLabel.innerText = "PM2.5 Concentration"; 
+        extraVal.innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
         chart.data.datasets[0].data = series;
       }
     }
