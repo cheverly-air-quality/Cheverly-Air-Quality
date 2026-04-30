@@ -174,7 +174,6 @@
 
       if (series.length > 0) {
         const latestTime = series[series.length - 1].x;
-        // Updated to 18-hour window
         const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
         chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
         chart.options.scales.x.min = cutoff18h;
@@ -220,9 +219,17 @@
     // 1. PROCESS PURPLEAIR FIRST
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
-    
-    // Sort to put EJAT.CV.1.203601 at the very top of the PA array
-    paDataArr.sort((a, b) => (String(a[0]) === "203601" ? -1 : String(b[0]) === "203601" ? 1 : 0));
+
+    // Alphabetical sort by Friendly Name with "203601" forced to the top
+    paDataArr.sort((a, b) => {
+      const idA = String(a[0]);
+      const idB = String(b[0]);
+      if (idA === "203601") return -1;
+      if (idB === "203601") return 1;
+      const nameA = SENSORS[idA] || "";
+      const nameB = SENSORS[idB] || "";
+      return nameA.localeCompare(nameB);
+    });
 
     for (const r of paDataArr) {
       const id = String(r[0]); 
