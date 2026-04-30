@@ -5,10 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Cheverly Air Quality | Dashboard</title>
 
+  <!-- Core Leaflet & Chart.js -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+  <!-- Geocoding Library for Address Search -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
   <style>
     :root { 
@@ -109,6 +114,9 @@
   const C12S = [ { compId: "D14781", name: "C-12 D14781" }, { compId: "D14645", name: "C-12 D14645" }, { compId: "D17615", name: "C-12 D17615" }, { compId: "E10588", name: "C-12 E10588" }, { compId: "D14646", name: "C-12 D14646" } ];
 
   let markerMap = {};
+  let userMarker = null;
+  const geocoder = L.Control.Geocoder.nominatim();
+
   const map = L.map("map").setView([38.9213, -76.9175], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
@@ -135,6 +143,45 @@
   function aqiFromBreakpoints(C, table) { if (C === null || !Number.isFinite(Number(C))) return null; const c = Number(C); for (const bp of table) { if (c >= bp.cLow && c <= bp.cHigh) return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow); } if (c > 150.4 && c <= 250.4) return Math.round(((300 - 201) / (250.4 - 150.5)) * (c - 150.5) + 201); return c > 250.4 ? 301 : null; }
   async function proxyGet(params) { try { const url = API_PROXY + "?" + new URLSearchParams(params).toString(); const res = await fetch(url); return res.ok ? await res.json() : null; } catch(e) { return null; } }
   function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
+
+  // FIX: ADDRESS SEARCH LOGIC
+  document.getElementById("locateBtn").addEventListener("click", () => {
+    const addr = document.getElementById("addrInput").value;
+    if (!addr) return alert("Please enter an address");
+
+    geocoder.geocode(addr, (results) => {
+      if (results && results.length > 0) {
+        const { center } = results[0];
+        
+        // Remove old user marker if it exists
+        if (userMarker) map.removeLayer(userMarker);
+        
+        // Add pinpoint marker for the searched address
+        userMarker = L.marker(center).addTo(map).bindPopup("<b>Target Location</b>").openPopup();
+        map.flyTo(center, 15);
+
+        // Find the closest sensor from markerMap
+        let minDistance = Infinity;
+        let closestId = null;
+
+        Object.keys(markerMap).forEach(id => {
+          const sensorLatLng = markerMap[id].getLatLng();
+          const dist = center.distanceTo(sensorLatLng); 
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestId = id;
+          }
+        });
+
+        if (closestId) {
+          document.getElementById("devSel").value = closestId;
+          updateDisplay(closestId); // Update history and chart automatically
+        }
+      } else {
+        alert("Location not found.");
+      }
+    });
+  });
 
   function handleDropdownChange(id, userTriggered = false) { if(markerMap[id]) { if (userTriggered) map.flyTo(markerMap[id].getLatLng(), 15); updateDisplay(id); } }
 
@@ -204,14 +251,10 @@
             y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 
           })).sort((a, b) => a.x - b.x);
 
-        // Fallback: If 24h history is entirely glitched (>250), plot the sidebar live value 
         if (filteredData.length === 0 && liveStation) {
             const liveRaw = safeNum(liveStation[3]);
             if (liveRaw < 250) {
-                filteredData.push({
-                    x: Date.now(),
-                    y: aqiFromBreakpoints(liveRaw, BP_PM25_24H) || 0
-                });
+                filteredData.push({ x: Date.now(), y: aqiFromBreakpoints(liveRaw, BP_PM25_24H) || 0 });
             }
         }
         chart.data.datasets[0].data = filteredData;
@@ -226,45 +269,28 @@
 
   function createMarker(id, lat, lon, val) {
     const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(val), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
-    
-    m.bindTooltip(`AQI: ${val}`, { 
-      permanent: false, 
-      direction: 'top', 
-      className: 'leaflet-tooltip-own', 
-      sticky: true,
-      opacity: 1
-    });
-
+    m.bindTooltip(`AQI: ${val}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own', sticky: true, opacity: 1 });
     m.on('mouseover', function(e) { this.openTooltip(); });
     m.on('mouseout', function(e) { this.closeTooltip(); });
     m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id, true); });
-    
     markerMap[id] = m;
   }
 
   async function init() {
     const sel = document.getElementById("devSel");
-    
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
 
     paDataArr.sort((a, b) => {
-      const idA = String(a[0]);
-      const idB = String(b[0]);
-      if (idA === "203601") return -1;
-      if (idB === "203601") return 1;
-      if (idA === "181253") return 1; 
-      if (idB === "181253") return -1;
-      const nameA = SENSORS[idA] || "";
-      const nameB = SENSORS[idB] || "";
-      return nameA.localeCompare(nameB);
+      const idA = String(a[0]), idB = String(b[0]);
+      if (idA === "203601") return -1; if (idB === "203601") return 1;
+      if (idA === "181253") return 1; if (idB === "181253") return -1;
+      return (SENSORS[idA] || "").localeCompare(SENSORS[idB] || "");
     });
 
     for (const r of paDataArr) {
-      const id = String(r[0]); 
-      if (!SENSORS[id]) continue;
-      const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
-      createMarker(id, r[1], r[2], val); 
+      const id = String(r[0]); if (!SENSORS[id]) continue;
+      createMarker(id, r[1], r[2], aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0); 
       sel.add(new Option(SENSORS[id], id));
     }
 
@@ -272,8 +298,7 @@
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const dataRoot = res?.resolved_sn ? res.data : res;
       const last = (dataRoot?.data || []).slice(-1)[0];
-      const val = last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
-      createMarker(s.sn, s.lat, s.lon, val); 
+      createMarker(s.sn, s.lat, s.lon, last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0); 
       sel.add(new Option(s.name, s.sn));
     }
 
