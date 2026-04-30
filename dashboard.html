@@ -174,7 +174,7 @@
 
       if (series.length > 0) {
         const latestTime = series[series.length - 1].x;
-        const cutoff20h = latestTime - (20 * 60 * 60 * 1000);
+        const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
         chart.data.datasets[0].data = series.filter(p => p.x >= cutoff20h);
         chart.options.scales.x.min = cutoff20h;
       } else {
