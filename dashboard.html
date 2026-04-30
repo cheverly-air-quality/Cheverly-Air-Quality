@@ -61,6 +61,22 @@
       opacity: 1 !important;
       pointer-events: none;
     }
+
+    /* Disclaimer Styling */
+    .dashboard-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      color: #666;
+      font-size: 0.7rem;
+      padding: 4px 20px;
+      text-align: center;
+      border-top: 1px solid #ddd;
+      z-index: 3000;
+      pointer-events: none;
+    }
   </style>
 </head>
 
@@ -109,6 +125,10 @@
     </div>
     <div id="chart-box"><canvas id="airChart"></canvas></div>
   </div>
+</div>
+
+<div class="dashboard-disclaimer">
+  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
 </div>
 
 <script>
