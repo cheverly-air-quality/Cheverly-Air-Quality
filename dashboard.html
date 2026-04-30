@@ -78,7 +78,7 @@
   <aside id="sidebar">
     <div class="card">
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="e.g. 123 Main St, Cheverly, MD">
+      <input type="text" id="addrInput" placeholder="Enter an address (e.g. 123 Main St, Cheverly, MD)">
       <button id="locateBtn">Find Nearest Station</button>
     </div> 
     <div class="card"><label>Station Selection</label><select id="devSel" onchange="handleDropdownChange(this.value, true)"></select></div>
@@ -119,7 +119,16 @@
 
   let markerMap = {};
   let userMarker = null;
-  const geocoder = L.Control.Geocoder.nominatim();
+
+  // INITIALIZATION: Better geocoder setup with identifiers
+  const geocoder = L.Control.Geocoder.nominatim({
+    serviceUrl: 'https://nominatim.openstreetmap.org/',
+    geocodingQueryParams: {
+        'accept-language': 'en',
+        'limit': 1,
+        'email': 'apuschni@umd.edu' 
+    }
+  });
 
   const map = L.map("map").setView([38.9213, -76.9175], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
@@ -148,7 +157,7 @@
   async function proxyGet(params) { try { const url = API_PROXY + "?" + new URLSearchParams(params).toString(); const res = await fetch(url); return res.ok ? await res.json() : null; } catch(e) { return null; } }
   function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
 
-  // IMPROVED SEARCH WITH LOADING STATE
+  // SEARCH LOGIC WITH TIMEOUT GUARD
   document.getElementById("locateBtn").addEventListener("click", function() {
     const addr = document.getElementById("addrInput").value;
     const btn = this;
@@ -158,44 +167,61 @@
       return;
     }
 
-    // Loading State
     const originalText = btn.innerText;
     btn.innerText = "Searching...";
     btn.disabled = true;
     btn.style.opacity = "0.6";
 
-    geocoder.geocode(addr, (results) => {
-      // Reset Button
-      btn.innerText = originalText;
-      btn.disabled = false;
-      btn.style.opacity = "1";
-
-      if (results && results.length > 0) {
-        const { center } = results[0];
-        if (userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker(center).addTo(map).bindPopup(`<b>Target:</b><br>${addr}`).openPopup();
-        map.flyTo(center, 16);
-
-        let minDistance = Infinity;
-        let closestId = null;
-
-        Object.keys(markerMap).forEach(id => {
-          const sensorLatLng = markerMap[id].getLatLng();
-          const dist = center.distanceTo(sensorLatLng); 
-          if (dist < minDistance) {
-            minDistance = dist;
-            closestId = id;
-          }
-        });
-
-        if (closestId) {
-          document.getElementById("devSel").value = closestId;
-          updateDisplay(closestId); 
+    // SAFETY: If the geocoder hangs, reset the UI after 10 seconds
+    const timeoutGuard = setTimeout(() => {
+        if (btn.disabled) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            alert("The search took too long. This usually happens when the address service is slow. Please try again with a simpler address like 'Cheverly, MD'.");
         }
-      } else {
-        alert("Location not found. Please try including the city and state.");
-      }
-    });
+    }, 10000);
+
+    try {
+        geocoder.geocode(addr, (results) => {
+            clearTimeout(timeoutGuard);
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+
+            if (results && results.length > 0) {
+                const { center } = results[0];
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.marker(center).addTo(map).bindPopup(`<b>Location:</b><br>${addr}`).openPopup();
+                map.flyTo(center, 16);
+
+                let minDistance = Infinity;
+                let closestId = null;
+
+                Object.keys(markerMap).forEach(id => {
+                    const sensorLatLng = markerMap[id].getLatLng();
+                    const dist = center.distanceTo(sensorLatLng); 
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestId = id;
+                    }
+                });
+
+                if (closestId) {
+                    document.getElementById("devSel").value = closestId;
+                    updateDisplay(closestId); 
+                }
+            } else {
+                alert("Location not found. Please double-check the address and include the city.");
+            }
+        });
+    } catch (err) {
+        clearTimeout(timeoutGuard);
+        btn.innerText = originalText;
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        console.error("Geocoding Error:", err);
+    }
   });
 
   function handleDropdownChange(id, userTriggered = false) { if(markerMap[id]) { if (userTriggered) map.flyTo(markerMap[id].getLatLng(), 15); updateDisplay(id); } }
