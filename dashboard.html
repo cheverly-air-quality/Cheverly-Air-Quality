@@ -182,11 +182,18 @@
       }
     } else {
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
-      if (json?.data) {
-        const series = json.data.map(r => ({ x: r[0]*1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a,b) => a.x - b.x);
-        currentLiveValue = series[series.length-1]?.y || 0;
+      if (json?.data && json.data.length > 0) {
+        const series = json.data.map(r => ({ 
+          x: r[0] * 1000, 
+          y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 
+        })).sort((a, b) => a.x - b.x);
+
+        currentLiveValue = series[series.length - 1].y;
         document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
-        document.getElementById("val_param").innerText = (json.data[json.data.length-1]?.[1] || "--") + " µg/m³";
+        
+        const lastConcentration = safeNum(json.data[json.data.length - 1]?.[1]);
+        document.getElementById("val_param").innerText = lastConcentration !== null ? `${lastConcentration} µg/m³` : "--";
+        
         chart.data.datasets[0].data = series;
       }
     }
