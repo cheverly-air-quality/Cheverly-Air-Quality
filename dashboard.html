@@ -50,21 +50,6 @@
     .sublabel { font-size: 0.75rem; color: #777; font-weight: bold; margin-top: 4px; text-align: center; text-transform: uppercase; }
     .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 0.9rem; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
     .leaflet-tooltip-own { background: #333 !important; color: white !important; border: 2px solid white !important; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 8px; opacity: 1 !important; pointer-events: none; }
-    
-    /* Disclaimer Styling */
-    .disclaimer { 
-      position: fixed; 
-      bottom: 0; 
-      left: 380px; /* Offset by sidebar width */
-      right: 0; 
-      background: rgba(255, 255, 255, 0.9); 
-      font-size: 0.7rem; 
-      color: #666; 
-      padding: 5px 15px; 
-      text-align: center; 
-      border-top: 1px solid #ddd; 
-      z-index: 3000; 
-    }
   </style>
 </head>
 
@@ -115,10 +100,6 @@
   </div>
 </div>
 
-<div class="disclaimer">
-  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
-</div>
-
 <script>
   const API_PROXY = "/api/aq";
   const SENSORS = { "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57811": "EJAT.CV.4.57811", "57841": "EJAT.CV.3.57841", "203577": "EJAT.CV.2.203577", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "156595": "EJAT.CV.156595", "284362": "EJAT.PG.1.284362", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.175563", "178169": "EJAT.PG.1.178169", "184191": "EJAT.PG.1.184191", "197937": "EJAT.PG.1.197937", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273", "57955": "EJAT.FH.1.57955", "185085": "EJAT.FH.1.185085", "203597": "EJAT.FH.1.203597", "181253": "EJAT.CH.1.181253" };
@@ -128,7 +109,9 @@
   let markerMap = {};
   let userMarker = null;
 
+  // INITIALIZATION: Using Esri for house-level address accuracy
   const geocoder = L.Control.Geocoder.esri();
+
   const map = L.map("map").setView([38.9213, -76.9175], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
@@ -159,41 +142,66 @@
   document.getElementById("locateBtn").addEventListener("click", function() {
     const addr = document.getElementById("addrInput").value;
     const btn = this;
-    if (!addr) { alert("Please enter an address"); return; }
+    
+    if (!addr) {
+      alert("Please enter an address");
+      return;
+    }
+
     const originalText = btn.innerText;
     btn.innerText = "Searching...";
     btn.disabled = true;
     btn.style.opacity = "0.6";
+
     const timeoutGuard = setTimeout(() => {
         if (btn.disabled) {
             btn.innerText = originalText;
             btn.disabled = false;
             btn.style.opacity = "1";
-            alert("The search took too long. Esri might be blocked.");
+            alert("The search took too long. Esri might be blocked or the connection was lost. Try refreshing the page.");
         }
     }, 15000);
+
     try {
         geocoder.geocode(addr, (results) => {
             clearTimeout(timeoutGuard);
             btn.innerText = originalText;
             btn.disabled = false;
             btn.style.opacity = "1";
+
             if (results && results.length > 0) {
                 const { center } = results[0];
                 if (userMarker) map.removeLayer(userMarker);
                 userMarker = L.marker(center).addTo(map).bindPopup(`<b>Location:</b><br>${addr}`).openPopup();
                 map.flyTo(center, 16);
+
                 let minDistance = Infinity;
                 let closestId = null;
+
                 Object.keys(markerMap).forEach(id => {
                     const sensorLatLng = markerMap[id].getLatLng();
                     const dist = center.distanceTo(sensorLatLng); 
-                    if (dist < minDistance) { minDistance = dist; closestId = id; }
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestId = id;
+                    }
                 });
-                if (closestId) { document.getElementById("devSel").value = closestId; updateDisplay(closestId); }
-            } else { alert("Address not found."); }
+
+                if (closestId) {
+                    document.getElementById("devSel").value = closestId;
+                    updateDisplay(closestId); 
+                }
+            } else {
+                alert("Address not found. Please try including 'Cheverly, MD'.");
+            }
         });
-    } catch (err) { clearTimeout(timeoutGuard); btn.innerText = originalText; btn.disabled = false; btn.style.opacity = "1"; }
+    } catch (err) {
+        clearTimeout(timeoutGuard);
+        btn.innerText = originalText;
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        console.error("Geocoding Error:", err);
+    }
   });
 
   function handleDropdownChange(id, userTriggered = false) { if(markerMap[id]) { if (userTriggered) map.flyTo(markerMap[id].getLatLng(), 15); updateDisplay(id); } }
@@ -202,9 +210,12 @@
     const nowSec = Math.floor(Date.now() / 1000);
     const start24h = nowSec - 86400; 
     let currentLiveValue = 0;
+
     const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
     if (dcJson?.data) chart.data.datasets[1].data = dcJson.data.map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 })).sort((a, b) => a.x - b.x);
+
     chart.options.scales.x.min = null;
+
     if (id.startsWith("C12-")) {
       const compId = id.replace("C12-", "");
       const res = await proxyGet({ action: "grove_last", compId });
@@ -244,6 +255,7 @@
       }
       document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
     }
+
     document.getElementById("statAQI").innerText = currentLiveValue;
     document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
     chart.update();
