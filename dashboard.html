@@ -76,7 +76,11 @@
 
 <div id="layout">
   <aside id="sidebar">
-    <div class="card"><label>Location Search</label><input type="text" id="addrInput" placeholder="Enter Street Address"><button id="locateBtn">Find Nearest Station</button></div> 
+    <div class="card">
+      <label>Location Search</label>
+      <input type="text" id="addrInput" placeholder="e.g. 6202 Inwood St, Cheverly, MD">
+      <button id="locateBtn">Find Nearest Station</button>
+    </div> 
     <div class="card"><label>Station Selection</label><select id="devSel" onchange="handleDropdownChange(this.value, true)"></select></div>
     <div class="card" style="min-height: 150px;">
         <label>Live Station Reading</label>
@@ -144,23 +148,34 @@
   async function proxyGet(params) { try { const url = API_PROXY + "?" + new URLSearchParams(params).toString(); const res = await fetch(url); return res.ok ? await res.json() : null; } catch(e) { return null; } }
   function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
 
-  // FIX: ADDRESS SEARCH LOGIC
-  document.getElementById("locateBtn").addEventListener("click", () => {
+  // IMPROVED SEARCH WITH LOADING STATE
+  document.getElementById("locateBtn").addEventListener("click", function() {
     const addr = document.getElementById("addrInput").value;
-    if (!addr) return alert("Please enter an address");
+    const btn = this;
+    
+    if (!addr) {
+      alert("Please enter an address");
+      return;
+    }
+
+    // Loading State
+    const originalText = btn.innerText;
+    btn.innerText = "Searching...";
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
 
     geocoder.geocode(addr, (results) => {
+      // Reset Button
+      btn.innerText = originalText;
+      btn.disabled = false;
+      btn.style.opacity = "1";
+
       if (results && results.length > 0) {
         const { center } = results[0];
-        
-        // Remove old user marker if it exists
         if (userMarker) map.removeLayer(userMarker);
-        
-        // Add pinpoint marker for the searched address
-        userMarker = L.marker(center).addTo(map).bindPopup("<b>Target Location</b>").openPopup();
-        map.flyTo(center, 15);
+        userMarker = L.marker(center).addTo(map).bindPopup(`<b>Target:</b><br>${addr}`).openPopup();
+        map.flyTo(center, 16);
 
-        // Find the closest sensor from markerMap
         let minDistance = Infinity;
         let closestId = null;
 
@@ -175,10 +190,10 @@
 
         if (closestId) {
           document.getElementById("devSel").value = closestId;
-          updateDisplay(closestId); // Update history and chart automatically
+          updateDisplay(closestId); 
         }
       } else {
-        alert("Location not found.");
+        alert("Location not found. Please try including the city and state.");
       }
     });
   });
