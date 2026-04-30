@@ -174,9 +174,10 @@
 
       if (series.length > 0) {
         const latestTime = series[series.length - 1].x;
-        const cutoff19h = latestTime - (19 * 60 * 60 * 1000);
-        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff19h);
-        chart.options.scales.x.min = cutoff19h;
+        // Updated to 18-hour window
+        const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
+        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
+        chart.options.scales.x.min = cutoff18h;
       } else {
         chart.data.datasets[0].data = [];
       }
@@ -198,7 +199,6 @@
   function createMarker(id, lat, lon, val) {
     const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(val), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
     
-    // TOOLTIP HOVER LOGIC
     m.bindTooltip(`AQI: ${val}`, { 
       permanent: false, 
       direction: 'top', 
@@ -207,7 +207,6 @@
       opacity: 1
     });
 
-    // Explicit listeners to ensure hover works across all map interactions
     m.on('mouseover', function(e) { this.openTooltip(); });
     m.on('mouseout', function(e) { this.closeTooltip(); });
     m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id, true); });
@@ -217,6 +216,23 @@
 
   async function init() {
     const sel = document.getElementById("devSel");
+    
+    // 1. PROCESS PURPLEAIR FIRST
+    const pa = await proxyGet({ action: "purpleair_box" });
+    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+    
+    // Sort to put EJAT.CV.1.203601 at the very top of the PA array
+    paDataArr.sort((a, b) => (String(a[0]) === "203601" ? -1 : String(b[0]) === "203601" ? 1 : 0));
+
+    for (const r of paDataArr) {
+      const id = String(r[0]); 
+      if (!SENSORS[id]) continue;
+      const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
+      createMarker(id, r[1], r[2], val); 
+      sel.add(new Option(SENSORS[id], id));
+    }
+
+    // 2. PROCESS QUANTAQ (SPODS)
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const dataRoot = res?.resolved_sn ? res.data : res;
@@ -225,15 +241,8 @@
       createMarker(s.sn, s.lat, s.lon, val); 
       sel.add(new Option(s.name, s.sn));
     }
-    const pa = await proxyGet({ action: "purpleair_box" });
-    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
-    for (const r of paDataArr) {
-      const id = String(r[0]); 
-      if (!SENSORS[id]) continue;
-      const val = aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0;
-      createMarker(id, r[1], r[2], val); 
-      sel.add(new Option(SENSORS[id], id));
-    }
+
+    // 3. PROCESS C-12S
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
@@ -241,6 +250,8 @@
       const val = Math.round((safeNum(rows.find(r=>r.streamId==="880nm")?.data) / 600) * 100) || 0;
       if (lat && lon) { createMarker(`C12-${c.compId}`, lat, lon, val); sel.add(new Option(c.name, `C12-${c.compId}`)); }
     }
+
+    // Set final selection
     if (sel.options.length) { 
       const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
       sel.value = defaultId; 
