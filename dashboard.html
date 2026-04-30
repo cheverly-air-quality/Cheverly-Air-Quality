@@ -181,7 +181,6 @@
         chart.data.datasets[0].data = [];
       }
     } else {
-      // PURPLEAIR SYNC: Pull "Live" info from the same source as the map markers
       const pa = await proxyGet({ action: "purpleair_box" });
       const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
       const liveStation = paDataArr.find(r => String(r[0]) === id);
@@ -191,13 +190,15 @@
         document.getElementById("val_param").innerText = `${safeNum(liveStation[3])} µg/m³`;
       }
 
-      // History is used ONLY for the chart trend, not the current AQI display
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data && json.data.length > 0) {
-        chart.data.datasets[0].data = json.data.map(r => ({ 
-          x: r[0] * 1000, 
-          y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 
-        })).sort((a, b) => a.x - b.x);
+        // CHART FIX: Filter out any historic concentration above 250 so the line doesn't stick at 301
+        chart.data.datasets[0].data = json.data
+          .filter(r => safeNum(r[1]) < 250) 
+          .map(r => ({ 
+            x: r[0] * 1000, 
+            y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 
+          })).sort((a, b) => a.x - b.x);
       }
       document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
     }
@@ -228,15 +229,17 @@
   async function init() {
     const sel = document.getElementById("devSel");
     
-    // 1. PROCESS PURPLEAIR FIRST
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
 
+    // DROPDOWN FIX: Sort alphabetically, but force 203601 to top AND 181253 to the bottom of the PurpleAir list
     paDataArr.sort((a, b) => {
       const idA = String(a[0]);
       const idB = String(b[0]);
       if (idA === "203601") return -1;
       if (idB === "203601") return 1;
+      if (idA === "181253") return 1; 
+      if (idB === "181253") return -1;
       const nameA = SENSORS[idA] || "";
       const nameB = SENSORS[idB] || "";
       return nameA.localeCompare(nameB);
@@ -250,7 +253,6 @@
       sel.add(new Option(SENSORS[id], id));
     }
 
-    // 2. PROCESS QUANTAQ (SPODS)
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
       const dataRoot = res?.resolved_sn ? res.data : res;
@@ -260,7 +262,6 @@
       sel.add(new Option(s.name, s.sn));
     }
 
-    // 3. PROCESS C-12S
     for (const c of C12S) {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
