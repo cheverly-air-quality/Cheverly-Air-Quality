@@ -181,22 +181,27 @@
         chart.data.datasets[0].data = [];
       }
     } else {
+      // PURPLEAIR SYNC: Pull "Live" info from the same source as the map markers
+      const pa = await proxyGet({ action: "purpleair_box" });
+      const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+      const liveStation = paDataArr.find(r => String(r[0]) === id);
+
+      if (liveStation) {
+        currentLiveValue = aqiFromBreakpoints(safeNum(liveStation[3]), BP_PM25_24H) || 0;
+        document.getElementById("val_param").innerText = `${safeNum(liveStation[3])} µg/m³`;
+      }
+
+      // History is used ONLY for the chart trend, not the current AQI display
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data && json.data.length > 0) {
-        const series = json.data.map(r => ({ 
+        chart.data.datasets[0].data = json.data.map(r => ({ 
           x: r[0] * 1000, 
           y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 
         })).sort((a, b) => a.x - b.x);
-
-        currentLiveValue = series[series.length - 1].y;
-        document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
-        
-        const lastConcentration = safeNum(json.data[json.data.length - 1]?.[1]);
-        document.getElementById("val_param").innerText = lastConcentration !== null ? `${lastConcentration} µg/m³` : "--";
-        
-        chart.data.datasets[0].data = series;
       }
+      document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
     }
+
     document.getElementById("statAQI").innerText = currentLiveValue;
     document.getElementById("statAQI").style.color = getAQIColor(currentLiveValue);
     chart.update();
@@ -227,7 +232,6 @@
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
 
-    // Alphabetical sort by Friendly Name with "203601" forced to the top
     paDataArr.sort((a, b) => {
       const idA = String(a[0]);
       const idB = String(b[0]);
@@ -265,7 +269,6 @@
       if (lat && lon) { createMarker(`C12-${c.compId}`, lat, lon, val); sel.add(new Option(c.name, `C12-${c.compId}`)); }
     }
 
-    // Set final selection
     if (sel.options.length) { 
       const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
       sel.value = defaultId; 
