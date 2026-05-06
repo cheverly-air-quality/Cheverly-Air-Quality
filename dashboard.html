@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
-  <!-- Geocoding Library -->
+  <!-- Geocoding Library for Address Search -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
@@ -30,201 +30,972 @@
     html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: "Segoe UI", Roboto, sans-serif; overflow: hidden; background: #fdfdfd; }
     .topbar { background: var(--brand-navy); color: white; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; height: 64px; z-index: 2000; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .brand { font-size: 1.25rem; font-weight: bold; }
+    .nav a { color: white; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; font-weight: 500; opacity: 0.8; transition: opacity 0.2s; }
+    .nav a:hover { opacity: 1; }
+    .nav a.active { opacity: 1; border-bottom: 2px solid white; padding-bottom: 4px; }
     #layout { display: flex; height: calc(100vh - 64px); width: 100vw; }
     #sidebar { width: 380px; min-width: 380px; background: #f4f6f8; border-right: 1px solid #ddd; padding: 1.25rem; overflow-y: auto; box-sizing: border-box; }
     .card { background: white; padding: 1.25rem; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     label { font-size: 0.75rem; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 8px; display: block; letter-spacing: 0.5px; }
     input, select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 0.9rem; }
-    button { width: 100%; padding: 14px; margin-top: 10px; border-radius: 8px; border: none; background: var(--search-blue); color: white; font-weight: bold; cursor: pointer; transition: filter 0.2s; }
+    button { width: 100%; padding: 14px; margin-top: 10px; border-radius: 8px; border: none; background: var(--search-blue); color: white; font-weight: bold; cursor: pointer; transition: filter 0.2s; font-size: 0.9rem; }
     #main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
-    #map { height: 45%; width: 100%; border-bottom: 1px solid #ddd; }
+    #map { height: 45%; width: 100%; border-bottom: 1px solid #ddd; z-index: 1; }
     #chart-box { height: 55%; width: 100%; padding: 1.5rem; box-sizing: border-box; background: white; }
+    .map-legend { position: absolute; top: 15px; right: 15px; z-index: 1000; background: rgba(255, 255, 255, 0.95); padding: 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 170px; }
+    .legend-title { font-size: 0.8rem; font-weight: 800; margin-bottom: 10px; color: var(--brand-navy); text-align: center; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    .legend-item { display: flex; align-items: center; margin-bottom: 6px; font-size: 0.8rem; font-weight: 600; color: #444; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; border: 1px solid #000; }
     .aqi-val { font-size: 72px; font-weight: 900; display: block; text-align: center; line-height: 1.1; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
-    .ceaqi-breakdown { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; font-size: 0.78rem; color: #555; }
-    .ceaqi-row { display: flex; justify-content: space-between; padding: 2px 0; }
-    .base-row { font-weight: bold; color: #333; }
-    .adder-row { color: #888; }
+    .sublabel { font-size: 0.75rem; color: #777; font-weight: bold; margin-top: 4px; text-align: center; text-transform: uppercase; }
+    .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 0.9rem; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+    .leaflet-tooltip-own { 
+      background: #333 !important; 
+      color: white !important; 
+      border: 2px solid white !important; 
+      font-weight: bold; 
+      font-size: 14px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+      border-radius: 4px; 
+      padding: 4px 8px; 
+      opacity: 1 !important;
+      pointer-events: none;
+    }
+
+    /* CE-AQI breakdown panel shown below the main AQI number */
+    .ceaqi-breakdown {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+      font-size: 0.78rem;
+      color: #555;
+    }
+    .ceaqi-breakdown .breakdown-title {
+      font-weight: bold;
+      color: var(--brand-navy);
+      margin-bottom: 6px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .ceaqi-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+    .ceaqi-row.base-row {
+      font-weight: bold;
+      color: #333;
+    }
+    .ceaqi-row.adder-row {
+      color: #888;
+    }
+
+    /* Disclaimer Styling */
+    .dashboard-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      color: #666;
+      font-size: 0.7rem;
+      padding: 4px 20px;
+      text-align: center;
+      border-top: 1px solid #ddd;
+      z-index: 3000;
+      pointer-events: none;
+    }
   </style>
 </head>
 
 <body>
 <header class="topbar">
   <div class="brand">Cheverly Air Quality</div>
+  <nav class="nav">
+    <a href="index.html">Home</a>
+    <a href="dashboard.html" class="active">Map & Data</a>
+    <a href="writeup.html">FAQs</a>
+  </nav>
 </header>
 
 <div id="layout">
   <aside id="sidebar">
     <div class="card">
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="Enter address in Cheverly...">
+      <input type="text" id="addrInput" placeholder="Enter an address (e.g. 123 Main St, Cheverly, MD)">
       <button id="locateBtn">Find Nearest Station</button>
     </div> 
     <div class="card"><label>Station Selection</label><select id="devSel" onchange="handleDropdownChange(this.value, true)"></select></div>
-    <div class="card">
-        <label>Live CE-AQI Reading</label>
-        <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
-        <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
-        <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
-          <div style="font-weight:bold; text-transform:uppercase; font-size:0.7rem; margin-bottom:5px;">Breakdown</div>
-          <div id="ceaqi-rows"></div>
+    <div class="card" style="min-height: 150px;">
+        <label>Live Station Reading</label>
+        <div id="details">
+          <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
+          <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
+          <!-- 
+            Changed label from "Current AQI" to "CE-AQI" to reflect the 
+            Cumulative Exposure Air Quality Index methodology 
+          -->
+          <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">CE-AQI</div>
+          <div id="extraDetails" class="kv" style="text-align:center; display: block;">
+            <div id="val_param" style="font-weight:bold; font-size:1.1rem; text-align:center;">--</div>
+            <div id="label_param" class="sublabel">Concentration</div>
+          </div>
+          <!-- 
+            CE-AQI breakdown panel: shows which pollutants contributed 
+            to the final CE-AQI score and by how much 
+          -->
+          <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
+            <div class="breakdown-title">CE-AQI Breakdown</div>
+            <div id="ceaqi-rows"></div>
+          </div>
         </div>
-    </div>
-  </aside>
+      </div>
+    </aside>
 
   <div id="main-content">
     <div id="map"></div>
+    <div class="map-legend">
+      <div class="legend-title">Air Quality Index</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
+    </div>
     <div id="chart-box"><canvas id="airChart"></canvas></div>
   </div>
 </div>
 
+<div class="dashboard-disclaimer">
+  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
+</div>
+
 <script>
-const API_PROXY = "/api/aq";
+  const API_PROXY = "/api/aq";
 
-/* ============================================================
-   EPA BREAKPOINT TABLES & MATH
-   ============================================================ */
-const BP_PM25_24H = [{ cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 }, { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 }, { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 }, { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 }, { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 }];
-const BP_PM10_24H = [{ cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 }, { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 }, { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 }];
-const BP_O3_8H = [{ cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 }, { cLow: 55, cHigh: 70, iLow: 51, iHigh: 100 }, { cLow: 71, cHigh: 85, iLow: 101, iHigh: 150 }];
-const BP_CO_8H = [{ cLow: 0.0, cHigh: 4.4, iLow: 0, iHigh: 50 }, { cLow: 4.5, cHigh: 9.4, iLow: 51, iHigh: 100 }];
-const BP_NO2_1H = [{ cLow: 0, cHigh: 53, iLow: 0, iHigh: 50 }, { cLow: 54, cHigh: 100, iLow: 51, iHigh: 100 }];
+  // PurpleAir sensor IDs mapped to their EJAT location labels
+  const SENSORS = { "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57811": "EJAT.CV.4.57811", "57841": "EJAT.CV.3.57841", "203577": "EJAT.CV.2.203577", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "156595": "EJAT.CV.156595", "284362": "EJAT.PG.1.284362", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.175563", "178169": "EJAT.PG.1.178169", "184191": "EJAT.PG.1.184191", "197937": "EJAT.PG.1.197937", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273", "57955": "EJAT.FH.1.57955", "185085": "EJAT.FH.1.185085", "203597": "EJAT.FH.1.203597", "181253": "EJAT.CH.1.181253" };
 
-function aqiFromBreakpoints(C, table) { 
-  if (C === null || !Number.isFinite(Number(C))) return null; 
-  const c = Number(C); 
-  for (const bp of table) { 
-    if (c >= bp.cLow && c <= bp.cHigh) return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow); 
-  } 
-  return null; 
-}
+  // QuantAQ SPOD sensor definitions with known coordinates
+  const SPODS = [ 
+    { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 }, 
+    { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 }, 
+    { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 }, 
+    { sn: "MOD-00748", name: "QuantAQ MOD-00748", lat: 38.969685, lon: -76.542290 }, 
+    { sn: "MOD-00749", name: "QuantAQ MOD-00749", lat: 39.055400, lon: -76.878800 } 
+  ];
 
-/* ============================================================
-   STATION DEFINITIONS & CACHING
-   ============================================================ */
-const SENSORS = { "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57811": "EJAT.CV.4.57811", "57841": "EJAT.CV.3.57841", "203577": "EJAT.CV.2.203577", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "156595": "EJAT.CV.156595", "284362": "EJAT.PG.1.284362", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.175563", "178169": "EJAT.PG.1.178169", "184191": "EJAT.PG.1.184191", "197937": "EJAT.PG.1.197937", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273", "57955": "EJAT.FH.1.57955", "185085": "EJAT.FH.1.185085", "203597": "EJAT.FH.1.203597", "181253": "EJAT.CH.1.181253" };
-const SPODS = [{ sn: "MOD-00745", name: "QuantAQ 745", lat: 38.9051, lon: -76.9100 }, { sn: "MOD-00746", name: "QuantAQ 746", lat: 39.1432, lon: -76.8460 }, { sn: "MOD-00749", name: "QuantAQ 749", lat: 39.0554, lon: -76.8788 }];
-const C12S = [{ compId: "D14781", lat: 38.9213, lon: -76.9175 }, { compId: "D14645", lat: 38.9100, lon: -76.9000 }];
+  // C12 black carbon sensor definitions
+  // Coordinates are populated dynamically from the GroveStreams API during init()
+  const C12S = [ 
+    { compId: "D14781", name: "C-12 D14781", lat: null, lon: null }, 
+    { compId: "D14645", name: "C-12 D14645", lat: null, lon: null }, 
+    { compId: "D17615", name: "C-12 D17615", lat: null, lon: null }, 
+    { compId: "E10588", name: "C-12 E10588", lat: null, lon: null }, 
+    { compId: "D14646", name: "C-12 D14646", lat: null, lon: null } 
+  ];
 
-let markerMap = {}, paCoords = {}, quantCache = {}, c12Cache = {};
+  // markerMap stores Leaflet circle markers keyed by station ID
+  // Also stores lat/lon for PurpleAir stations so we can do nearest-sensor math
+  let markerMap = {};
 
-/* ============================================================
-   VALID SENSOR PICKING LOGIC
-   ============================================================ */
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
+  // paCoords stores {lat, lon} for each PurpleAir station ID
+  // Populated during init() from the purpleair_box API response
+  let paCoords = {};
 
-function nearestValidQuantAQ(lat, lon) {
-  const sorted = SPODS.map(s => ({ ...s, dist: haversineKm(lat, lon, s.lat, s.lon) })).sort((a, b) => a.dist - b.dist);
-  for (const s of sorted) {
-    const d = quantCache[s.sn];
-    if (d && (safeNum(d.o3) || safeNum(d.co) || safeNum(d.no2))) return s;
+  let userMarker = null;
+
+  // ============================================================
+  // GEOCODER SETUP
+  // ============================================================
+  const geocoder = L.Control.Geocoder.nominatim({
+    serviceUrl: 'https://nominatim.openstreetmap.org/',
+    geocodingQueryParams: {
+        'accept-language': 'en',
+        'limit': 1,
+        'email': 'apuschni@umd.edu' 
+    }
+  });
+
+  const map = L.map("map").setView([38.9213, -76.9175], 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+  const chart = new Chart(document.getElementById("airChart").getContext("2d"), { 
+    type: "line", 
+    data: { 
+      datasets: [ 
+        { label: "Station CE-AQI", data: [], borderColor: "#4477ce", tension: 0.1, fill: true, backgroundColor: "rgba(68, 119, 206, 0.1)", spanGaps: true }, 
+        { label: "DC Comparative Trend", data: [], borderColor: "rgba(255, 0, 0, 0.6)", borderDash: [5, 5], tension: 0.3, fill: false, pointRadius: 0, spanGaps: true, borderWidth: 2 } 
+      ] 
+    }, 
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: false, 
+      scales: { 
+        x: { type: "time", time: { unit: 'hour' } }, 
+        y: { beginAtZero: true } 
+      } 
+    } 
+  });
+
+  // ============================================================
+  // AQI BREAKPOINT TABLES
+  // Each table maps concentration ranges to AQI ranges
+  // per EPA NAAQS standards
+  // ============================================================
+
+  // PM2.5 — 24-hour average, µg/m³
+  const BP_PM25_24H = [ 
+    { cLow: 0.0,   cHigh: 12.0,  iLow: 0,   iHigh: 50  }, 
+    { cLow: 12.1,  cHigh: 35.4,  iLow: 51,  iHigh: 100 }, 
+    { cLow: 35.5,  cHigh: 55.4,  iLow: 101, iHigh: 150 }, 
+    { cLow: 55.5,  cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500 }
+  ];
+
+  // PM10 — 24-hour average, µg/m³
+  const BP_PM10_24H = [
+    { cLow: 0,   cHigh: 54,   iLow: 0,   iHigh: 50  },
+    { cLow: 55,  cHigh: 154,  iLow: 51,  iHigh: 100 },
+    { cLow: 155, cHigh: 254,  iLow: 101, iHigh: 150 },
+    { cLow: 255, cHigh: 354,  iLow: 151, iHigh: 200 },
+    { cLow: 355, cHigh: 424,  iLow: 201, iHigh: 300 },
+    { cLow: 425, cHigh: 604,  iLow: 301, iHigh: 500 }
+  ];
+
+  // Ozone — 8-hour average, ppb
+  const BP_O3_8H = [
+    { cLow: 0,    cHigh: 54,   iLow: 0,   iHigh: 50  },
+    { cLow: 55,   cHigh: 70,   iLow: 51,  iHigh: 100 },
+    { cLow: 71,   cHigh: 85,   iLow: 101, iHigh: 150 },
+    { cLow: 86,   cHigh: 105,  iLow: 151, iHigh: 200 },
+    { cLow: 106,  cHigh: 200,  iLow: 201, iHigh: 300 }
+  ];
+
+  // CO — 8-hour average, ppb
+  // QuantAQ returns CO in ppb; EPA standard is in ppm so we convert:
+  // ppb / 1000 = ppm, then apply breakpoints in ppm
+  // Breakpoints stored here in ppm for clarity
+  const BP_CO_8H_PPM = [
+    { cLow: 0.0,  cHigh: 4.4,  iLow: 0,   iHigh: 50  },
+    { cLow: 4.5,  cHigh: 9.4,  iLow: 51,  iHigh: 100 },
+    { cLow: 9.5,  cHigh: 12.4, iLow: 101, iHigh: 150 },
+    { cLow: 12.5, cHigh: 15.4, iLow: 151, iHigh: 200 },
+    { cLow: 15.5, cHigh: 30.4, iLow: 201, iHigh: 300 },
+    { cLow: 30.5, cHigh: 50.4, iLow: 301, iHigh: 500 }
+  ];
+
+  // NO2 — 1-hour average, ppb
+  const BP_NO2_1H = [
+    { cLow: 0,    cHigh: 53,   iLow: 0,   iHigh: 50  },
+    { cLow: 54,   cHigh: 100,  iLow: 51,  iHigh: 100 },
+    { cLow: 101,  cHigh: 360,  iLow: 101, iHigh: 150 },
+    { cLow: 361,  cHigh: 649,  iLow: 151, iHigh: 200 },
+    { cLow: 650,  cHigh: 1249, iLow: 201, iHigh: 300 },
+    { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
+  ];
+
+  // ============================================================
+  // GENERIC AQI BREAKPOINT CALCULATOR
+  // Takes a concentration value and a breakpoint table,
+  // returns an integer AQI or null if out of range
+  // ============================================================
+  function aqiFromBreakpoints(C, table) { 
+    if (C === null || !Number.isFinite(Number(C))) return null; 
+    const c = Number(C); 
+    for (const bp of table) { 
+      if (c >= bp.cLow && c <= bp.cHigh) {
+        return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow); 
+      }
+    } 
+    return null; 
   }
-  return null;
-}
 
-function nearestValidC12(lat, lon) {
-  const sorted = C12S.map(c => ({ ...c, dist: haversineKm(lat, lon, c.lat, c.lon) })).sort((a, b) => a.dist - b.dist);
-  for (const c of sorted) {
-    const d = c12Cache[c.compId];
-    if (d && d.bc > 0) return c;
-  }
-  return null;
-}
-
-/* ============================================================
-   CE-AQI CALCULATION
-   ============================================================ */
-function calcCEAQI(pollutants) {
-  const valid = pollutants.filter(p => p.aqi !== null && p.aqi > 0);
-  if (!valid.length) return { ceaqi: 0, base: 0, baseLabel: "N/A", adders: [] };
-  const baseItem = valid.reduce((max, p) => p.aqi > max.aqi ? p : max, valid[0]);
-  const adders = [];
-  for (const p of valid) {
-    if (p.label === baseItem.label) continue;
-    let pct = p.aqi >= 120 ? 0.03 : p.aqi >= 100 ? 0.02 : p.aqi >= 80 ? 0.01 : 0;
-    if (pct) adders.push({ label: p.label, val: Math.round(baseItem.aqi * pct), pct: pct * 100 });
-  }
-  return { ceaqi: baseItem.aqi + adders.reduce((s, a) => s + a.val, 0), base: baseItem.aqi, baseLabel: baseItem.label, adders };
-}
-
-function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
-
-/* ============================================================
-   INITIALIZATION & MAP RENDER
-   ============================================================ */
-const map = L.map("map").setView([38.9213, -76.9175], 14);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-
-async function init() {
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Cache QuantAQ & C12
-  for (const s of SPODS) {
-    const res = await fetch(`${API_PROXY}?action=quantaq_by_date&sn=${s.sn}&date=${today}`).then(r => r.json());
-    quantCache[s.sn] = (res.data?.data || res.data || []).slice(-1)[0];
-  }
-  for (const c of C12S) {
-    const res = await fetch(`${API_PROXY}?action=grove_last&compId=${c.compId}`).then(r => r.json());
-    const row = (res.data || res || []).find(r => r.streamId === "880nm");
-    c12Cache[c.compId] = { bc: safeNum(row?.data) };
+  // ============================================================
+  // BLACK CARBON AQI (Non-Cancer Health Benchmark)
+  // CE-AQI doc: uses 600 ng/m³ as the non-cancer benchmark
+  // A BC reading of 600 ng/m³ maps to AQI = 100
+  // We scale linearly: AQI = (bc / 600) * 100
+  // Only included if bc > 0 (sensor is active)
+  // ============================================================
+  function aqiFromBC(bc_ng_m3) {
+    if (!bc_ng_m3 || bc_ng_m3 <= 0) return null;
+    return Math.round((bc_ng_m3 / 600) * 100);
   }
 
-  // Fetch PurpleAir & Populate
-  const pa = await fetch(`${API_PROXY}?action=purpleair_box`).then(r => r.json());
-  const arr = pa.data || [];
-  
-  const devSel = document.getElementById("devSel");
-  for (const r of arr) {
-    const id = String(r[0]), lat = r[1], lon = r[2], pm = safeNum(r[3]);
-    paCoords[id] = { lat, lon, pm };
+  // ============================================================
+  // DIESEL PARTICULATE MATTER AQI (Cancer Risk Benchmark)
+  // CE-AQI doc: 
+  //   1. Convert BC to DPM by multiplying by 125% (i.e. × 1.25)
+  //   2. Use EPA de minimis cancer risk benchmark of 330 ng/m³
+  //   3. AQI = (dpm / 330) * 100
+  // Only included if bc > 0 (sensor is active)
+  // ============================================================
+  function aqiFromDPM(bc_ng_m3) {
+    if (!bc_ng_m3 || bc_ng_m3 <= 0) return null;
+    const dpm = bc_ng_m3 * 1.25; // convert BC to estimated DPM
+    return Math.round((dpm / 330) * 100);
+  }
+
+  // ============================================================
+  // HAVERSINE DISTANCE FORMULA
+  // Returns distance in kilometers between two lat/lon points
+  // Used to find nearest QuantAQ and C12 sensors
+  // ============================================================
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // ============================================================
+  // FIND NEAREST QUANTAQ SENSOR
+  // Given a lat/lon, returns the SPOD object closest to it
+  // ============================================================
+  function nearestQuantAQ(lat, lon) {
+    let best = null, bestDist = Infinity;
+    for (const s of SPODS) {
+      const d = haversineKm(lat, lon, s.lat, s.lon);
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    return best;
+  }
+
+  // ============================================================
+  // FIND NEAREST C12 SENSOR
+  // Given a lat/lon, returns the C12 object closest to it
+  // Only considers C12s that have coordinates (lat !== null)
+  // Coordinates are loaded during init() from GroveStreams API
+  // ============================================================
+  function nearestC12(lat, lon) {
+    let best = null, bestDist = Infinity;
+    for (const c of C12S) {
+      if (c.lat === null || c.lon === null) continue; // skip if no coords yet
+      const d = haversineKm(lat, lon, c.lat, c.lon);
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+    return best;
+  }
+
+  // ============================================================
+  // CE-AQI CALCULATOR
+  // Implements the CE-AQI formula from the EJAT CE-AQI document:
+  //
+  // Step 1: Collect all individual pollutant AQI values
+  // Step 2: Find the highest = "Base Value"
+  // Step 3: For all OTHER pollutants, calculate adders:
+  //         AQI 80-99  → adder = Base × 1%
+  //         AQI 100-119 → adder = Base × 2%
+  //         AQI 120+   → adder = Base × 3%
+  //         AQI < 80   → no adder
+  // Step 4: CE-AQI = Base + sum of all adders
+  //
+  // Input: array of { label, aqi } objects
+  //        (null/zero aqi values are automatically skipped)
+  // Output: { ceaqi, base, baseLabel, adders }
+  // ============================================================
+  function calcCEAQI(pollutants) {
+    // Filter out any pollutants with null or zero AQI
+    // (covers offline sensors, missing data, or sensors returning 0)
+    const valid = pollutants.filter(p => p.aqi !== null && p.aqi > 0);
+
+    if (valid.length === 0) return { ceaqi: 0, base: 0, baseLabel: "No data", adders: [] };
+
+    // Step 2: Find the base value (highest individual AQI)
+    const baseItem = valid.reduce((max, p) => p.aqi > max.aqi ? p : max, valid[0]);
+    const base = baseItem.aqi;
+    const baseLabel = baseItem.label;
+
+    // Step 3: Calculate adders for all OTHER pollutants
+    const adders = [];
+    for (const p of valid) {
+      // Skip the pollutant that IS the base — no self-adder per the spec
+      if (p.label === baseLabel) continue;
+
+      let adderPct = 0;
+      if (p.aqi >= 120)           adderPct = 0.03; // 3% adder
+      else if (p.aqi >= 100)      adderPct = 0.02; // 2% adder
+      else if (p.aqi >= 80)       adderPct = 0.01; // 1% adder
+      // Below 80: no adder
+
+      if (adderPct > 0) {
+        const adderVal = Math.round(base * adderPct);
+        adders.push({ label: p.label, aqi: p.aqi, adderPct: adderPct * 100, adderVal });
+      }
+    }
+
+    // Step 4: Sum everything
+    const totalAdders = adders.reduce((sum, a) => sum + a.adderVal, 0);
+    const ceaqi = base + totalAdders;
+
+    return { ceaqi, base, baseLabel, adders, valid };
+  }
+
+  // ============================================================
+  // RENDER CE-AQI BREAKDOWN IN SIDEBAR
+  // Shows which pollutants contributed to the CE-AQI score
+  // ============================================================
+  function renderCEAQIBreakdown(result) {
+    const panel = document.getElementById("ceaqi-breakdown");
+    const rowsEl = document.getElementById("ceaqi-rows");
+
+    if (!result || result.ceaqi === 0) {
+      panel.style.display = "none";
+      return;
+    }
+
+    panel.style.display = "block";
+    rowsEl.innerHTML = "";
+
+    // Show the base pollutant
+    const baseRow = document.createElement("div");
+    baseRow.className = "ceaqi-row base-row";
+    baseRow.innerHTML = `<span>${result.baseLabel} (base)</span><span>${result.base}</span>`;
+    rowsEl.appendChild(baseRow);
+
+    // Show each adder
+    for (const a of result.adders) {
+      const row = document.createElement("div");
+      row.className = "ceaqi-row adder-row";
+      row.innerHTML = `<span>+ ${a.label} (${a.adderPct}%)</span><span>+${a.adderVal}</span>`;
+      rowsEl.appendChild(row);
+    }
+
+    // Show total
+    const totalRow = document.createElement("div");
+    totalRow.className = "ceaqi-row base-row";
+    totalRow.style.borderTop = "1px solid #eee";
+    totalRow.style.marginTop = "4px";
+    totalRow.style.paddingTop = "4px";
+    totalRow.innerHTML = `<span>CE-AQI Total</span><span>${result.ceaqi}</span>`;
+    rowsEl.appendChild(totalRow);
+  }
+
+  // ============================================================
+  // HELPER UTILITIES
+  // ============================================================
+  function getAQIColor(aqi) { 
+    if (aqi <= 50)  return "#00e400"; 
+    if (aqi <= 100) return "#ffff00"; 
+    if (aqi <= 150) return "#ff7e00"; 
+    if (aqi <= 200) return "#ff0000"; 
+    if (aqi <= 300) return "#8f3f97"; 
+    return "#7e0023"; 
+  }
+
+  async function proxyGet(params) { 
+    try { 
+      const url = API_PROXY + "?" + new URLSearchParams(params).toString(); 
+      const res = await fetch(url); 
+      return res.ok ? await res.json() : null; 
+    } catch(e) { return null; } 
+  }
+
+  function safeNum(x) { const v = Number(x); return Number.isFinite(v) ? v : null; }
+
+  // ============================================================
+  // ADDRESS SEARCH
+  // ============================================================
+  document.getElementById("locateBtn").addEventListener("click", function() {
+    const addr = document.getElementById("addrInput").value;
+    const btn = this;
     
-    const opt = document.createElement("option");
-    opt.value = id; opt.text = SENSORS[id] || id;
-    devSel.add(opt);
+    if (!addr) { alert("Please enter an address"); return; }
 
-    const m = L.circleMarker([lat, lon], { radius: 10, fillColor: "#4477ce", fillOpacity: 0.8, color: "#000", weight: 1 }).addTo(map);
+    const originalText = btn.innerText;
+    btn.innerText = "Searching...";
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+
+    const timeoutGuard = setTimeout(() => {
+        if (btn.disabled) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            alert("The search took too long. Please try again with a simpler address like 'Cheverly, MD'.");
+        }
+    }, 10000);
+
+    try {
+        geocoder.geocode(addr, (results) => {
+            clearTimeout(timeoutGuard);
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+
+            if (results && results.length > 0) {
+                const { center } = results[0];
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.marker(center).addTo(map).bindPopup(`<b>Location:</b><br>${addr}`).openPopup();
+                map.flyTo(center, 16);
+
+                let minDistance = Infinity;
+                let closestId = null;
+                Object.keys(markerMap).forEach(id => {
+                    const sensorLatLng = markerMap[id].getLatLng();
+                    const dist = center.distanceTo(sensorLatLng); 
+                    if (dist < minDistance) { minDistance = dist; closestId = id; }
+                });
+
+                if (closestId) {
+                    document.getElementById("devSel").value = closestId;
+                    updateDisplay(closestId); 
+                }
+            } else {
+                alert("Location not found. Please double-check the address and include the city.");
+            }
+        });
+    } catch (err) {
+        clearTimeout(timeoutGuard);
+        btn.innerText = originalText;
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        console.error("Geocoding Error:", err);
+    }
+  });
+
+  function handleDropdownChange(id, userTriggered = false) { 
+    if(markerMap[id]) { 
+      if (userTriggered) map.flyTo(markerMap[id].getLatLng(), 15); 
+      updateDisplay(id); 
+    } 
+  }
+
+  // ============================================================
+  // MAIN DISPLAY UPDATE FUNCTION
+  // Called whenever a station is selected
+  // For each station type:
+  //   1. Fetch the station's own live data
+  //   2. Find and fetch nearest QuantAQ (for gas pollutants)
+  //   3. Find and fetch nearest C12 (for black carbon)
+  //   4. Build CE-AQI from all valid readings
+  // ============================================================
+  async function updateDisplay(id) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const start24h = nowSec - 86400;
+
+    // Fetch DC reference sensor for chart comparison line
+    const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
+    if (dcJson?.data) {
+      chart.data.datasets[1].data = dcJson.data
+        .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+        .sort((a, b) => a.x - b.x);
+    }
+    chart.options.scales.x.min = null;
+
+    // -----------------------------------------------
+    // Determine the selected station's coordinates
+    // so we can find nearest QuantAQ and C12
+    // -----------------------------------------------
+    let stationLat = null, stationLon = null;
+
+    if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const c12obj = C12S.find(x => x.compId === compId);
+      if (c12obj) { stationLat = c12obj.lat; stationLon = c12obj.lon; }
+    } else if (id.startsWith("MOD-")) {
+      const spod = SPODS.find(s => s.sn === id);
+      if (spod) { stationLat = spod.lat; stationLon = spod.lon; }
+    } else {
+      // PurpleAir: coords stored in paCoords during init()
+      if (paCoords[id]) { stationLat = paCoords[id].lat; stationLon = paCoords[id].lon; }
+    }
+
+    // -----------------------------------------------
+    // Fetch nearest QuantAQ data (gas pollutants)
+    // Used for ozone, CO, NO2, PM10 adders in CE-AQI
+    // -----------------------------------------------
+    let quantData = null;
+    let nearestQ = null;
+    if (stationLat !== null) {
+      nearestQ = nearestQuantAQ(stationLat, stationLon);
+      if (nearestQ) {
+        const today = new Date().toISOString().split('T')[0];
+        const qRes = await proxyGet({ action: "quantaq_by_date", sn: nearestQ.sn, date: today });
+        const dataRoot = qRes?.resolved_sn ? qRes.data : qRes;
+        const allQ = dataRoot?.data || [];
+        // Use the most recent reading
+        quantData = allQ.length ? allQ[allQ.length - 1] : null;
+      }
+    }
+
+    // -----------------------------------------------
+    // Fetch nearest C12 data (black carbon)
+    // Used for BC non-cancer and DPM cancer adders
+    // -----------------------------------------------
+    let bcValue = null;
+    let nearestC = null;
+    if (stationLat !== null) {
+      nearestC = nearestC12(stationLat, stationLon);
+      if (nearestC) {
+        const cRes = await proxyGet({ action: "grove_last", compId: nearestC.compId });
+        const rows = Array.isArray(cRes) ? cRes : (cRes?.data || []);
+        const bcRow = rows.find(r => r.streamId === "880nm");
+        const bcTime = bcRow?.time || 0;
+        const bcFresh = (Date.now() - bcTime) < (3 * 60 * 60 * 1000);
+        bcValue = (bcRow && bcFresh) ? safeNum(bcRow.data) : null;
+      }
+    }
+
+    // -----------------------------------------------
+    // PURPLEAIR STATION SELECTED
+    // -----------------------------------------------
+    if (!id.startsWith("C12-") && !id.startsWith("MOD-")) {
+      // Fetch current box data for all PA sensors (gets us the live PM2.5)
+      const pa = await proxyGet({ action: "purpleair_box" });
+      const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+      const liveStation = paDataArr.find(r => String(r[0]) === id);
+
+      let pm25_live = null;
+      if (liveStation) {
+        pm25_live = safeNum(liveStation[3]);
+        document.getElementById("val_param").innerText = `${pm25_live} µg/m³`;
+      }
+
+      document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
+
+      // Fetch 24h history for chart
+      const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
+      if (json?.data && json.data.length > 0) {
+        let filteredData = json.data
+          .filter(r => { const val = safeNum(r[1]); return val !== null && val < 250; }) 
+          .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+          .sort((a, b) => a.x - b.x);
+        chart.data.datasets[0].data = filteredData;
+      }
+
+      // Build CE-AQI pollutant list for this PA station
+      // Start with PM2.5 (the PA station's own measurement)
+      const pollutants = [
+        { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25_live, BP_PM25_24H) }
+      ];
+
+      // Add QuantAQ gas pollutants if valid (above zero)
+      if (quantData) {
+        const o3 = safeNum(quantData.o3);
+        const co_ppb = safeNum(quantData.co);
+        const no2 = safeNum(quantData.no2);
+        const pm10 = safeNum(quantData.pm10);
+
+        // CO from QuantAQ is in ppb; convert to ppm for breakpoints
+        const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
+
+        pollutants.push({ label: `O₃ (${nearestQ.sn})`,   aqi: aqiFromBreakpoints(o3, BP_O3_8H) });
+        pollutants.push({ label: `CO (${nearestQ.sn})`,    aqi: aqiFromBreakpoints(co_ppm, BP_CO_8H_PPM) });
+        pollutants.push({ label: `NO₂ (${nearestQ.sn})`,   aqi: aqiFromBreakpoints(no2, BP_NO2_1H) });
+        pollutants.push({ label: `PM10 (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) });
+      }
+
+      // Add black carbon and DPM from nearest C12 if above zero
+      if (bcValue !== null && bcValue > 0) {
+        pollutants.push({ label: `BC non-cancer (${nearestC.compId})`, aqi: aqiFromBC(bcValue) });
+        pollutants.push({ label: `DPM cancer (${nearestC.compId})`,    aqi: aqiFromDPM(bcValue) });
+      }
+
+      // Calculate and display CE-AQI
+      const result = calcCEAQI(pollutants);
+      document.getElementById("statAQI").innerText = result.ceaqi;
+      document.getElementById("statAQI").style.color = getAQIColor(result.ceaqi);
+      renderCEAQIBreakdown(result);
+
+    // -----------------------------------------------
+    // QUANTAQ STATION SELECTED
+    // -----------------------------------------------
+    } else if (id.startsWith("MOD-")) {
+      const today = new Date().toISOString().split('T')[0];
+      const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
+      const dataRoot = resA?.resolved_sn ? resA.data : resA;
+      const allData = dataRoot?.data || [];
+      const last = allData.slice(-1)[0];
+
+      document.getElementById("statName").innerText = SPODS.find(s => s.sn === id).name;
+      
+      const pm25_q = safeNum(last?.pm25 || last?.pm2_5);
+      document.getElementById("val_param").innerText = last ? `${pm25_q} µg/m³` : "--";
+
+      // Build chart from today's QuantAQ PM2.5 history
+      const series = allData.map(r => ({ 
+        x: new Date(r.timestamp + (r.timestamp.includes('Z') ? '' : 'Z')).getTime(), 
+        y: aqiFromBreakpoints(safeNum(r.pm25 || r.pm2_5), BP_PM25_24H) 
+      })).sort((a,b) => a.x - b.x);
+
+      if (series.length > 0) {
+        const latestTime = series[series.length - 1].x;
+        const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
+        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
+        chart.options.scales.x.min = cutoff18h;
+      } else {
+        chart.data.datasets[0].data = [];
+      }
+
+      // Build CE-AQI using all QuantAQ pollutants directly
+      const o3 = safeNum(last?.o3);
+      const co_ppb = safeNum(last?.co);
+      const no2 = safeNum(last?.no2);
+      const pm10 = safeNum(last?.pm10);
+      const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
+
+      const pollutants = [
+        { label: "PM2.5 (24hr)",  aqi: aqiFromBreakpoints(pm25_q, BP_PM25_24H) },
+        { label: "O₃ (8hr)",      aqi: aqiFromBreakpoints(o3, BP_O3_8H) },
+        { label: "CO (8hr)",      aqi: aqiFromBreakpoints(co_ppm, BP_CO_8H_PPM) },
+        { label: "NO₂ (1hr)",     aqi: aqiFromBreakpoints(no2, BP_NO2_1H) },
+        { label: "PM10 (24hr)",   aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) }
+      ];
+
+      // Add BC and DPM from nearest C12 if valid
+      if (bcValue !== null && bcValue > 0) {
+        pollutants.push({ label: `BC non-cancer (${nearestC.compId})`, aqi: aqiFromBC(bcValue) });
+        pollutants.push({ label: `DPM cancer (${nearestC.compId})`,    aqi: aqiFromDPM(bcValue) });
+      }
+
+      const result = calcCEAQI(pollutants);
+      document.getElementById("statAQI").innerText = result.ceaqi;
+      document.getElementById("statAQI").style.color = getAQIColor(result.ceaqi);
+      renderCEAQIBreakdown(result);
+
+    // -----------------------------------------------
+    // C12 STATION SELECTED
+    // -----------------------------------------------
+    } else if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const res = await proxyGet({ action: "grove_last", compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+      const bc = safeNum(rows.find(r => r.streamId === "880nm")?.data);
+
+      document.getElementById("statName").innerText = C12S.find(x => x.compId === compId).name;
+      document.getElementById("val_param").innerText = bc ? `${bc} ng/m³` : "--";
+      chart.data.datasets[0].data = []; // No chart history for C12
+
+      // Build CE-AQI: BC and DPM as the primary measurements
+      // Plus QuantAQ adders if available
+      const pollutants = [
+        { label: "BC non-cancer", aqi: aqiFromBC(bc) },
+        { label: "DPM cancer",    aqi: aqiFromDPM(bc) }
+      ];
+
+      // Add QuantAQ gas pollutants from nearest SPOD if valid
+      if (quantData) {
+        const o3 = safeNum(quantData.o3);
+        const co_ppb = safeNum(quantData.co);
+        const no2 = safeNum(quantData.no2);
+        const pm10 = safeNum(quantData.pm10);
+        const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
+
+        pollutants.push({ label: `O₃ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(o3, BP_O3_8H) });
+        pollutants.push({ label: `CO (${nearestQ.sn})`,   aqi: aqiFromBreakpoints(co_ppm, BP_CO_8H_PPM) });
+        pollutants.push({ label: `NO₂ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(no2, BP_NO2_1H) });
+        pollutants.push({ label: `PM10 (${nearestQ.sn})`, aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) });
+      }
+
+      const result = calcCEAQI(pollutants);
+      document.getElementById("statAQI").innerText = result.ceaqi || 0;
+      document.getElementById("statAQI").style.color = getAQIColor(result.ceaqi || 0);
+      renderCEAQIBreakdown(result);
+    }
+
+    chart.update();
+  }
+
+  // ============================================================
+  // CREATE MAP MARKER
+  // ============================================================
+  function createMarker(id, lat, lon, val) {
+    const m = L.circleMarker([lat, lon], { radius: 11, fillColor: getAQIColor(val), color: "#000", weight: 2, fillOpacity: 0.9 }).addTo(map);
+    m.bindTooltip(`AQI: ${val}`, { permanent: false, direction: 'top', className: 'leaflet-tooltip-own', sticky: true, opacity: 1 });
+    m.on('mouseover', function(e) { this.openTooltip(); });
+    m.on('mouseout', function(e) { this.closeTooltip(); });
+    m.on("click", () => { document.getElementById("devSel").value = id; handleDropdownChange(id, true); });
     markerMap[id] = m;
   }
-  
-  if (arr.length) handleDropdownChange(String(arr[0][0]), false);
-}
 
-function handleDropdownChange(id, userTriggered) {
-  const station = paCoords[id];
-  const pollutants = [{ label: "PM2.5", aqi: aqiFromBreakpoints(station.pm, BP_PM25_24H) }];
-  
-  const q = nearestValidQuantAQ(station.lat, station.lon);
-  if (q) {
-    const d = quantCache[q.sn];
-    pollutants.push({ label: "O3", aqi: aqiFromBreakpoints(safeNum(d.o3), BP_O3_8H) });
-    pollutants.push({ label: "NO2", aqi: aqiFromBreakpoints(safeNum(d.no2), BP_NO2_1H) });
+  // ============================================================
+  // INITIALIZATION
+  // Strategy: fetch ALL sensor data first, cache it, then
+  // calculate CE-AQI for every sensor using cached neighbors,
+  // and color each map marker by its CE-AQI.
+  //
+  // Same number of API calls as before — just smarter reuse.
+  //
+  // Load order:
+  //   1. PurpleAir box query → cache paDataArr + paCoords
+  //   2. QuantAQ today's data → cache quantCache keyed by sn
+  //   3. C12 last values → cache c12Cache keyed by compId + fill C12S coords
+  //   4. Create all markers colored by CE-AQI
+  //   5. Populate dropdown + load default station
+  // ============================================================
+  async function init() {
+    const sel = document.getElementById("devSel");
+    const today = new Date().toISOString().split('T')[0];
+
+    // -----------------------------------------------
+    // STEP 1: Fetch PurpleAir box data
+    // -----------------------------------------------
+    const pa = await proxyGet({ action: "purpleair_box" });
+    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+
+    // Cache PA coords keyed by station_id
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      if (SENSORS[id]) paCoords[id] = { lat: r[1], lon: r[2], pm25: safeNum(r[3]) };
+    }
+
+    // -----------------------------------------------
+    // STEP 2: Fetch all QuantAQ sensors and cache latest reading
+    // quantCache[sn] = most recent data object from API
+    // -----------------------------------------------
+    const quantCache = {};
+    for (const s of SPODS) {
+      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
+      const dataRoot = res?.resolved_sn ? res.data : res;
+      const allQ = dataRoot?.data || [];
+      quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+    }
+
+    // -----------------------------------------------
+    // STEP 3: Fetch all C12 sensors and cache readings
+    // Also fills in C12S[i].lat/lon for nearest-sensor lookup
+    // c12Cache[compId] = { bc, lat, lon }
+    // -----------------------------------------------
+    const c12Cache = {};
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    for (const c of C12S) {
+      const res = await proxyGet({ action: "grove_last", compId: c.compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+
+      // Staleness check: only use BC if reading is within last 3 hours
+      // GroveStreams returns `time` in milliseconds
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bcTime = bcRow?.time || 0;
+      const bcFresh = (now - bcTime) < THREE_HOURS_MS;
+      const bc = bcFresh ? safeNum(bcRow?.data) : null;
+
+      if (!bcFresh) console.log(`C12 ${c.compId}: stale (${Math.round((now - bcTime)/3600000)}h old), skipping`);
+
+      c12Cache[c.compId] = { bc, lat, lon };
+      // Fill coords into C12S array so nearestC12() works
+      if (lat && lon) { c.lat = lat; c.lon = lon; }
+    }
+
+    // -----------------------------------------------
+    // HELPER: build CE-AQI for any sensor given its lat/lon
+    // and its own primary pollutant AQIs.
+    // Looks up nearest QuantAQ and C12 from cache.
+    // -----------------------------------------------
+    function ceaqiForLocation(lat, lon, ownPollutants) {
+      const pollutants = [...ownPollutants];
+
+      // Find nearest QuantAQ and add its gas pollutants
+      const nearestQ = nearestQuantAQ(lat, lon);
+      if (nearestQ) {
+        const qd = quantCache[nearestQ.sn];
+        if (qd) {
+          const o3     = safeNum(qd.o3);
+          const co_ppb = safeNum(qd.co);
+          const no2    = safeNum(qd.no2);
+          const pm10   = safeNum(qd.pm10);
+          const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
+          pollutants.push({ label: `O₃ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(o3, BP_O3_8H) });
+          pollutants.push({ label: `CO (${nearestQ.sn})`,   aqi: aqiFromBreakpoints(co_ppm, BP_CO_8H_PPM) });
+          pollutants.push({ label: `NO₂ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(no2, BP_NO2_1H) });
+          pollutants.push({ label: `PM10 (${nearestQ.sn})`, aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) });
+        }
+      }
+
+      // Find nearest C12 and add BC + DPM if above zero
+      const nearestC = nearestC12(lat, lon);
+      if (nearestC) {
+        const cd = c12Cache[nearestC.compId];
+        if (cd && cd.bc !== null && cd.bc > 0) {
+          pollutants.push({ label: `BC non-cancer (${nearestC.compId})`, aqi: aqiFromBC(cd.bc) });
+          pollutants.push({ label: `DPM cancer (${nearestC.compId})`,    aqi: aqiFromDPM(cd.bc) });
+        }
+      }
+
+      return calcCEAQI(pollutants);
+    }
+
+    // -----------------------------------------------
+    // STEP 4A: Create PurpleAir markers colored by CE-AQI
+    // -----------------------------------------------
+    paDataArr.sort((a, b) => {
+      const idA = String(a[0]), idB = String(b[0]);
+      if (idA === "203601") return -1; if (idB === "203601") return 1;
+      if (idA === "181253") return 1;  if (idB === "181253") return -1;
+      return (SENSORS[idA] || "").localeCompare(SENSORS[idB] || "");
+    });
+
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      if (!SENSORS[id]) continue;
+      const lat = r[1], lon = r[2], pm25 = safeNum(r[3]);
+
+      // Calculate CE-AQI for this PA station using cached neighbors
+      const result = ceaqiForLocation(lat, lon, [
+        { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25, BP_PM25_24H) }
+      ]);
+
+      createMarker(id, lat, lon, result.ceaqi);
+      sel.add(new Option(SENSORS[id], id));
+    }
+
+    // -----------------------------------------------
+    // STEP 4B: Create QuantAQ markers colored by CE-AQI
+    // -----------------------------------------------
+    for (const s of SPODS) {
+      const qd = quantCache[s.sn];
+      const pm25_q = safeNum(qd?.pm25 || qd?.pm2_5);
+
+      const result = ceaqiForLocation(s.lat, s.lon, [
+        { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25_q, BP_PM25_24H) },
+        { label: "O₃ (8hr)",     aqi: aqiFromBreakpoints(safeNum(qd?.o3), BP_O3_8H) },
+        { label: "CO (8hr)",     aqi: aqiFromBreakpoints(qd?.co != null ? safeNum(qd.co) / 1000 : null, BP_CO_8H_PPM) },
+        { label: "NO₂ (1hr)",    aqi: aqiFromBreakpoints(safeNum(qd?.no2), BP_NO2_1H) },
+        { label: "PM10 (24hr)",  aqi: aqiFromBreakpoints(safeNum(qd?.pm10), BP_PM10_24H) }
+      ]);
+
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi);
+      sel.add(new Option(s.name, s.sn));
+    }
+
+    // -----------------------------------------------
+    // STEP 4C: Create C12 markers colored by CE-AQI
+    // -----------------------------------------------
+    for (const c of C12S) {
+      const cd = c12Cache[c.compId];
+      if (!cd || !cd.lat || !cd.lon) continue;
+
+      const result = ceaqiForLocation(cd.lat, cd.lon, [
+        { label: "BC non-cancer", aqi: aqiFromBC(cd.bc) },
+        { label: "DPM cancer",    aqi: aqiFromDPM(cd.bc) }
+      ]);
+
+      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi);
+      sel.add(new Option(c.name, `C12-${c.compId}`));
+    }
+
+    // -----------------------------------------------
+    // STEP 5: Load default station
+    // -----------------------------------------------
+    if (sel.options.length) { 
+      const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
+      sel.value = defaultId; 
+      updateDisplay(defaultId); 
+    }
   }
 
-  const c = nearestValidC12(station.lat, station.lon);
-  if (c) {
-    const d = c12Cache[c.compId];
-    pollutants.push({ label: "BC", aqi: Math.round((d.bc / 600) * 100) });
-  }
-
-  const res = calcCEAQI(pollutants);
-  document.getElementById("statAQI").innerText = res.ceaqi;
-  document.getElementById("statName").innerText = SENSORS[id];
-  
-  const rows = document.getElementById("ceaqi-rows");
-  rows.innerHTML = `<div class="ceaqi-row base-row"><span>${res.baseLabel} (Base)</span><span>${res.base}</span></div>`;
-  res.adders.forEach(a => {
-    rows.innerHTML += `<div class="ceaqi-row adder-row"><span>+ ${a.label} (${a.pct}%)</span><span>+${a.val}</span></div>`;
-  });
-  document.getElementById("ceaqi-breakdown").style.display = "block";
-  
-  if (userTriggered) map.flyTo([station.lat, station.lon], 16);
-}
-
-init();
+  init();
 </script>
 </body>
 </html>
