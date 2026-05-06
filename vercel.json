@@ -1,8 +1,10 @@
 {
   "rewrites": [
-    { 
-      "source": "/api/aq", 
-      "destination": "/api/aq.js" 
+    {
+      "source": "/api/aq",
+      "destination": "/api/aq.js"
     }
-  ]
+  ],
+  "buildCommand": "",
+  "outputDirectory": "."
 }
