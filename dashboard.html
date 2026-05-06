@@ -638,7 +638,9 @@
         const cRes = await proxyGet({ action: "grove_last", compId: nearestC.compId });
         const rows = Array.isArray(cRes) ? cRes : (cRes?.data || []);
         const bcRow = rows.find(r => r.streamId === "880nm");
-        bcValue = bcRow ? safeNum(bcRow.data) : null;
+        const bcTime = bcRow?.time || 0;
+        const bcFresh = (Date.now() - bcTime) < (3 * 60 * 60 * 1000);
+        bcValue = (bcRow && bcFresh) ? safeNum(bcRow.data) : null;
       }
     }
 
@@ -816,18 +818,117 @@
 
   // ============================================================
   // INITIALIZATION
-  // Loads all sensors on page load:
-  //   1. PurpleAir box query → map markers + paCoords cache
-  //   2. QuantAQ today's data → map markers
-  //   3. C12 last values → map markers + C12S coords cache
+  // Strategy: fetch ALL sensor data first, cache it, then
+  // calculate CE-AQI for every sensor using cached neighbors,
+  // and color each map marker by its CE-AQI.
+  //
+  // Same number of API calls as before — just smarter reuse.
+  //
+  // Load order:
+  //   1. PurpleAir box query → cache paDataArr + paCoords
+  //   2. QuantAQ today's data → cache quantCache keyed by sn
+  //   3. C12 last values → cache c12Cache keyed by compId + fill C12S coords
+  //   4. Create all markers colored by CE-AQI
+  //   5. Populate dropdown + load default station
   // ============================================================
   async function init() {
     const sel = document.getElementById("devSel");
+    const today = new Date().toISOString().split('T')[0];
 
-    // --- PurpleAir ---
+    // -----------------------------------------------
+    // STEP 1: Fetch PurpleAir box data
+    // -----------------------------------------------
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
 
+    // Cache PA coords keyed by station_id
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      if (SENSORS[id]) paCoords[id] = { lat: r[1], lon: r[2], pm25: safeNum(r[3]) };
+    }
+
+    // -----------------------------------------------
+    // STEP 2: Fetch all QuantAQ sensors and cache latest reading
+    // quantCache[sn] = most recent data object from API
+    // -----------------------------------------------
+    const quantCache = {};
+    for (const s of SPODS) {
+      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
+      const dataRoot = res?.resolved_sn ? res.data : res;
+      const allQ = dataRoot?.data || [];
+      quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+    }
+
+    // -----------------------------------------------
+    // STEP 3: Fetch all C12 sensors and cache readings
+    // Also fills in C12S[i].lat/lon for nearest-sensor lookup
+    // c12Cache[compId] = { bc, lat, lon }
+    // -----------------------------------------------
+    const c12Cache = {};
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    for (const c of C12S) {
+      const res = await proxyGet({ action: "grove_last", compId: c.compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+
+      // Staleness check: only use BC if reading is within last 3 hours
+      // GroveStreams returns `time` in milliseconds
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bcTime = bcRow?.time || 0;
+      const bcFresh = (now - bcTime) < THREE_HOURS_MS;
+      const bc = bcFresh ? safeNum(bcRow?.data) : null;
+
+      if (!bcFresh) console.log(`C12 ${c.compId}: stale (${Math.round((now - bcTime)/3600000)}h old), skipping`);
+
+      c12Cache[c.compId] = { bc, lat, lon };
+      // Fill coords into C12S array so nearestC12() works
+      if (lat && lon) { c.lat = lat; c.lon = lon; }
+    }
+
+    // -----------------------------------------------
+    // HELPER: build CE-AQI for any sensor given its lat/lon
+    // and its own primary pollutant AQIs.
+    // Looks up nearest QuantAQ and C12 from cache.
+    // -----------------------------------------------
+    function ceaqiForLocation(lat, lon, ownPollutants) {
+      const pollutants = [...ownPollutants];
+
+      // Find nearest QuantAQ and add its gas pollutants
+      const nearestQ = nearestQuantAQ(lat, lon);
+      if (nearestQ) {
+        const qd = quantCache[nearestQ.sn];
+        if (qd) {
+          const o3     = safeNum(qd.o3);
+          const co_ppb = safeNum(qd.co);
+          const no2    = safeNum(qd.no2);
+          const pm10   = safeNum(qd.pm10);
+          const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
+          pollutants.push({ label: `O₃ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(o3, BP_O3_8H) });
+          pollutants.push({ label: `CO (${nearestQ.sn})`,   aqi: aqiFromBreakpoints(co_ppm, BP_CO_8H_PPM) });
+          pollutants.push({ label: `NO₂ (${nearestQ.sn})`,  aqi: aqiFromBreakpoints(no2, BP_NO2_1H) });
+          pollutants.push({ label: `PM10 (${nearestQ.sn})`, aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) });
+        }
+      }
+
+      // Find nearest C12 and add BC + DPM if above zero
+      const nearestC = nearestC12(lat, lon);
+      if (nearestC) {
+        const cd = c12Cache[nearestC.compId];
+        if (cd && cd.bc !== null && cd.bc > 0) {
+          pollutants.push({ label: `BC non-cancer (${nearestC.compId})`, aqi: aqiFromBC(cd.bc) });
+          pollutants.push({ label: `DPM cancer (${nearestC.compId})`,    aqi: aqiFromDPM(cd.bc) });
+        }
+      }
+
+      return calcCEAQI(pollutants);
+    }
+
+    // -----------------------------------------------
+    // STEP 4A: Create PurpleAir markers colored by CE-AQI
+    // -----------------------------------------------
     paDataArr.sort((a, b) => {
       const idA = String(a[0]), idB = String(b[0]);
       if (idA === "203601") return -1; if (idB === "203601") return 1;
@@ -836,45 +937,57 @@
     });
 
     for (const r of paDataArr) {
-      const id = String(r[0]); 
+      const id = String(r[0]);
       if (!SENSORS[id]) continue;
+      const lat = r[1], lon = r[2], pm25 = safeNum(r[3]);
 
-      // Cache PA coordinates so nearest-sensor lookup works later
-      paCoords[id] = { lat: r[1], lon: r[2] };
+      // Calculate CE-AQI for this PA station using cached neighbors
+      const result = ceaqiForLocation(lat, lon, [
+        { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25, BP_PM25_24H) }
+      ]);
 
-      createMarker(id, r[1], r[2], aqiFromBreakpoints(safeNum(r[3]), BP_PM25_24H) || 0); 
+      createMarker(id, lat, lon, result.ceaqi);
       sel.add(new Option(SENSORS[id], id));
     }
 
-    // --- QuantAQ ---
+    // -----------------------------------------------
+    // STEP 4B: Create QuantAQ markers colored by CE-AQI
+    // -----------------------------------------------
     for (const s of SPODS) {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
-      const dataRoot = res?.resolved_sn ? res.data : res;
-      const last = (dataRoot?.data || []).slice(-1)[0];
-      createMarker(s.sn, s.lat, s.lon, last ? aqiFromBreakpoints(safeNum(last.pm25 || last.pm2_5), BP_PM25_24H) : 0); 
+      const qd = quantCache[s.sn];
+      const pm25_q = safeNum(qd?.pm25 || qd?.pm2_5);
+
+      const result = ceaqiForLocation(s.lat, s.lon, [
+        { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25_q, BP_PM25_24H) },
+        { label: "O₃ (8hr)",     aqi: aqiFromBreakpoints(safeNum(qd?.o3), BP_O3_8H) },
+        { label: "CO (8hr)",     aqi: aqiFromBreakpoints(qd?.co != null ? safeNum(qd.co) / 1000 : null, BP_CO_8H_PPM) },
+        { label: "NO₂ (1hr)",    aqi: aqiFromBreakpoints(safeNum(qd?.no2), BP_NO2_1H) },
+        { label: "PM10 (24hr)",  aqi: aqiFromBreakpoints(safeNum(qd?.pm10), BP_PM10_24H) }
+      ]);
+
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi);
       sel.add(new Option(s.name, s.sn));
     }
 
-    // --- C12 ---
+    // -----------------------------------------------
+    // STEP 4C: Create C12 markers colored by CE-AQI
+    // -----------------------------------------------
     for (const c of C12S) {
-      const res = await proxyGet({ action: "grove_last", compId: c.compId });
-      const rows = Array.isArray(res) ? res : (res?.data || []);
-      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
-      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
-      const bc = safeNum(rows.find(r => r.streamId === "880nm")?.data);
-      const val = aqiFromBC(bc) || 0;
+      const cd = c12Cache[c.compId];
+      if (!cd || !cd.lat || !cd.lon) continue;
 
-      // Cache C12 coordinates in the C12S array for nearest-sensor lookup
-      if (lat && lon) { 
-        c.lat = lat; 
-        c.lon = lon;
-        createMarker(`C12-${c.compId}`, lat, lon, val); 
-        sel.add(new Option(c.name, `C12-${c.compId}`)); 
-      }
+      const result = ceaqiForLocation(cd.lat, cd.lon, [
+        { label: "BC non-cancer", aqi: aqiFromBC(cd.bc) },
+        { label: "DPM cancer",    aqi: aqiFromDPM(cd.bc) }
+      ]);
+
+      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi);
+      sel.add(new Option(c.name, `C12-${c.compId}`));
     }
 
-    // Default to station 203601 if available
+    // -----------------------------------------------
+    // STEP 5: Load default station
+    // -----------------------------------------------
     if (sel.options.length) { 
       const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value; 
       sel.value = defaultId; 
