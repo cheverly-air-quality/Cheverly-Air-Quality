@@ -591,38 +591,41 @@
     // Determine the selected station's coordinates
     // so we can find nearest QuantAQ and C12
     // -----------------------------------------------
+    // Resolve station coordinates
+    // PA coords come from paCoords cache (populated in init)
+    // MOD coords come from SPODS array
+    // C12 coords come from C12S array (populated in init)
+    // -----------------------------------------------
     let stationLat = null, stationLon = null;
 
     if (id.startsWith("C12-")) {
-      const compId = id.replace("C12-", "");
-      const c12obj = C12S.find(x => x.compId === compId);
+      const c12obj = C12S.find(x => x.compId === id.replace("C12-", ""));
       if (c12obj) { stationLat = c12obj.lat; stationLon = c12obj.lon; }
     } else if (id.startsWith("MOD-")) {
       const spod = SPODS.find(s => s.sn === id);
       if (spod) { stationLat = spod.lat; stationLon = spod.lon; }
-    } else {
-      // PurpleAir: coords stored in paCoords during init()
-      if (paCoords[id]) { stationLat = paCoords[id].lat; stationLon = paCoords[id].lon; }
+    } else if (paCoords[id]) {
+      stationLat = paCoords[id].lat;
+      stationLon = paCoords[id].lon;
     }
 
     // -----------------------------------------------
-    // Get nearest QuantAQ and C12 from cache (populated during init)
-    // No extra API calls needed - reuse what we already fetched
+    // Find nearest QuantAQ and C12 from cache
+    // Always runs after coords are resolved above
     // -----------------------------------------------
     let quantData = null;
     let nearestQ = null;
     let bcValue = null;
     let nearestC = null;
 
-    if (stationLat !== null) {
-      // Find nearest QuantAQ and pull its cached reading
-      nearestQ = nearestQuantAQ(stationLat, stationLon);
+    function resolveNeighbors(lat, lon) {
+      nearestQ = nearestQuantAQ(lat, lon);
       if (nearestQ) quantData = quantCache[nearestQ.sn] || null;
-
-      // Find nearest C12 and pull its cached BC value (already staleness-checked)
-      nearestC = nearestC12(stationLat, stationLon);
-      if (nearestC) bcValue = c12Cache[nearestC.compId]?.bc || null;
+      nearestC = nearestC12(lat, lon);
+      if (nearestC) bcValue = (c12Cache[nearestC.compId]?.bc > 0) ? c12Cache[nearestC.compId].bc : null;
     }
+
+    if (stationLat !== null) resolveNeighbors(stationLat, stationLon);
 
     // -----------------------------------------------
     // PURPLEAIR STATION SELECTED
@@ -638,17 +641,13 @@
         pm25_live = safeNum(liveStation[3]);
         document.getElementById("val_param").innerText = `${pm25_live} µg/m³`;
 
-        // If paCoords wasn't populated for this station, fill it now from live data
-        // This ensures nearestQ and nearestC are set correctly below
-        if (!paCoords[id] && liveStation[1] && liveStation[2]) {
-          paCoords[id] = { lat: liveStation[1], lon: liveStation[2] };
-          // Re-run nearest sensor lookup now that we have coords
-          stationLat = liveStation[1];
-          stationLon = liveStation[2];
-          nearestQ = nearestQuantAQ(stationLat, stationLon);
-          if (nearestQ) quantData = quantCache[nearestQ.sn] || null;
-          nearestC = nearestC12(stationLat, stationLon);
-          if (nearestC) bcValue = c12Cache[nearestC.compId]?.bc || null;
+        // Always update coords and re-resolve neighbors from live box data
+        // This guarantees nearest sensor lookup uses accurate coordinates
+        const liveLat = safeNum(liveStation[1]);
+        const liveLon = safeNum(liveStation[2]);
+        if (liveLat && liveLon) {
+          paCoords[id] = { lat: liveLat, lon: liveLon };
+          resolveNeighbors(liveLat, liveLon);
         }
       }
 
