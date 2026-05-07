@@ -637,6 +637,19 @@
       if (liveStation) {
         pm25_live = safeNum(liveStation[3]);
         document.getElementById("val_param").innerText = `${pm25_live} µg/m³`;
+
+        // If paCoords wasn't populated for this station, fill it now from live data
+        // This ensures nearestQ and nearestC are set correctly below
+        if (!paCoords[id] && liveStation[1] && liveStation[2]) {
+          paCoords[id] = { lat: liveStation[1], lon: liveStation[2] };
+          // Re-run nearest sensor lookup now that we have coords
+          stationLat = liveStation[1];
+          stationLon = liveStation[2];
+          nearestQ = nearestQuantAQ(stationLat, stationLon);
+          if (nearestQ) quantData = quantCache[nearestQ.sn] || null;
+          nearestC = nearestC12(stationLat, stationLon);
+          if (nearestC) bcValue = c12Cache[nearestC.compId]?.bc || null;
+        }
       }
 
       document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
@@ -715,11 +728,15 @@
         chart.data.datasets[0].data = [];
       }
 
-      // Build CE-AQI using all QuantAQ pollutants directly
-      const o3 = safeNum(last?.o3);
-      const co_ppb = safeNum(last?.co);
-      const no2 = safeNum(last?.no2);
-      const pm10 = safeNum(last?.pm10);
+      // Build CE-AQI using this QuantAQ station's own live readings
+      // Use 
+wtmp begins Fri Apr 10 02:20:03 2026 directly (the most recent reading from this station)
+      // rather than quantData which might point to a different nearest SPOD
+      const ownData = last || quantCache[id] || null;
+      const o3 = safeNum(ownData?.o3);
+      const co_ppb = safeNum(ownData?.co);
+      const no2 = safeNum(ownData?.no2);
+      const pm10 = safeNum(ownData?.pm10);
       const co_ppm = co_ppb !== null ? co_ppb / 1000 : null;
 
       const pollutants = [
@@ -730,7 +747,7 @@
         { label: "PM10 (24hr)",   aqi: aqiFromBreakpoints(pm10, BP_PM10_24H) }
       ];
 
-      // Add BC and DPM from nearest C12 if valid
+      // Add BC and DPM from nearest C12 if fresh and above zero
       if (bcValue !== null && bcValue > 0) {
         pollutants.push({ label: `BC non-cancer (${nearestC.compId})`, aqi: aqiFromBC(bcValue) });
         pollutants.push({ label: `DPM cancer (${nearestC.compId})`,    aqi: aqiFromDPM(bcValue) });
