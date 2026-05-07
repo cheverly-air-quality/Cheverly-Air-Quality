@@ -197,14 +197,11 @@
     { compId: "D14646", name: "C-12 D14646", lat: null, lon: null } 
   ];
 
-  // markerMap stores Leaflet circle markers keyed by station ID
-  // Also stores lat/lon for PurpleAir stations so we can do nearest-sensor math
   let markerMap = {};
-
-  // paCoords stores {lat, lon} for each PurpleAir station ID
-  // Populated during init() from the purpleair_box API response
   let paCoords = {};
-
+  // quantCache and c12Cache declared here so updateDisplay() can reuse init() data
+  let quantCache = {};
+  let c12Cache = {};
   let userMarker = null;
 
   // ============================================================
@@ -609,39 +606,22 @@
     }
 
     // -----------------------------------------------
-    // Fetch nearest QuantAQ data (gas pollutants)
-    // Used for ozone, CO, NO2, PM10 adders in CE-AQI
+    // Get nearest QuantAQ and C12 from cache (populated during init)
+    // No extra API calls needed - reuse what we already fetched
     // -----------------------------------------------
     let quantData = null;
     let nearestQ = null;
-    if (stationLat !== null) {
-      nearestQ = nearestQuantAQ(stationLat, stationLon);
-      if (nearestQ) {
-        const today = new Date().toISOString().split('T')[0];
-        const qRes = await proxyGet({ action: "quantaq_by_date", sn: nearestQ.sn, date: today });
-        const dataRoot = qRes?.resolved_sn ? qRes.data : qRes;
-        const allQ = dataRoot?.data || [];
-        // Use the most recent reading
-        quantData = allQ.length ? allQ[allQ.length - 1] : null;
-      }
-    }
-
-    // -----------------------------------------------
-    // Fetch nearest C12 data (black carbon)
-    // Used for BC non-cancer and DPM cancer adders
-    // -----------------------------------------------
     let bcValue = null;
     let nearestC = null;
+
     if (stationLat !== null) {
+      // Find nearest QuantAQ and pull its cached reading
+      nearestQ = nearestQuantAQ(stationLat, stationLon);
+      if (nearestQ) quantData = quantCache[nearestQ.sn] || null;
+
+      // Find nearest C12 and pull its cached BC value (already staleness-checked)
       nearestC = nearestC12(stationLat, stationLon);
-      if (nearestC) {
-        const cRes = await proxyGet({ action: "grove_last", compId: nearestC.compId });
-        const rows = Array.isArray(cRes) ? cRes : (cRes?.data || []);
-        const bcRow = rows.find(r => r.streamId === "880nm");
-        const bcTime = bcRow?.time || 0;
-        const bcFresh = (Date.now() - bcTime) < (3 * 60 * 60 * 1000);
-        bcValue = (bcRow && bcFresh) ? safeNum(bcRow.data) : null;
-      }
+      if (nearestC) bcValue = c12Cache[nearestC.compId]?.bc || null;
     }
 
     // -----------------------------------------------
@@ -851,7 +831,7 @@
     // STEP 2: Fetch all QuantAQ sensors and cache latest reading
     // quantCache[sn] = most recent data object from API
     // -----------------------------------------------
-    const quantCache = {};
+    // quantCache is declared at outer scope
     for (const s of SPODS) {
       const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
       const dataRoot = res?.resolved_sn ? res.data : res;
@@ -864,7 +844,7 @@
     // Also fills in C12S[i].lat/lon for nearest-sensor lookup
     // c12Cache[compId] = { bc, lat, lon }
     // -----------------------------------------------
-    const c12Cache = {};
+    // c12Cache is declared at outer scope
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
     const now = Date.now();
 
