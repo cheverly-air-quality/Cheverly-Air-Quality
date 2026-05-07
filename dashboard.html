@@ -729,8 +729,7 @@
       }
 
       // Build CE-AQI using this QuantAQ station's own live readings
-      // Use 
-wtmp begins Fri Apr 10 02:20:03 2026 directly (the most recent reading from this station)
+      // Use `last` directly (the most recent reading from this station)
       // rather than quantData which might point to a different nearest SPOD
       const ownData = last || quantCache[id] || null;
       const o3 = safeNum(ownData?.o3);
