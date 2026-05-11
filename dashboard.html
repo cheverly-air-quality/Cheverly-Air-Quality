@@ -31,12 +31,12 @@
     #main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
     #map { height: 45%; width: 100%; border-bottom: 1px solid #ddd; z-index: 1; }
     #chart-box { height: 55%; width: 100%; padding: 1.5rem; box-sizing: border-box; background: white; }
-    .aqi-val { font-size: 72px; font-weight: 900; display: block; text-align: center; line-height: 1.1; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; }
+    .aqi-val { font-size: 72px; font-weight: 900; display: block; text-align: center; line-height: 1.1; }
     .sublabel { font-size: 0.75rem; color: #777; font-weight: bold; margin-top: 4px; text-align: center; text-transform: uppercase; }
     .ceaqi-breakdown { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; font-size: 0.78rem; color: #555; }
     .ceaqi-row { display: flex; justify-content: space-between; padding: 2px 0; }
     .base-row { font-weight: bold; color: #333; }
-    .dashboard-disclaimer { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.9); color: #666; font-size: 0.7rem; padding: 4px 20px; text-align: center; border-top: 1px solid #ddd; z-index: 3000; pointer-events: none; }
+    .dashboard-disclaimer { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.9); color: #666; font-size: 0.7rem; padding: 4px 20px; text-align: center; border-top: 1px solid #ddd; z-index: 3000; }
   </style>
 </head>
 <body>
@@ -54,7 +54,7 @@
   <aside id="sidebar">
     <div class="card">
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="Enter Address (e.g. 6401 Forest Rd)">
+      <input type="text" id="addrInput" placeholder="Enter an address (e.g. 123 Main St, Cheverly, MD)">
       <button id="locateBtn">Find Nearest Station</button>
     </div> 
     <div class="card"><label>Station Selection</label><select id="devSel" onchange="handleDropdownChange(this.value, true)"></select></div>
@@ -65,7 +65,7 @@
           <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
           <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">CE-AQI</div>
           <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
-            <div style="font-weight:bold; color:var(--brand-navy); text-transform:uppercase; font-size:0.75rem; margin-bottom:6px;">CE-AQI Breakdown</div>
+            <div class="breakdown-title" style="font-weight:bold; color:var(--brand-navy); text-transform:uppercase; font-size:0.75rem;">CE-AQI Breakdown</div>
             <div id="ceaqi-rows"></div>
           </div>
         </div>
@@ -79,39 +79,34 @@
 </div>
 
 <div class="dashboard-disclaimer">
-  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use.
+  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
 </div>
 
 <script>
   const API_PROXY = "/api/aq";
-  const SENSORS = { "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "203601": "EJAT.CV.1.203601", "284362": "EJAT.PG.1.284362" };
-  const SPODS = [ { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.9051, lon: -76.9100 }, { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.1432, lon: -76.8460 } ];
+  const SENSORS = { "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "203601": "EJAT.CV.1.203601", "284362": "EJAT.PG.1.284362" };
+  const SPODS = [ { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 }, { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 } ];
   const C12S = [ { compId: "D14781", name: "C-12 D14781", lat: 38.9213, lon: -76.9175 } ];
 
   let markerMap = {};
   let paCoords = {};
+  let quantCache = {};
+  let c12Cache = {};
   let userMarker = null;
 
   const map = L.map("map").setView([38.9213, -76.9175], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-  const geocoder = L.Control.Geocoder.nominatim({
-      serviceUrl: 'https://nominatim.openstreetmap.org/',
-      geocodingQueryParams: { 'accept-language': 'en', 'limit': 1 }
+  const chart = new Chart(document.getElementById("airChart").getContext("2d"), {
+    type: "line",
+    data: { datasets: [{ label: "Station CE-AQI", data: [], borderColor: "#4477ce", fill: true, backgroundColor: "rgba(68, 119, 206, 0.1)" }, { label: "DC Trend", data: [], borderColor: "red", borderDash: [5, 5] }] },
+    options: { responsive: true, scales: { x: { type: "time", time: { unit: 'hour' } }, y: { beginAtZero: true } } }
   });
 
   const BP_PM25_24H = [{ cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 }, { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 }, { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 }, { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 }];
 
-  function getAQIColor(aqi) {
-    if (aqi <= 50) return "#00e400";
-    if (aqi <= 100) return "#ffff00";
-    if (aqi <= 150) return "#ff7e00";
-    if (aqi <= 200) return "#ff0000";
-    return "#8f3f97";
-  }
-
   function aqiFromBreakpoints(C, table) {
-    if (C === null || isNaN(C)) return null;
+    if (C === null || !Number.isFinite(Number(C))) return null;
     const c = Number(C);
     for (const bp of table) {
       if (c >= bp.cLow && c <= bp.cHigh) return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
@@ -119,17 +114,21 @@
     return null;
   }
 
-  // FIXED: Numeric addition to prevent "565" error 
+  function aqiFromBC(bc) { return bc > 0 ? Math.round((Number(bc) / 600) * 100) : null; }
+  function aqiFromDPM(bc) { return bc > 0 ? Math.round((Number(bc) * 1.25 / 330) * 100) : null; }
+
+  // FIX: Forcing Numeric Addition to solve "565" (string glue) issue
   function calcCEAQI(pollutants) {
     const valid = pollutants.filter(p => p.aqi !== null && p.aqi > 0);
     if (valid.length === 0) return { ceaqi: 0, base: 0, adders: [] };
 
+    // Use Number() to ensure math comparison
     const baseItem = valid.reduce((max, p) => Number(p.aqi) > Number(max.aqi) ? p : max, valid[0]);
     const base = Number(baseItem.aqi);
     const baseLabel = baseItem.label;
 
     const adders = [];
-    let adderSum = 0;
+    let adderTotal = 0;
 
     for (const p of valid) {
       if (p.label === baseLabel) continue;
@@ -141,67 +140,34 @@
 
       if (pct > 0) {
         const val = Math.round(base * pct);
-        adderSum += val;
-        adders.push({ label: p.label, val: val, pct: pct*100 });
+        adderTotal += val;
+        adders.push({ label: p.label, aqi: aq, adderVal: val, adderPct: pct * 100 });
       }
     }
-    return { ceaqi: base + adderSum, base, baseLabel, adders };
+    return { ceaqi: base + adderTotal, base, baseLabel, adders };
   }
-
-  // FIXED: Address search forces Cheverly, MD context [cite: 447, 449]
-  document.getElementById("locateBtn").addEventListener("click", function() {
-    let addr = document.getElementById("addrInput").value;
-    if (!addr) { alert("Please enter an address"); return; }
-    
-    if (!addr.toLowerCase().includes("cheverly")) addr += ", Cheverly, MD";
-    
-    this.innerText = "Searching...";
-    this.disabled = true;
-
-    geocoder.geocode(addr, (results) => {
-      this.innerText = "Find Nearest Station";
-      this.disabled = false;
-      if (results && results.length > 0) {
-        const { center } = results[0];
-        if (userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker(center).addTo(map).bindPopup(addr).openPopup();
-        map.flyTo(center, 16);
-
-        let minDistance = Infinity, closestId = null;
-        Object.keys(markerMap).forEach(id => {
-          const dist = center.distanceTo(markerMap[id].getLatLng());
-          if (dist < minDistance) { minDistance = dist; closestId = id; }
-        });
-
-        if (closestId) {
-          document.getElementById("devSel").value = closestId;
-          updateDisplay(closestId);
-        }
-      } else { alert("Address not found."); }
-    });
-  });
 
   async function updateDisplay(id) {
     const pa = await fetch(API_PROXY + "?action=purpleair_box").then(r => r.json());
     const station = (pa?.data || []).find(r => String(r[0]) === id);
     const pm25 = station ? Number(station[3]) : 0;
     
-    // Simulate multi-pollutant data for CE-AQI [cite: 466, 505]
+    // Nearest neighbor dummy data for demonstration (incorporate your haversine logic here)
     const pollutants = [
-      { label: "PM2.5", aqi: aqiFromBreakpoints(pm25, BP_PM25_24H) },
+      { label: "PM2.5 (24hr)", aqi: aqiFromBreakpoints(pm25, BP_PM25_24H) },
       { label: "Ozone (Borrowed)", aqi: 85 } 
     ];
 
     const result = calcCEAQI(pollutants);
     document.getElementById("statName").innerText = SENSORS[id] || id;
     document.getElementById("statAQI").innerText = result.ceaqi;
-    document.getElementById("statAQI").style.color = getAQIColor(result.ceaqi);
+    document.getElementById("statAQI").style.color = result.ceaqi > 100 ? "orange" : "green";
 
     const rowsEl = document.getElementById("ceaqi-rows");
     document.getElementById("ceaqi-breakdown").style.display = "block";
-    rowsEl.innerHTML = `<div class="ceaqi-row base-row"><span>Base (${result.baseLabel})</span><span>${result.base}</span></div>`;
+    rowsEl.innerHTML = `<div class="ceaqi-row base-row"><span>${result.baseLabel} (base)</span><span>${result.base}</span></div>`;
     result.adders.forEach(a => {
-      rowsEl.innerHTML += `<div class="ceaqi-row"><span>+ ${a.label} (${a.pct}%)</span><span>+${a.val}</span></div>`;
+      rowsEl.innerHTML += `<div class="ceaqi-row adder-row"><span>+ ${a.label} (${a.adderPct}%)</span><span>+${a.adderVal}</span></div>`;
     });
   }
 
@@ -211,9 +177,7 @@
     const sel = document.getElementById("devSel");
     Object.keys(SENSORS).forEach(id => {
       sel.add(new Option(SENSORS[id], id));
-      const m = L.circleMarker([38.9213 + (Math.random()-0.5)*0.015, -76.9175 + (Math.random()-0.5)*0.015], { radius: 10 }).addTo(map);
-      markerMap[id] = m;
-      m.on('click', () => { sel.value = id; updateDisplay(id); });
+      markerMap[id] = L.circleMarker([38.9213 + (Math.random()-0.5)*0.02, -76.9175 + (Math.random()-0.5)*0.02], { radius: 8 }).addTo(map);
     });
     if (sel.options.length) updateDisplay(sel.value);
   }
