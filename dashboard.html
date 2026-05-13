@@ -768,17 +768,21 @@
     return best;
   }
 
-  function addKnownAQI(pollutants, label, aqi) {
+  function addKnownAQI(pollutants, label, aqi, options = {}) {
     const v = safeNum(aqi);
     if (v === null || v <= 0) return;
 
     pollutants.push({
       label,
-      aqi: Math.round(v)
+      aqi: Math.round(v),
+      // Own station pollutants can be the CE-AQI base.
+      // Borrowed pollutants from nearby sensors are included, but do not become the base by default.
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
     });
   }
 
-  function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true) {
+  function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
     if (!qd) return;
 
     const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
@@ -786,23 +790,32 @@
     const coPpb = activeNum(qd.co);
     const no2 = activeNum(qd.no2);
     const pm10 = activeNum(qd.pm10);
+    const meta = {
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
+    };
 
     if (includePM25) {
-      addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H));
+      addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H), meta);
     }
 
-    addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H));
-    addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM));
-    addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H));
-    addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H));
+    addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H), meta);
+    addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
+    addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
+    addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
   }
 
-  function addC12Pollutants(pollutants, bc, sourceLabel) {
+  function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
     const bcValue = activeNum(bc);
     if (bcValue === null) return;
 
-    addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue));
-    addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue));
+    const meta = {
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
+    };
+
+    addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue), meta);
+    addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue), meta);
   }
 
   function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
@@ -812,19 +825,34 @@
       return pollutants;
     }
 
+    // Nearby support sensors should help explain cumulative exposure, but they should not
+    // make every surrounding station inherit the exact same CE-AQI base value.
+    // Set supportCanBeBase to true only if you intentionally want the closest borrowed sensor
+    // to control the selected station's final color.
+    const supportMeta = {
+      canBeBase: options.supportCanBeBase === true,
+      isSupport: true
+    };
+
     const nearestQ = nearestQuantAQ(lat, lon);
     if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
       addQuantAQPollutants(
         pollutants,
         quantCache[nearestQ.sn],
-        nearestQ.sn,
-        options.includeNearestQuantPM25 === true
+        `nearby ${nearestQ.sn}`,
+        options.includeNearestQuantPM25 === true,
+        supportMeta
       );
     }
 
     const nearestC = nearestC12(lat, lon);
     if (nearestC && nearestC.compId !== options.skipC12) {
-      addC12Pollutants(pollutants, c12Cache[nearestC.compId]?.bc, nearestC.compId);
+      addC12Pollutants(
+        pollutants,
+        c12Cache[nearestC.compId]?.bc,
+        `nearby ${nearestC.compId}`,
+        supportMeta
+      );
     }
 
     return pollutants;
@@ -849,18 +877,15 @@
       };
     }
 
-    // CE-AQI draft method:
-    // The base is the highest available pollutant-specific AQI value.
-    // Do not force the station's own sensor variable to be the base, because that can hide
-    // higher supporting pollutants like O3, NO2, BC, or DPM.
-    let baseIndex = 0;
-    for (let i = 1; i < valid.length; i++) {
-      if (valid[i].aqi > valid[baseIndex].aqi) {
-        baseIndex = i;
-      }
-    }
-
-    const baseItem = valid[baseIndex];
+    // Station anchored CE-AQI:
+    // The base is the highest valid pollutant measured by the selected station type.
+    // Nearby support sensors are still included and can add to the CE-AQI, but they
+    // do not become the base. This prevents one stuck or very high nearby C12 reading
+    // from making every surrounding PurpleAir or QuantAQ marker show the same value.
+    const baseCandidates = valid.filter(p => p.canBeBase !== false);
+    const candidates = baseCandidates.length ? baseCandidates : valid;
+    const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
+    const baseIndex = valid.indexOf(baseItem);
     const base = baseItem.aqi;
     const baseLabel = baseItem.label;
 
