@@ -379,10 +379,31 @@
 <script>
   const API_PROXY = "/api/aq";
 
+  // HU-Beltsville / MDE Howard University reference monitor.
+  // AQS ID: 240330030. Used to replace the older DC comparative trend line.
+  const BELTSVILLE_REFERENCE = {
+    aqsidPlain: "240330030",
+    aqsidDashed: "24-033-0030",
+    name: "HU-Beltsville Reference Trend",
+    lat: 39.055277,
+    lon: -76.878333
+  };
+
+  const AIRNOW_CURRENT_LAYER_URL =
+    "https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/Air%20Now%20Current%20Monitor%20Data%20Public/FeatureServer/0";
+
+  const AIRNOW_24H_ITEM_IDS = [
+    "394b9bf591e14596bb57b9085b425f7d", // AirNow monitoring site data, last 24 hours
+    "6568bde341404076b13898381f383c43"  // AirNow ozone and PM, last 24 hours
+  ];
+
+  let beltsvilleTrendCache = { data: [], fetchedAt: 0 };
+
   const SENSORS = {
     "52823": "EJAT.CV.6.52823",
     "53677": "EJAT.CV.1.53677",
-    "54239": "EJAT.CV.6.54239",
+    // Temporarily excluded at user request. Add back when ready.
+    // "54239": "EJAT.CV.6.54239",
     "54293": "EJAT.CV.2.54293",
     "57777": "EJAT.CV.1.57777",
     "57783": "EJAT.CV.6.57783",
@@ -469,7 +490,7 @@
           spanGaps: true
         },
         {
-          label: "DC Comparative Trend",
+          label: "HU-Beltsville Reference Trend",
           data: [],
           borderColor: "rgba(255, 0, 0, 0.6)",
           borderDash: [5, 5],
@@ -724,6 +745,193 @@
   function buildMarkerTooltip(value, latestTimeMs, baseLabel) {
     const baseText = baseLabel ? `<br>Base: ${baseLabel}` : "";
     return `CE-AQI: ${value}${baseText}<br>Latest detected: ${formatLatestTime(latestTimeMs)}`;
+  }
+
+  function arcgisLayerUrlFromItemUrl(url) {
+    if (!url) return null;
+    const clean = url.replace(/\/$/, "");
+    if (/\/FeatureServer\/\d+$/i.test(clean)) return clean;
+    if (/\/FeatureServer$/i.test(clean)) return `${clean}/0`;
+    return clean;
+  }
+
+  async function getArcGISItemLayerUrl(itemId) {
+    try {
+      const url = `https://www.arcgis.com/sharing/rest/content/items/${itemId}?f=json`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const item = await res.json();
+      return arcgisLayerUrlFromItemUrl(item?.url);
+    } catch (e) {
+      console.warn("Could not resolve AirNow item URL:", itemId, e);
+      return null;
+    }
+  }
+
+  function airnowFeatureTimeMs(attrs) {
+    if (!attrs) return null;
+
+    const possibleKeys = [
+      "ValidTime",
+      "UTC",
+      "DateObserved",
+      "ObservedTime",
+      "LocalTime",
+      "LocalTimeString",
+      "DateTime",
+      "time",
+      "timestamp"
+    ];
+
+    for (const key of possibleKeys) {
+      if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+        const t = normalizeTimestampMs(attrs[key]);
+        if (isReasonableSensorTime(t)) return t;
+      }
+    }
+
+    return null;
+  }
+
+  function airnowAQIFromAttrs(attrs) {
+    if (!attrs) return null;
+
+    const preferred = safeNum(attrs.OZONEPM_AQI ?? attrs.OZONEPM_AQI_SORT ?? attrs.AQI);
+    if (preferred !== null && preferred >= 0) return Math.round(preferred);
+
+    const candidates = [
+      safeNum(attrs.OZONE_AQI ?? attrs.OZONE_AQI_SORT),
+      safeNum(attrs.PM25_AQI ?? attrs.PM25_AQI_SORT),
+      safeNum(attrs.PM10_AQI ?? attrs.PM10_AQI_SORT),
+      safeNum(attrs.PM_AQI ?? attrs.PM_AQI_SORT)
+    ].filter(v => v !== null && v >= 0);
+
+    return candidates.length ? Math.round(Math.max(...candidates)) : null;
+  }
+
+  function featureLatLon(feature) {
+    const attrs = feature?.attributes || {};
+    const attrLat = safeNum(attrs.Latitude);
+    const attrLon = safeNum(attrs.Longitude);
+    if (hasValidCoords(attrLat, attrLon)) return { lat: attrLat, lon: attrLon };
+
+    const geom = feature?.geometry || {};
+    const geomLat = safeNum(geom.y);
+    const geomLon = safeNum(geom.x);
+    if (hasValidCoords(geomLat, geomLon)) return { lat: geomLat, lon: geomLon };
+
+    return null;
+  }
+
+  function isBeltsvilleFeature(feature) {
+    const attrs = feature?.attributes || {};
+    const aqsid = String(attrs.AQSID ?? attrs.AqsId ?? attrs.SiteID ?? "").trim();
+    const siteName = String(attrs.SiteName ?? attrs.MonitorName ?? attrs.NAME ?? "").toLowerCase();
+
+    if (aqsid === BELTSVILLE_REFERENCE.aqsidPlain || aqsid === BELTSVILLE_REFERENCE.aqsidDashed) return true;
+    if (siteName.includes("beltsville") || siteName.includes("howard")) return true;
+
+    const coords = featureLatLon(feature);
+    if (!coords) return false;
+
+    return haversineKm(coords.lat, coords.lon, BELTSVILLE_REFERENCE.lat, BELTSVILLE_REFERENCE.lon) <= 2;
+  }
+
+  async function queryAirNowLayer(layerUrl) {
+    if (!layerUrl) return [];
+
+    const lat = BELTSVILLE_REFERENCE.lat;
+    const lon = BELTSVILLE_REFERENCE.lon;
+    const buffer = 0.08;
+
+    const params = new URLSearchParams({
+      f: "json",
+      where: "1=1",
+      outFields: "*",
+      returnGeometry: "true",
+      outSR: "4326",
+      geometry: `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`,
+      geometryType: "esriGeometryEnvelope",
+      inSR: "4326",
+      spatialRel: "esriSpatialRelIntersects"
+    });
+
+    try {
+      const res = await fetch(`${layerUrl}/query?${params.toString()}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      if (json?.error) {
+        console.warn("AirNow query error:", json.error);
+        return [];
+      }
+      return Array.isArray(json?.features) ? json.features : [];
+    } catch (e) {
+      console.warn("AirNow query failed:", e);
+      return [];
+    }
+  }
+
+  function featuresToReferenceSeries(features) {
+    const rows = features
+      .filter(isBeltsvilleFeature)
+      .map(feature => {
+        const attrs = feature.attributes || {};
+        return {
+          x: airnowFeatureTimeMs(attrs),
+          y: airnowAQIFromAttrs(attrs)
+        };
+      })
+      .filter(p => p.x !== null && p.y !== null)
+      .sort((a, b) => a.x - b.x);
+
+    // Remove duplicate timestamps by keeping the highest value at that hour.
+    const byTime = new Map();
+    for (const p of rows) {
+      const existing = byTime.get(p.x);
+      if (!existing || p.y > existing.y) byTime.set(p.x, p);
+    }
+
+    return Array.from(byTime.values()).sort((a, b) => a.x - b.x);
+  }
+
+  async function fetchBeltsvilleReferenceTrend() {
+    const now = Date.now();
+
+    // AirNow updates hourly, so avoid refetching every time a user clicks a marker.
+    if (beltsvilleTrendCache.data.length && now - beltsvilleTrendCache.fetchedAt < 15 * 60 * 1000) {
+      return beltsvilleTrendCache.data;
+    }
+
+    const layerUrls = [];
+
+    for (const itemId of AIRNOW_24H_ITEM_IDS) {
+      const layerUrl = await getArcGISItemLayerUrl(itemId);
+      if (layerUrl) layerUrls.push(layerUrl);
+    }
+
+    // Fallback: current AirNow monitor layer. This may only return the latest point,
+    // but it keeps the dashboard from breaking if the 24-hour item URL changes.
+    layerUrls.push(AIRNOW_CURRENT_LAYER_URL);
+
+    for (const layerUrl of layerUrls) {
+      const features = await queryAirNowLayer(layerUrl);
+      const series = featuresToReferenceSeries(features);
+
+      if (series.length > 0) {
+        beltsvilleTrendCache = { data: series, fetchedAt: now };
+        return series;
+      }
+    }
+
+    beltsvilleTrendCache = { data: [], fetchedAt: now };
+    return [];
+  }
+
+  async function loadBeltsvilleReferenceTrend() {
+    chart.data.datasets[1].label = BELTSVILLE_REFERENCE.name;
+
+    const series = await fetchBeltsvilleReferenceTrend();
+    chart.data.datasets[1].data = series;
   }
 
   async function proxyGet(params) {
@@ -1261,12 +1469,7 @@
     const nowSec = Math.floor(Date.now() / 1000);
     const start24h = nowSec - 86400;
 
-    const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
-    if (dcJson?.data) {
-      chart.data.datasets[1].data = dcJson.data
-        .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
-        .sort((a, b) => a.x - b.x);
-    }
+    await loadBeltsvilleReferenceTrend();
 
     chart.options.scales.x.min = null;
 
