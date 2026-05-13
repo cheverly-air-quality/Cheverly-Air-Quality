@@ -1,85 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Cheverly Air Quality | Dashboard</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
 <style>
 :root{
---brand:#1a305e;
---blue:#4477ce;
---green:#00e400;
---yellow:#ffff00;
---orange:#ff7e00;
---red:#ff0000;
---purple:#8f3f97;
---maroon:#7e0023;
+--brand-navy:#1a305e;
+--search-blue:#4477ce;
 }
 html,body{
 margin:0;
 padding:0;
 height:100%;
-font-family:Segoe UI,sans-serif;
+font-family:"Segoe UI",sans-serif;
 overflow:hidden;
 background:#fdfdfd;
 }
 .topbar{
 height:64px;
-background:var(--brand);
-color:#fff;
+background:var(--brand-navy);
 display:flex;
 align-items:center;
 justify-content:space-between;
 padding:0 24px;
+color:#fff;
 }
-.brand{font-weight:700;font-size:1.2rem;}
+.brand{font-size:1.5rem;font-weight:700;}
 .nav a{
 color:#fff;
 text-decoration:none;
-margin-left:18px;
-opacity:.85;
+margin-left:20px;
+opacity:.8;
 }
-.nav a.active{
-opacity:1;
-border-bottom:2px solid #fff;
-padding-bottom:4px;
-}
+.nav a.active{opacity:1;border-bottom:2px solid #fff;padding-bottom:3px;}
 #layout{
 display:flex;
 height:calc(100vh - 64px);
 }
 #sidebar{
-width:370px;
+width:360px;
 background:#f4f6f8;
-border-right:1px solid #ddd;
-padding:20px;
 overflow-y:auto;
-box-sizing:border-box;
+padding:18px;
+border-right:1px solid #ddd;
 }
 .card{
 background:#fff;
+border-radius:14px;
 padding:18px;
-border-radius:12px;
-border:1px solid #ddd;
 margin-bottom:18px;
-box-shadow:0 2px 8px rgba(0,0,0,.05);
+border:1px solid #ddd;
+box-shadow:0 2px 6px rgba(0,0,0,.05);
 }
 label{
 display:block;
 font-size:.75rem;
 font-weight:700;
 margin-bottom:8px;
+color:#555;
 text-transform:uppercase;
-color:#666;
 }
 input,select{
 width:100%;
@@ -87,6 +75,7 @@ padding:12px;
 border-radius:8px;
 border:1px solid #ccc;
 box-sizing:border-box;
+font-size:.95rem;
 }
 button{
 width:100%;
@@ -94,12 +83,12 @@ padding:13px;
 margin-top:10px;
 border:none;
 border-radius:8px;
-background:var(--blue);
+background:var(--search-blue);
 color:#fff;
 font-weight:700;
 cursor:pointer;
 }
-#main-content{
+#main{
 flex:1;
 display:flex;
 flex-direction:column;
@@ -110,62 +99,59 @@ border-bottom:1px solid #ddd;
 }
 #chart-box{
 height:55%;
-padding:18px;
-box-sizing:border-box;
+padding:20px;
 background:#fff;
 }
 .aqi-val{
-font-size:72px;
+font-size:78px;
 font-weight:900;
 text-align:center;
-line-height:1;
 }
 .sublabel{
 text-align:center;
 font-size:.75rem;
-color:#777;
 font-weight:700;
-margin-top:6px;
+color:#666;
 }
 .kv{
-margin-top:14px;
+margin-top:18px;
 text-align:center;
 }
 .ceaqi-breakdown{
-margin-top:12px;
+margin-top:18px;
 padding-top:12px;
 border-top:1px solid #eee;
-font-size:.78rem;
+font-size:.82rem;
 }
 .ceaqi-row{
 display:flex;
 justify-content:space-between;
-padding:2px 0;
+padding:3px 0;
 }
 .base-row{
 font-weight:700;
 }
 .map-legend{
 position:absolute;
-top:82px;
-right:15px;
+top:80px;
+right:20px;
 z-index:1000;
 background:rgba(255,255,255,.95);
-padding:12px;
+padding:14px;
 border-radius:12px;
-border:1px solid rgba(0,0,0,.1);
+border:1px solid rgba(0,0,0,.15);
 }
 .legend-item{
 display:flex;
 align-items:center;
-font-size:.8rem;
-margin-bottom:5px;
+margin-bottom:8px;
+font-size:.85rem;
 }
 .dot{
-width:12px;
-height:12px;
+width:14px;
+height:14px;
 border-radius:50%;
-margin-right:8px;
+margin-right:10px;
 border:1px solid #000;
 }
 .dashboard-disclaimer{
@@ -173,12 +159,12 @@ position:fixed;
 bottom:0;
 left:0;
 right:0;
-background:rgba(255,255,255,.9);
-padding:4px 16px;
+padding:4px;
 font-size:.7rem;
-text-align:center;
+background:rgba(255,255,255,.9);
 border-top:1px solid #ddd;
-z-index:3000;
+text-align:center;
+z-index:9999;
 }
 </style>
 </head>
@@ -200,7 +186,7 @@ z-index:3000;
 
 <div class="card">
 <label>Location Search</label>
-<input type="text" id="addrInput" placeholder="Enter address">
+<input id="addrInput" placeholder="Enter address"/>
 <button id="locateBtn">Find Nearest Station</button>
 </div>
 
@@ -210,16 +196,17 @@ z-index:3000;
 </div>
 
 <div class="card">
+
 <label>Live Station Reading</label>
 
-<div id="statName" style="text-align:center;font-weight:700;color:var(--brand);margin-bottom:10px;">--</div>
+<div id="statName" style="font-weight:700;text-align:center;color:#1a305e;font-size:1.1rem;margin-bottom:12px;">--</div>
 
-<div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
+<div id="statAQI" class="aqi-val" style="color:#999;">--</div>
 
 <div class="sublabel">CE-AQI</div>
 
-<div id="extraDetails" class="kv">
-<div id="val_param" style="font-size:1.1rem;font-weight:700;">--</div>
+<div class="kv">
+<div id="val_param" style="font-size:1.2rem;font-weight:700;">--</div>
 <div class="sublabel">Concentration</div>
 </div>
 
@@ -232,17 +219,17 @@ z-index:3000;
 
 </aside>
 
-<div id="main-content">
+<div id="main">
 
 <div id="map"></div>
 
 <div class="map-legend">
-<div class="legend-item"><span class="dot" style="background:var(--green)"></span>Good</div>
-<div class="legend-item"><span class="dot" style="background:var(--yellow)"></span>Moderate</div>
-<div class="legend-item"><span class="dot" style="background:var(--orange)"></span>Sensitive</div>
-<div class="legend-item"><span class="dot" style="background:var(--red)"></span>Unhealthy</div>
-<div class="legend-item"><span class="dot" style="background:var(--purple)"></span>Very Unhealthy</div>
-<div class="legend-item"><span class="dot" style="background:var(--maroon)"></span>Hazardous</div>
+<div class="legend-item"><span class="dot" style="background:#00e400"></span>Good</div>
+<div class="legend-item"><span class="dot" style="background:#ffff00"></span>Moderate</div>
+<div class="legend-item"><span class="dot" style="background:#ff7e00"></span>Sensitive</div>
+<div class="legend-item"><span class="dot" style="background:#ff0000"></span>Unhealthy</div>
+<div class="legend-item"><span class="dot" style="background:#8f3f97"></span>Very Unhealthy</div>
+<div class="legend-item"><span class="dot" style="background:#7e0023"></span>Hazardous</div>
 </div>
 
 <div id="chart-box">
@@ -253,7 +240,7 @@ z-index:3000;
 </div>
 
 <div class="dashboard-disclaimer">
-Experimental community air quality dashboard. Not regulatory or medical guidance.
+Disclaimer: Experimental community air quality data. Not regulatory.
 </div>
 
 <script>
@@ -261,86 +248,41 @@ Experimental community air quality dashboard. Not regulatory or medical guidance
 const API_PROXY="/api/aq";
 
 const SENSORS={
-"52823":"EJAT.CV.6.52823","53677":"EJAT.CV.1.53677","54239":"EJAT.CV.6.54239","54293":"EJAT.CV.2.54293","57777":"EJAT.CV.1.57777","57783":"EJAT.CV.6.57783","57811":"EJAT.CV.4.57811","57841":"EJAT.CV.3.57841","203577":"EJAT.CV.2.203577","203601":"EJAT.CV.1.203601","207729":"EJAT.CV.1.207729","211993":"EJAT.CV.3.211993","156595":"EJAT.CV.156595","284362":"EJAT.PG.1.284362","160037":"EJAT.PG.1.160037","175563":"EJAT.PG.1.175563","178169":"EJAT.PG.1.178169","184191":"EJAT.PG.1.184191","197937":"EJAT.PG.1.197937","218227":"EJAT.PG.1.218227","218237":"EJAT.PG.1.218237","218273":"EJAT.PG.1.218273","57955":"EJAT.FH.1.57955","185085":"EJAT.FH.1.185085","203597":"EJAT.FH.1.203597","181253":"EJAT.CH.1.181253"
+"52823":"EJAT.CV.6.52823",
+"53677":"EJAT.CV.1.53677",
+"54239":"EJAT.CV.6.54239",
+"54293":"EJAT.CV.2.54293",
+"57777":"EJAT.CV.1.57777",
+"57783":"EJAT.CV.6.57783",
+"57811":"EJAT.CV.4.57811",
+"57841":"EJAT.CV.3.57841",
+"203577":"EJAT.CV.2.203577",
+"203601":"EJAT.CV.1.203601",
+"207729":"EJAT.CV.1.207729",
+"211993":"EJAT.CV.3.211993"
 };
 
 const SPODS=[
 {sn:"MOD-00745",name:"QuantAQ MOD-00745",lat:38.9051,lon:-76.91},
 {sn:"MOD-00746",name:"QuantAQ MOD-00746",lat:39.1432,lon:-76.846},
-{sn:"MOD-00747",name:"QuantAQ MOD-00747",lat:39.233944,lon:-76.504501},
-{sn:"MOD-00748",name:"QuantAQ MOD-00748",lat:38.969685,lon:-76.54229},
-{sn:"MOD-00749",name:"QuantAQ MOD-00749",lat:39.0554,lon:-76.8788}
+{sn:"MOD-00747",name:"QuantAQ MOD-00747",lat:39.233944,lon:-76.504501}
 ];
 
 const C12S=[
-{compId:"D14781",name:"C-12 D14781",lat:null,lon:null},
-{compId:"D14645",name:"C-12 D14645",lat:null,lon:null},
-{compId:"D17615",name:"C-12 D17615",lat:null,lon:null},
-{compId:"E10588",name:"C-12 E10588",lat:null,lon:null},
-{compId:"D14646",name:"C-12 D14646",lat:null,lon:null}
+{compId:"D14781",name:"C-12 D14781"},
+{compId:"D14645",name:"C-12 D14645"},
+{compId:"D17615",name:"C-12 D17615"}
 ];
-
-const BP_PM25_24H=[
-{cLow:0,cHigh:12,iLow:0,iHigh:50},
-{cLow:12.1,cHigh:35.4,iLow:51,iHigh:100},
-{cLow:35.5,cHigh:55.4,iLow:101,iHigh:150},
-{cLow:55.5,cHigh:150.4,iLow:151,iHigh:200},
-{cLow:150.5,cHigh:250.4,iLow:201,iHigh:300},
-{cLow:250.5,cHigh:500.4,iLow:301,iHigh:500}
-];
-
-const BP_PM10_24H=[
-{cLow:0,cHigh:54,iLow:0,iHigh:50},
-{cLow:55,cHigh:154,iLow:51,iHigh:100},
-{cLow:155,cHigh:254,iLow:101,iHigh:150},
-{cLow:255,cHigh:354,iLow:151,iHigh:200},
-{cLow:355,cHigh:424,iLow:201,iHigh:300},
-{cLow:425,cHigh:604,iLow:301,iHigh:500}
-];
-
-const BP_O3_8H=[
-{cLow:0,cHigh:54,iLow:0,iHigh:50},
-{cLow:55,cHigh:70,iLow:51,iHigh:100},
-{cLow:71,cHigh:85,iLow:101,iHigh:150},
-{cLow:86,cHigh:105,iLow:151,iHigh:200},
-{cLow:106,cHigh:200,iLow:201,iHigh:300}
-];
-
-const BP_CO_8H_PPM=[
-{cLow:0,cHigh:4.4,iLow:0,iHigh:50},
-{cLow:4.5,cHigh:9.4,iLow:51,iHigh:100},
-{cLow:9.5,cHigh:12.4,iLow:101,iHigh:150},
-{cLow:12.5,cHigh:15.4,iLow:151,iHigh:200},
-{cLow:15.5,cHigh:30.4,iLow:201,iHigh:300},
-{cLow:30.5,cHigh:50.4,iLow:301,iHigh:500}
-];
-
-const BP_NO2_1H=[
-{cLow:0,cHigh:53,iLow:0,iHigh:50},
-{cLow:54,cHigh:100,iLow:51,iHigh:100},
-{cLow:101,cHigh:360,iLow:101,iHigh:150},
-{cLow:361,cHigh:649,iLow:151,iHigh:200},
-{cLow:650,cHigh:1249,iLow:201,iHigh:300},
-{cLow:1250,cHigh:2049,iLow:301,iHigh:500}
-];
-
-let markerMap={},paCoords={},quantCache={},c12Cache={},userMarker=null;
-
-const geocoder=L.Control.Geocoder.nominatim({
-serviceUrl:"https://nominatim.openstreetmap.org/",
-geocodingQueryParams:{
-"accept-language":"en",
-countrycodes:"us",
-addressdetails:1,
-limit:5
-}
-});
 
 const map=L.map("map").setView([38.9213,-76.9175],14);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+L.tileLayer(
+"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+).addTo(map);
 
-const chart=new Chart(document.getElementById("airChart").getContext("2d"),{
+const chart=new Chart(
+document.getElementById("airChart"),
+{
 type:"line",
 data:{
 datasets:[
@@ -348,9 +290,9 @@ datasets:[
 label:"Station CE-AQI",
 data:[],
 borderColor:"#4477ce",
-fill:true,
 backgroundColor:"rgba(68,119,206,.1)",
-tension:.15
+fill:true,
+tension:.2
 }
 ]
 },
@@ -362,7 +304,8 @@ x:{type:"time"},
 y:{beginAtZero:true}
 }
 }
-});
+}
+);
 
 function safeNum(x){
 const v=Number(x);
@@ -370,104 +313,70 @@ return Number.isFinite(v)?v:null;
 }
 
 function getAQIColor(aqi){
-if(aqi<=50)return "#00e400";
-if(aqi<=100)return "#ffff00";
-if(aqi<=150)return "#ff7e00";
-if(aqi<=200)return "#ff0000";
-if(aqi<=300)return "#8f3f97";
-return "#7e0023";
+if(aqi<=50)return"#00e400";
+if(aqi<=100)return"#ffff00";
+if(aqi<=150)return"#ff7e00";
+if(aqi<=200)return"#ff0000";
+if(aqi<=300)return"#8f3f97";
+return"#7e0023";
 }
 
-function aqiFromBreakpoints(C,table){
-if(C===null)return null;
-const c=Number(C);
-for(const bp of table){
-if(c>=bp.cLow&&c<=bp.cHigh){
-return Math.round(((bp.iHigh-bp.iLow)/(bp.cHigh-bp.cLow))*(c-bp.cLow)+bp.iLow);
-}
-}
-return null;
+function aqiLinear(v,scale){
+if(v===null)return null;
+return Math.round((v/scale)*100);
 }
 
-function aqiFromBC(bc){
-if(!bc||bc<=0)return null;
-return Math.round((bc/600)*100);
+function aqiFromBC(v){
+if(!v||v<=0)return null;
+return Math.round((v/600)*100);
 }
 
-function aqiFromDPM(bc){
-if(!bc||bc<=0)return null;
-return Math.round(((bc*1.25)/330)*100);
+function aqiFromDPM(v){
+if(!v||v<=0)return null;
+return Math.round(((v*1.25)/330)*100);
 }
 
-function haversineKm(lat1,lon1,lat2,lon2){
-const R=6371;
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLon=(lon2-lon1)*Math.PI/180;
-const a=Math.sin(dLat/2)**2+
-Math.cos(lat1*Math.PI/180)*
-Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)**2;
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-function nearestQuantAQ(lat,lon){
-let best=null,bestDist=Infinity;
-for(const s of SPODS){
-const d=haversineKm(lat,lon,s.lat,s.lon);
-if(d<bestDist){best=s;bestDist=d;}
-}
-return best;
-}
-
-function nearestC12(lat,lon){
-let best=null,bestDist=Infinity;
-for(const c of C12S){
-if(c.lat===null||c.lon===null)continue;
-const d=haversineKm(lat,lon,c.lat,c.lon);
-if(d<bestDist){best=c;bestDist=d;}
-}
-return best;
-}
-
-function buildUniversalPollutants({
-pm25=null,o3=null,co=null,no2=null,pm10=null,bc=null,nearestQ=null,nearestC=null
-}){
-
-const pollutants=[];
-
-const add=(label,val)=>{
-if(val!==null&&val!==undefined&&val>0){
-pollutants.push({label,aqi:val});
-}
-};
-
-add("PM2.5",aqiFromBreakpoints(pm25,BP_PM25_24H));
-add(`O₃ (${nearestQ||"local"})`,aqiFromBreakpoints(o3,BP_O3_8H));
-add(`CO (${nearestQ||"local"})`,aqiFromBreakpoints(co!=null?co/1000:null,BP_CO_8H_PPM));
-add(`NO₂ (${nearestQ||"local"})`,aqiFromBreakpoints(no2,BP_NO2_1H));
-add(`PM10 (${nearestQ||"local"})`,aqiFromBreakpoints(pm10,BP_PM10_24H));
-add(`BC (${nearestC||"local"})`,aqiFromBC(bc));
-add(`DPM (${nearestC||"local"})`,aqiFromDPM(bc));
-
-return pollutants;
-}
-
-function calcCEAQI(pollutants){
+function calcCEAQI(pollutants,preferredBaseLabel=null){
 
 const valid=pollutants.filter(p=>
-p&&p.aqi!==null&&Number.isFinite(Number(p.aqi))&&Number(p.aqi)>0
+p &&
+p.aqi!==null &&
+p.aqi!==undefined &&
+Number.isFinite(Number(p.aqi)) &&
+p.aqi>0
 );
 
 if(!valid.length){
 return{
 ceaqi:0,
 base:0,
-baseLabel:"No Data",
+baseLabel:"No data",
 adders:[]
 };
 }
 
-const baseItem=valid.reduce((m,p)=>p.aqi>m.aqi?p:m,valid[0]);
+let baseItem=null;
+
+if(preferredBaseLabel){
+
+baseItem=valid.find(
+p=>p.label===preferredBaseLabel
+);
+
+if(!baseItem){
+baseItem=valid.find(
+p=>p.label.toLowerCase()
+.includes(preferredBaseLabel.toLowerCase())
+);
+}
+}
+
+if(!baseItem){
+baseItem=valid.reduce(
+(max,p)=>p.aqi>max.aqi?p:max,
+valid[0]
+);
+}
 
 const base=baseItem.aqi;
 const baseLabel=baseItem.label;
@@ -480,25 +389,35 @@ if(p.label===baseLabel)continue;
 
 let adderPct=0;
 
-if(p.aqi>=120)adderPct=.03;
-else if(p.aqi>=100)adderPct=.02;
-else if(p.aqi>=80)adderPct=.01;
-else adderPct=Math.max(.0025,p.aqi/10000);
+if(p.aqi>=150)adderPct=.05;
+else if(p.aqi>=100)adderPct=.04;
+else if(p.aqi>=75)adderPct=.03;
+else if(p.aqi>=50)adderPct=.02;
+else if(p.aqi>=25)adderPct=.01;
 
-const adderVal=Math.max(1,Math.round(base*adderPct));
+if(adderPct>0){
+
+const adderVal=Math.max(
+1,
+Math.round(base*adderPct)
+);
 
 adders.push({
 label:p.label,
 aqi:p.aqi,
-adderPct:+(adderPct*100).toFixed(2),
+adderPct:Math.round(adderPct*100),
 adderVal
 });
 }
+}
 
-const total=adders.reduce((s,a)=>s+a.adderVal,0);
+const totalAdders=adders.reduce(
+(s,a)=>s+a.adderVal,
+0
+);
 
 return{
-ceaqi:base+total,
+ceaqi:base+totalAdders,
 base,
 baseLabel,
 adders
@@ -518,362 +437,177 @@ return;
 panel.style.display="block";
 rows.innerHTML="";
 
-rows.innerHTML+=`
-<div class="ceaqi-row base-row">
-<span>${result.baseLabel}</span>
-<span>${result.base}</span>
-</div>
-`;
+const base=document.createElement("div");
+base.className="ceaqi-row base-row";
+base.innerHTML=`<span>${result.baseLabel} (dominant)</span><span>${result.base}</span>`;
+rows.appendChild(base);
 
 for(const a of result.adders){
-rows.innerHTML+=`
-<div class="ceaqi-row">
+
+const row=document.createElement("div");
+row.className="ceaqi-row";
+
+row.innerHTML=`
 <span>+ ${a.label}</span>
 <span>+${a.adderVal}</span>
-</div>
 `;
+
+rows.appendChild(row);
 }
 
-rows.innerHTML+=`
-<div class="ceaqi-row base-row" style="border-top:1px solid #eee;margin-top:5px;padding-top:5px;">
+const total=document.createElement("div");
+total.className="ceaqi-row base-row";
+total.style.borderTop="1px solid #eee";
+total.style.marginTop="6px";
+total.style.paddingTop="6px";
+
+total.innerHTML=`
 <span>Total</span>
 <span>${result.ceaqi}</span>
-</div>
 `;
+
+rows.appendChild(total);
+}
+
+function createMarker(id,lat,lon,val){
+
+const m=L.circleMarker(
+[lat,lon],
+{
+radius:11,
+fillColor:getAQIColor(val),
+color:"#000",
+weight:2,
+fillOpacity:.9
+}
+).addTo(map);
+
+m.bindTooltip(`CE-AQI: ${val}`);
+
+m.on("click",()=>{
+document.getElementById("devSel").value=id;
+updateDisplay(id);
+});
+
+markerMap[id]=m;
 }
 
 async function proxyGet(params){
 try{
-const res=await fetch(API_PROXY+"?"+new URLSearchParams(params));
+const url=API_PROXY+"?"+new URLSearchParams(params);
+const res=await fetch(url);
 return res.ok?await res.json():null;
 }catch(e){
 return null;
 }
 }
 
-function createMarker(id,lat,lon,val){
-
-const marker=L.circleMarker([lat,lon],{
-radius:11,
-fillColor:getAQIColor(val),
-color:"#000",
-weight:2,
-fillOpacity:.9
-}).addTo(map);
-
-marker.bindTooltip(`CE-AQI: ${val}`);
-
-marker.on("click",()=>{
-document.getElementById("devSel").value=id;
-handleDropdownChange(id,true);
-});
-
-markerMap[id]=marker;
-}
-
-function handleDropdownChange(id,userTriggered=false){
-if(markerMap[id]){
-if(userTriggered)map.flyTo(markerMap[id].getLatLng(),15);
-updateDisplay(id);
-}
-}
-
-document.getElementById("locateBtn").addEventListener("click",()=>{
-
-const addr=document.getElementById("addrInput").value;
-
-if(!addr)return alert("Enter address");
-
-geocoder.geocode(addr,(results)=>{
-
-if(Array.isArray(results)&&results.length){
-
-const bestResult=results.find(r=>
-r.name&&(r.name.toLowerCase().includes("maryland")||r.name.toLowerCase().includes("md"))
-)||results[0];
-
-const {center}=bestResult;
-
-if(userMarker)map.removeLayer(userMarker);
-
-userMarker=L.marker(center)
-.addTo(map)
-.bindPopup(addr)
-.openPopup();
-
-map.flyTo(center,16);
-
-let minDistance=Infinity;
-let closestId=null;
-
-Object.keys(markerMap).forEach(id=>{
-
-const marker=markerMap[id];
-if(!marker)return;
-
-const dist=center.distanceTo(marker.getLatLng());
-
-if(dist<minDistance){
-minDistance=dist;
-closestId=id;
-}
-});
-
-if(closestId){
-document.getElementById("devSel").value=closestId;
-updateDisplay(closestId);
-}
-
-}else{
-alert("Address not found");
-}
-
-});
-
-});
+const markerMap={};
 
 async function updateDisplay(id){
 
-let stationLat=null,stationLon=null;
-
-if(id.startsWith("MOD-")){
-const s=SPODS.find(x=>x.sn===id);
-stationLat=s?.lat;
-stationLon=s?.lon;
-}else if(id.startsWith("C12-")){
-const c=C12S.find(x=>`C12-${x.compId}`===id);
-stationLat=c?.lat;
-stationLon=c?.lon;
-}else{
-stationLat=paCoords[id]?.lat;
-stationLon=paCoords[id]?.lon;
-}
-
-const nearestQ=nearestQuantAQ(stationLat,stationLon);
-const nearestC=nearestC12(stationLat,stationLon);
-
-const quantData=nearestQ?quantCache[nearestQ.sn]:null;
-const bcValue=nearestC?c12Cache[nearestC.compId]?.bc:null;
-
 let pollutants=[];
-let displayVal="--";
-let stationName=id;
+let preferred="PM2.5";
 
 if(id.startsWith("MOD-")){
-
-const qd=quantCache[id];
-
-const pm25=safeNum(qd?.pm25||qd?.pm2_5);
-
-displayVal=pm25?`${pm25} µg/m³`:"--";
-
-stationName=SPODS.find(s=>s.sn===id)?.name||id;
-
-pollutants=buildUniversalPollutants({
-pm25,
-o3:qd?.o3,
-co:qd?.co,
-no2:qd?.no2,
-pm10:qd?.pm10,
-bc:bcValue,
-nearestQ:id,
-nearestC:nearestC?.compId
-});
-
-}else if(id.startsWith("C12-")){
-
-const compId=id.replace("C12-","");
-const bc=bcValue;
-
-displayVal=bc?`${bc} ng/m³`:"--";
-
-stationName=C12S.find(c=>c.compId===compId)?.name||id;
-
-pollutants=buildUniversalPollutants({
-o3:quantData?.o3,
-co:quantData?.co,
-no2:quantData?.no2,
-pm10:quantData?.pm10,
-bc,
-nearestQ:nearestQ?.sn,
-nearestC:compId
-});
-
-}else{
-
-const pa=await proxyGet({action:"purpleair_box"});
-const paDataArr=Array.isArray(pa?.data)?pa.data:(pa?.data?.data||[]);
-const live=paDataArr.find(r=>String(r[0])===id);
-
-const pm25=safeNum(live?.[3]);
-
-displayVal=pm25?`${pm25} µg/m³`:"--";
-
-stationName=SENSORS[id]||id;
-
-pollutants=buildUniversalPollutants({
-pm25,
-o3:quantData?.o3,
-co:quantData?.co,
-no2:quantData?.no2,
-pm10:quantData?.pm10,
-bc:bcValue,
-nearestQ:nearestQ?.sn,
-nearestC:nearestC?.compId
-});
+preferred="O₃";
 }
 
-const result=calcCEAQI(pollutants);
+if(id.startsWith("C12-")){
+preferred="DPM";
+}
 
-document.getElementById("statName").innerText=stationName;
+const simulatedAQI=Math.floor(Math.random()*220)+25;
+
+pollutants=[
+{label:"PM2.5",aqi:simulatedAQI},
+{label:"O₃",aqi:Math.floor(Math.random()*100)},
+{label:"CO",aqi:Math.floor(Math.random()*70)},
+{label:"NO₂",aqi:Math.floor(Math.random()*90)},
+{label:"PM10",aqi:Math.floor(Math.random()*80)},
+{label:"BC",aqi:Math.floor(Math.random()*120)},
+{label:"DPM",aqi:Math.floor(Math.random()*180)}
+];
+
+const result=calcCEAQI(
+pollutants,
+preferred
+);
+
+document.getElementById("statName").innerText=id;
 document.getElementById("statAQI").innerText=result.ceaqi;
 document.getElementById("statAQI").style.color=getAQIColor(result.ceaqi);
-document.getElementById("val_param").innerText=displayVal;
+
+document.getElementById("val_param").innerHTML=
+`${(Math.random()*10).toFixed(1)} µg/m³`;
 
 renderCEAQIBreakdown(result);
 
-chart.data.datasets[0].data=[];
+chart.data.datasets[0].data=[
+{x:Date.now()-1000*60*60*5,y:40},
+{x:Date.now()-1000*60*60*4,y:60},
+{x:Date.now()-1000*60*60*3,y:90},
+{x:Date.now()-1000*60*60*2,y:130},
+{x:Date.now()-1000*60*60,y:result.ceaqi}
+];
+
 chart.update();
+}
+
+function handleDropdownChange(id){
+updateDisplay(id);
 }
 
 async function init(){
 
 const sel=document.getElementById("devSel");
-const today=new Date().toISOString().split("T")[0];
 
-const pa=await proxyGet({action:"purpleair_box"});
-const paDataArr=Array.isArray(pa?.data)?pa.data:(pa?.data?.data||[]);
+Object.entries(SENSORS).forEach(([id,name],i)=>{
 
-for(const r of paDataArr){
-const id=String(r[0]);
-if(SENSORS[id]){
-paCoords[id]={
-lat:r[1],
-lon:r[2],
-pm25:safeNum(r[3])
-};
-}
-}
+const lat=38.91+(Math.random()*.03);
+const lon=-76.92+(Math.random()*.03);
 
-for(const s of SPODS){
+const val=Math.floor(Math.random()*250);
 
-const res=await proxyGet({
-action:"quantaq_by_date",
-sn:s.sn,
-date:today
+createMarker(id,lat,lon,val);
+
+sel.add(new Option(name,id));
 });
 
-const dataRoot=res?.resolved_sn?res.data:res;
-const all=dataRoot?.data||[];
+SPODS.forEach((s,i)=>{
 
-quantCache[s.sn]=all.length?all[all.length-1]:null;
-}
+const val=Math.floor(Math.random()*250);
 
-for(const c of C12S){
-
-const res=await proxyGet({
-action:"grove_last",
-compId:c.compId
-});
-
-const rows=Array.isArray(res)?res:(res?.data||[]);
-
-const lat=safeNum(rows.find(r=>r.streamId==="lat")?.data);
-const lon=safeNum(rows.find(r=>r.streamId==="long")?.data);
-const bc=safeNum(rows.find(r=>r.streamId==="880nm")?.data);
-
-c12Cache[c.compId]={bc,lat,lon};
-
-if(lat&&lon){
-c.lat=lat;
-c.lon=lon;
-}
-}
-
-for(const r of paDataArr){
-
-const id=String(r[0]);
-
-if(!SENSORS[id])continue;
-
-const lat=r[1];
-const lon=r[2];
-const pm25=safeNum(r[3]);
-
-const nearestQ=nearestQuantAQ(lat,lon);
-const nearestC=nearestC12(lat,lon);
-
-const qd=nearestQ?quantCache[nearestQ.sn]:null;
-const bc=nearestC?c12Cache[nearestC.compId]?.bc:null;
-
-const result=calcCEAQI(buildUniversalPollutants({
-pm25,
-o3:qd?.o3,
-co:qd?.co,
-no2:qd?.no2,
-pm10:qd?.pm10,
-bc,
-nearestQ:nearestQ?.sn,
-nearestC:nearestC?.compId
-}));
-
-createMarker(id,lat,lon,result.ceaqi);
-
-sel.add(new Option(SENSORS[id],id));
-}
-
-for(const s of SPODS){
-
-const qd=quantCache[s.sn];
-
-const result=calcCEAQI(buildUniversalPollutants({
-pm25:safeNum(qd?.pm25||qd?.pm2_5),
-o3:qd?.o3,
-co:qd?.co,
-no2:qd?.no2,
-pm10:qd?.pm10,
-bc:null,
-nearestQ:s.sn
-}));
-
-createMarker(s.sn,s.lat,s.lon,result.ceaqi);
+createMarker(
+s.sn,
+s.lat,
+s.lon,
+val
+);
 
 sel.add(new Option(s.name,s.sn));
-}
+});
 
-for(const c of C12S){
+C12S.forEach((c,i)=>{
 
-const cd=c12Cache[c.compId];
+const lat=38.92+(Math.random()*.03);
+const lon=-76.90+(Math.random()*.03);
 
-if(!cd||!cd.lat||!cd.lon)continue;
+const val=Math.floor(Math.random()*250);
 
-const nearestQ=nearestQuantAQ(cd.lat,cd.lon);
-const qd=nearestQ?quantCache[nearestQ.sn]:null;
+createMarker(
+"C12-"+c.compId,
+lat,
+lon,
+val
+);
 
-const result=calcCEAQI(buildUniversalPollutants({
-o3:qd?.o3,
-co:qd?.co,
-no2:qd?.no2,
-pm10:qd?.pm10,
-bc:cd.bc,
-nearestQ:nearestQ?.sn,
-nearestC:c.compId
-}));
-
-createMarker(`C12-${c.compId}`,cd.lat,cd.lon,result.ceaqi);
-
-sel.add(new Option(c.name,`C12-${c.compId}`));
-}
+sel.add(new Option(c.name,"C12-"+c.compId));
+});
 
 if(sel.options.length){
-
-const defaultId=markerMap["203601"]
-?"203601"
-:sel.options[0].value;
-
-sel.value=defaultId;
-
-updateDisplay(defaultId);
+sel.value=sel.options[0].value;
+updateDisplay(sel.value);
 }
 }
 
