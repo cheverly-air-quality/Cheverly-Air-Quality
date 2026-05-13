@@ -409,6 +409,12 @@
   };
 
   const SPODS = [
+    // Newly added QuantAQ device. The public QuantAQ page lists this as
+    // "Mosleys - Cheverly" with serial number MOD-00536.
+    // Coordinates are left as null so the code can fill them dynamically
+    // if your API proxy returns lat/lon. If it does not show on the map,
+    // replace null/null below with the exact deployed latitude and longitude.
+    { sn: "MOD-00536", name: "QuantAQ MOD-00536 - Mosleys Cheverly", lat: null, lon: null },
     { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
     { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
     { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
@@ -658,6 +664,50 @@
 
   function getQuantAQTimestampMs(reading) {
     return getTimestampFromObject(reading);
+  }
+
+  function getCoordsFromObject(obj, depth = 0) {
+    if (!obj || typeof obj !== "object" || depth > 4) return null;
+
+    const latKeys = ["lat", "latitude", "Latitude", "device_lat", "deviceLatitude", "site_lat"];
+    const lonKeys = ["lon", "lng", "long", "longitude", "Longitude", "device_lon", "deviceLongitude", "site_lon"];
+
+    let lat = null;
+    let lon = null;
+
+    for (const key of latKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        lat = safeNum(obj[key]);
+        if (lat !== null) break;
+      }
+    }
+
+    for (const key of lonKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        lon = safeNum(obj[key]);
+        if (lon !== null) break;
+      }
+    }
+
+    if (hasValidCoords(lat, lon)) {
+      return { lat, lon };
+    }
+
+    // Some APIs use GeoJSON style coordinates: [longitude, latitude].
+    if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
+      const coordLon = safeNum(obj.coordinates[0]);
+      const coordLat = safeNum(obj.coordinates[1]);
+      if (hasValidCoords(coordLat, coordLon)) {
+        return { lat: coordLat, lon: coordLon };
+      }
+    }
+
+    for (const value of Object.values(obj)) {
+      const found = getCoordsFromObject(value, depth + 1);
+      if (found) return found;
+    }
+
+    return null;
   }
 
   function getC12LatestTime(rows) {
@@ -1412,6 +1462,15 @@
       const dataRoot = res?.resolved_sn ? res.data : res;
       const allQ = dataRoot?.data || [];
       quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+
+      // Use coordinates from the API response if available. This is mainly for
+      // MOD-00536, where the public device page confirms the sensor but does
+      // not expose exact lat/lon in the visible page text.
+      const coords = getCoordsFromObject(res) || getCoordsFromObject(dataRoot) || getCoordsFromObject(quantCache[s.sn]);
+      if (coords) {
+        s.lat = coords.lat;
+        s.lon = coords.lon;
+      }
     }
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
