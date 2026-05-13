@@ -378,6 +378,7 @@
 
 <script>
   const API_PROXY = "/api/aq";
+  const STATION_TIMESERIES_HOURS = 18;
 
   // HU-Beltsville / MDE Howard University reference monitor.
   // AQS ID: 240330030. Used to replace the older DC comparative trend line.
@@ -460,7 +461,7 @@
   let userMarker = null;
   let markerMeta = {};
 
-  const map = L.map("map").setView([38.9213, -76.9175], 13);
+  const map = L.map("map").setView([38.9283, -76.9158], 15);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -927,11 +928,132 @@
     return [];
   }
 
-  async function loadBeltsvilleReferenceTrend() {
+  const STATION_TIMESERIES_WINDOW_MS = STATION_TIMESERIES_HOURS * 60 * 60 * 1000;
+
+  function stationSeriesWindowEndMs() {
+    return Date.now();
+  }
+
+  function stationSeriesCutoffMs(endTimeMs = Date.now()) {
+    const end = normalizeTimestampMs(endTimeMs) || Date.now();
+    return end - STATION_TIMESERIES_WINDOW_MS;
+  }
+
+  function setChartTimeWindow(endTimeMs = Date.now()) {
+    const end = normalizeTimestampMs(endTimeMs) || Date.now();
+    chart.options.scales.x.min = stationSeriesCutoffMs(end);
+    chart.options.scales.x.max = end;
+  }
+
+  function filterToStationWindow(series, endTimeMs = Date.now()) {
+    const end = normalizeTimestampMs(endTimeMs) || Date.now();
+    const cutoff = stationSeriesCutoffMs(end);
+
+    return (Array.isArray(series) ? series : [])
+      .filter(p => p && p.x !== null && p.y !== null && Number.isFinite(Number(p.y)))
+      .filter(p => p.x >= cutoff && p.x <= end)
+      .sort((a, b) => a.x - b.x);
+  }
+
+  async function loadBeltsvilleReferenceTrend(endTimeMs = Date.now()) {
     chart.data.datasets[1].label = BELTSVILLE_REFERENCE.name;
 
     const series = await fetchBeltsvilleReferenceTrend();
-    chart.data.datasets[1].data = series;
+    chart.data.datasets[1].data = filterToStationWindow(series, endTimeMs);
+  }
+
+  function applyStationSeriesWindow(series, endTimeMs = Date.now()) {
+    const cleanSeries = filterToStationWindow(series, endTimeMs);
+    chart.data.datasets[0].data = cleanSeries;
+    setChartTimeWindow(endTimeMs);
+    return cleanSeries.length ? cleanSeries[cleanSeries.length - 1].x : null;
+  }
+
+  function c12CEAQIFromBCValue(bc, compId = "C12") {
+    const pollutants = [];
+    addC12Pollutants(pollutants, bc, compId);
+    const result = calcCEAQI(pollutants, {
+      preferredBaseStartsWith: "BC non-cancer"
+    });
+    return result.ceaqi || null;
+  }
+
+  function getRowsFromPayload(payload, depth = 0) {
+    if (!payload || depth > 3) return [];
+    if (Array.isArray(payload)) return payload;
+    if (typeof payload !== "object") return [];
+
+    const directKeys = ["data", "rows", "readings", "samples", "values", "items", "series", "results"];
+    for (const key of directKeys) {
+      if (Array.isArray(payload[key])) return payload[key];
+      if (payload[key] && typeof payload[key] === "object") {
+        const nested = getRowsFromPayload(payload[key], depth + 1);
+        if (nested.length) return nested;
+      }
+    }
+
+    for (const value of Object.values(payload)) {
+      const nested = getRowsFromPayload(value, depth + 1);
+      if (nested.length) return nested;
+    }
+
+    return [];
+  }
+
+  function parseC12HistoryPoint(row, compId) {
+    if (!row) return null;
+
+    if (Array.isArray(row)) {
+      const time = normalizeTimestampMs(row[0]);
+      const bc = activeNum(row[1]);
+      const ceaqi = c12CEAQIFromBCValue(bc, compId);
+      return time !== null && ceaqi !== null ? { x: time, y: ceaqi } : null;
+    }
+
+    if (typeof row === "object") {
+      const streamId = String(row.streamId ?? row.stream_id ?? row.id ?? row.name ?? "").toLowerCase();
+      if (streamId && !streamId.includes("880") && !streamId.includes("black") && !streamId.includes("bc")) {
+        return null;
+      }
+
+      const time = normalizeTimestampMs(row.time ?? row.timestamp ?? row.ts ?? row.datetime ?? row.dateTime);
+      const bc = activeNum(row.data ?? row.value ?? row.v ?? row.reading ?? row.measurement ?? row.bc);
+      const ceaqi = c12CEAQIFromBCValue(bc, compId);
+      return time !== null && ceaqi !== null ? { x: time, y: ceaqi } : null;
+    }
+
+    return null;
+  }
+
+  async function fetchC12HistorySeries(compId, hours = STATION_TIMESERIES_HOURS) {
+    const endMs = Date.now();
+    const startMs = endMs - (hours * 60 * 60 * 1000);
+    const startSec = Math.floor(startMs / 1000);
+    const endSec = Math.floor(endMs / 1000);
+
+    // The current dashboard already uses grove_last. These extra action names let the
+    // same HTML work if the API proxy exposes C12/GroveStreams history under one of them.
+    const requests = [
+      { action: "grove_history", compId, streamId: "880nm", start: startSec, end: endSec },
+      { action: "grove_history", compId, streamId: "880nm", start: startMs, end: endMs },
+      { action: "grove_stream_history", compId, streamId: "880nm", start: startSec, end: endSec },
+      { action: "c12_history", compId, streamId: "880nm", start: startSec, end: endSec }
+    ];
+
+    for (const params of requests) {
+      const payload = await proxyGet(params);
+      const rows = getRowsFromPayload(payload);
+      const series = rows
+        .map(row => parseC12HistoryPoint(row, compId))
+        .filter(Boolean)
+        .filter(p => p.x >= startMs && p.x <= endMs)
+        .sort((a, b) => a.x - b.x);
+
+      if (series.length > 0) return series;
+    }
+
+    console.warn(`No C12 history returned for ${compId}. A true C12 line requires the /api/aq proxy to support a GroveStreams history action such as grove_history or c12_history.`);
+    return [];
   }
 
   async function proxyGet(params) {
@@ -1466,12 +1588,12 @@
   }
 
   async function updateDisplay(id) {
-    const nowSec = Math.floor(Date.now() / 1000);
-    const start24h = nowSec - 86400;
+    const windowEndMs = stationSeriesWindowEndMs();
+    const nowSec = Math.floor(windowEndMs / 1000);
+    const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
 
-    await loadBeltsvilleReferenceTrend();
-
-    chart.options.scales.x.min = null;
+    await loadBeltsvilleReferenceTrend(windowEndMs);
+    setChartTimeWindow(windowEndMs);
 
     let { lat: stationLat, lon: stationLon } = getStationCoords(id);
 
@@ -1501,19 +1623,22 @@
       document.getElementById("val_param").innerText = pm25Live !== null ? `${pm25Live} µg/m³` : "--";
       document.getElementById("label_param").innerText = "PM2.5 Concentration";
 
-      const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
+      const json = await proxyGet({ action: "purpleair_history", id, start: seriesStartSec });
       if (json?.data && json.data.length > 0) {
-        latestTimeMs = freshestTime(latestTimeMs, ...json.data.map(r => normalizeTimestampMs(r[0])));
-
-        chart.data.datasets[0].data = json.data
+        const paSeries = json.data
           .filter(r => {
             const val = safeNum(r[1]);
             return val !== null && val > 0 && val < 250;
           })
-          .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+          .map(r => ({ x: normalizeTimestampMs(r[0]), y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+          .filter(p => p.x !== null && p.y !== null)
           .sort((a, b) => a.x - b.x);
+
+        const latestFromSeries = applyStationSeriesWindow(paSeries, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
       } else {
         chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
       }
 
       const ownPollutants = [];
@@ -1562,13 +1687,11 @@
         .sort((a, b) => a.x - b.x);
 
       if (series.length > 0) {
-        const latestTime = series[series.length - 1].x;
-        latestTimeMs = freshestTime(latestTimeMs, latestTime);
-        const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
-        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
-        chart.options.scales.x.min = cutoff18h;
+        const latestFromSeries = applyStationSeriesWindow(series, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
       } else {
         chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
       }
 
       const ownPollutants = [];
@@ -1594,7 +1717,7 @@
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
       const bcRow = rows.find(r => r.streamId === "880nm");
       const bc = activeNum(bcRow?.data);
-      const latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
+      let latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
 
       const c12Obj = C12S.find(x => x.compId === compId);
       if (c12Obj && hasValidCoords(lat, lon)) {
@@ -1615,7 +1738,21 @@
       document.getElementById("statName").innerText = c12Obj ? c12Obj.name : id;
       document.getElementById("val_param").innerText = bc !== null ? `${bc} ng/m³` : "--";
       document.getElementById("label_param").innerText = "Black Carbon Concentration";
-      chart.data.datasets[0].data = [];
+
+      const c12Series = await fetchC12HistorySeries(compId, STATION_TIMESERIES_HOURS);
+      if (c12Series.length > 0) {
+        const latestFromSeries = applyStationSeriesWindow(c12Series, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
+      } else if (latestTimeMs !== null && bc !== null) {
+        const singlePoint = c12CEAQIFromBCValue(bc, compId);
+        chart.data.datasets[0].data = singlePoint !== null && latestTimeMs >= stationSeriesCutoffMs(windowEndMs)
+          ? [{ x: latestTimeMs, y: singlePoint }]
+          : [];
+        setChartTimeWindow(windowEndMs);
+      } else {
+        chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
+      }
 
       const ownPollutants = [];
       addC12Pollutants(ownPollutants, bc, compId);
