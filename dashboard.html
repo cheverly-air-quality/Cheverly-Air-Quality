@@ -849,23 +849,14 @@
       };
     }
 
-    const preferredPrefixes = Array.isArray(options.preferredBaseStartsWith)
-      ? options.preferredBaseStartsWith
-      : (options.preferredBaseStartsWith ? [options.preferredBaseStartsWith] : []);
-
-    let baseIndex = -1;
-
-    if (preferredPrefixes.length > 0) {
-      baseIndex = valid.findIndex(p => preferredPrefixes.some(prefix => p.label.startsWith(prefix)));
-    }
-
-    // If the preferred dominant variable is missing or inactive, fall back to the highest valid AQI.
-    if (baseIndex < 0) {
-      baseIndex = 0;
-      for (let i = 1; i < valid.length; i++) {
-        if (valid[i].aqi > valid[baseIndex].aqi) {
-          baseIndex = i;
-        }
+    // CE-AQI draft method:
+    // The base is the highest available pollutant-specific AQI value.
+    // Do not force the station's own sensor variable to be the base, because that can hide
+    // higher supporting pollutants like O3, NO2, BC, or DPM.
+    let baseIndex = 0;
+    for (let i = 1; i < valid.length; i++) {
+      if (valid[i].aqi > valid[baseIndex].aqi) {
+        baseIndex = i;
       }
     }
 
