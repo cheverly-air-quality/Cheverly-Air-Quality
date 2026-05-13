@@ -284,6 +284,14 @@
       color: #888;
     }
 
+    .latest-time {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+      font-weight: 600;
+    }
+
     .dashboard-disclaimer {
       position: fixed;
       bottom: 0;
@@ -334,6 +342,7 @@
         <div id="extraDetails" class="kv" style="text-align:center; display: block;">
           <div id="val_param" style="font-weight:bold; font-size:1.1rem; text-align:center;">--</div>
           <div id="label_param" class="sublabel">Concentration</div>
+          <div id="latest_time" class="latest-time">Latest detected: --</div>
         </div>
 
         <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
@@ -420,6 +429,7 @@
   let quantCache = {};
   let c12Cache = {};
   let userMarker = null;
+  let markerMeta = {};
 
   const map = L.map("map").setView([38.9213, -76.9175], 13);
 
@@ -531,6 +541,137 @@
     const la = Number(lat);
     const lo = Number(lon);
     return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
+  }
+
+  function normalizeTimestampMs(value) {
+    if (value === null || value === undefined || value === "") return null;
+
+    if (value instanceof Date) {
+      const ms = value.getTime();
+      return Number.isFinite(ms) ? ms : null;
+    }
+
+    if (typeof value === "number") {
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return value < 1e12 ? value * 1000 : value;
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        return normalizeTimestampMs(numeric);
+      }
+
+      const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(trimmed);
+      const parsed = Date.parse(hasTimezone ? trimmed : `${trimmed}Z`);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+  }
+
+  function isReasonableSensorTime(ms) {
+    if (!Number.isFinite(Number(ms))) return false;
+    const t = Number(ms);
+    const jan2020 = Date.UTC(2020, 0, 1);
+    const oneDayAhead = Date.now() + (24 * 60 * 60 * 1000);
+    return t >= jan2020 && t <= oneDayAhead;
+  }
+
+  function freshestTime(...times) {
+    const valid = times
+      .map(normalizeTimestampMs)
+      .filter(isReasonableSensorTime);
+
+    return valid.length ? Math.max(...valid) : null;
+  }
+
+  function formatLatestTime(ms) {
+    const t = normalizeTimestampMs(ms);
+    if (!isReasonableSensorTime(t)) return "--";
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short"
+    }).format(new Date(t));
+  }
+
+  function setLatestTimeDisplay(ms) {
+    const el = document.getElementById("latest_time");
+    if (!el) return;
+    el.innerText = `Latest detected: ${formatLatestTime(ms)}`;
+  }
+
+  function getTimestampFromObject(obj) {
+    if (!obj || typeof obj !== "object") return null;
+
+    const possibleKeys = [
+      "timestamp",
+      "time",
+      "last_seen",
+      "lastSeen",
+      "time_stamp",
+      "datetime",
+      "dateTime",
+      "created_at",
+      "observed_at",
+      "ts"
+    ];
+
+    for (const key of possibleKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const t = normalizeTimestampMs(obj[key]);
+        if (isReasonableSensorTime(t)) return t;
+      }
+    }
+
+    return null;
+  }
+
+  function getTimestampFromArray(row) {
+    if (!Array.isArray(row)) return null;
+
+    const candidates = [];
+
+    for (let i = 0; i < row.length; i++) {
+      const t = normalizeTimestampMs(row[i]);
+      if (isReasonableSensorTime(t)) {
+        candidates.push(t);
+      }
+    }
+
+    return candidates.length ? Math.max(...candidates) : null;
+  }
+
+  function getPurpleAirBoxTimestamp(row) {
+    if (!row) return null;
+    return Array.isArray(row) ? getTimestampFromArray(row) : getTimestampFromObject(row);
+  }
+
+  function getQuantAQTimestampMs(reading) {
+    return getTimestampFromObject(reading);
+  }
+
+  function getC12LatestTime(rows) {
+    if (!Array.isArray(rows)) return null;
+
+    const bcRow = rows.find(r => r.streamId === "880nm");
+    const bcTime = normalizeTimestampMs(bcRow?.time);
+    if (isReasonableSensorTime(bcTime)) return bcTime;
+
+    const allTimes = rows.map(r => normalizeTimestampMs(r?.time)).filter(isReasonableSensorTime);
+    return allTimes.length ? Math.max(...allTimes) : null;
+  }
+
+  function buildMarkerTooltip(value, latestTimeMs, baseLabel) {
+    const baseText = baseLabel ? `<br>Base: ${baseLabel}` : "";
+    return `CE-AQI: ${value}${baseText}<br>Latest detected: ${formatLatestTime(latestTimeMs)}`;
   }
 
   async function proxyGet(params) {
@@ -689,7 +830,7 @@
     return pollutants;
   }
 
-  function calcCEAQI(pollutants) {
+  function calcCEAQI(pollutants, options = {}) {
     const valid = pollutants
       .map(p => ({
         ...p,
@@ -708,10 +849,23 @@
       };
     }
 
-    let baseIndex = 0;
-    for (let i = 1; i < valid.length; i++) {
-      if (valid[i].aqi > valid[baseIndex].aqi) {
-        baseIndex = i;
+    const preferredPrefixes = Array.isArray(options.preferredBaseStartsWith)
+      ? options.preferredBaseStartsWith
+      : (options.preferredBaseStartsWith ? [options.preferredBaseStartsWith] : []);
+
+    let baseIndex = -1;
+
+    if (preferredPrefixes.length > 0) {
+      baseIndex = valid.findIndex(p => preferredPrefixes.some(prefix => p.label.startsWith(prefix)));
+    }
+
+    // If the preferred dominant variable is missing or inactive, fall back to the highest valid AQI.
+    if (baseIndex < 0) {
+      baseIndex = 0;
+      for (let i = 1; i < valid.length; i++) {
+        if (valid[i].aqi > valid[baseIndex].aqi) {
+          baseIndex = i;
+        }
       }
     }
 
@@ -811,13 +965,21 @@
     renderCEAQIBreakdown(result);
   }
 
-  function updateMarkerValue(id, ceaqi) {
+  function updateMarkerValue(id, ceaqi, latestTimeMs = null, baseLabel = null) {
     const marker = markerMap[id];
     if (!marker) return;
 
     const value = Number.isFinite(Number(ceaqi)) ? Math.round(Number(ceaqi)) : 0;
+    const oldMeta = markerMeta[id] || {};
+
+    markerMeta[id] = {
+      ceaqi: value,
+      latestTimeMs: latestTimeMs ?? oldMeta.latestTimeMs ?? null,
+      baseLabel: baseLabel ?? oldMeta.baseLabel ?? null
+    };
+
     marker.setStyle({ fillColor: getAQIColor(value) });
-    marker.bindTooltip(`CE-AQI: ${value}`, {
+    marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
       permanent: false,
       direction: "top",
       className: "leaflet-tooltip-own",
@@ -826,7 +988,7 @@
     });
   }
 
-  function createMarker(id, lat, lon, val) {
+  function createMarker(id, lat, lon, val, latestTimeMs = null, baseLabel = null) {
     if (!hasValidCoords(lat, lon)) return;
 
     const value = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
@@ -839,7 +1001,13 @@
       fillOpacity: 0.9
     });
 
-    marker.bindTooltip(`CE-AQI: ${value}`, {
+    markerMeta[id] = {
+      ceaqi: value,
+      latestTimeMs,
+      baseLabel
+    };
+
+    marker.bindTooltip(buildMarkerTooltip(value, latestTimeMs, baseLabel), {
       permanent: false,
       direction: "top",
       className: "leaflet-tooltip-own",
@@ -1042,15 +1210,17 @@
       const liveStation = paDataArr.find(r => String(r[0]) === id);
 
       let pm25Live = paCoords[id]?.pm25 ?? null;
+      let latestTimeMs = paCoords[id]?.latestTimeMs ?? null;
 
       if (liveStation) {
         pm25Live = safeNum(liveStation[3]);
+        latestTimeMs = freshestTime(latestTimeMs, getPurpleAirBoxTimestamp(liveStation));
 
         const liveLat = safeNum(liveStation[1]);
         const liveLon = safeNum(liveStation[2]);
 
         if (hasValidCoords(liveLat, liveLon)) {
-          paCoords[id] = { lat: liveLat, lon: liveLon, pm25: pm25Live };
+          paCoords[id] = { lat: liveLat, lon: liveLon, pm25: pm25Live, latestTimeMs };
           stationLat = liveLat;
           stationLon = liveLon;
         }
@@ -1062,6 +1232,8 @@
 
       const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
       if (json?.data && json.data.length > 0) {
+        latestTimeMs = freshestTime(latestTimeMs, ...json.data.map(r => normalizeTimestampMs(r[0])));
+
         chart.data.datasets[0].data = json.data
           .filter(r => {
             const val = safeNum(r[1]);
@@ -1080,15 +1252,20 @@
         includeNearestQuantPM25: false
       });
 
-      const result = calcCEAQI(pollutants);
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
+      });
       displayCEAQIResult(result);
-      updateMarkerValue(id, result.ceaqi);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("MOD-")) {
       const today = new Date().toISOString().split("T")[0];
       const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
       const dataRoot = resA?.resolved_sn ? resA.data : resA;
       const allData = dataRoot?.data || [];
       const last = allData.length ? allData[allData.length - 1] : quantCache[id];
+
+      let latestTimeMs = getQuantAQTimestampMs(last);
 
       if (last) {
         quantCache[id] = last;
@@ -1115,6 +1292,7 @@
 
       if (series.length > 0) {
         const latestTime = series[series.length - 1].x;
+        latestTimeMs = freshestTime(latestTimeMs, latestTime);
         const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
         chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
         chart.options.scales.x.min = cutoff18h;
@@ -1130,9 +1308,12 @@
         includeNearestQuantPM25: false
       });
 
-      const result = calcCEAQI(pollutants);
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: `PM2.5 (${id})`
+      });
       displayCEAQIResult(result);
-      updateMarkerValue(id, result.ceaqi);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("C12-")) {
       const compId = id.replace("C12-", "");
       const res = await proxyGet({ action: "grove_last", compId });
@@ -1140,7 +1321,9 @@
 
       const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
-      const bc = activeNum(rows.find(r => r.streamId === "880nm")?.data);
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bc = activeNum(bcRow?.data);
+      const latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
 
       const c12Obj = C12S.find(x => x.compId === compId);
       if (c12Obj && hasValidCoords(lat, lon)) {
@@ -1154,7 +1337,8 @@
         ...(c12Cache[compId] || {}),
         bc,
         lat: stationLat,
-        lon: stationLon
+        lon: stationLon,
+        latestTimeMs
       };
 
       document.getElementById("statName").innerText = c12Obj ? c12Obj.name : id;
@@ -1170,9 +1354,12 @@
         includeNearestQuantPM25: true
       });
 
-      const result = calcCEAQI(pollutants);
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: "BC non-cancer"
+      });
       displayCEAQIResult(result);
-      updateMarkerValue(id, result.ceaqi);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     }
 
     chart.update();
@@ -1185,6 +1372,7 @@
     sel.innerHTML = "";
     cluster.clearLayers();
     markerMap = {};
+    markerMeta = {};
 
     const pa = await proxyGet({ action: "purpleair_box" });
     const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
@@ -1194,9 +1382,10 @@
       const lat = safeNum(r[1]);
       const lon = safeNum(r[2]);
       const pm25 = activeNum(r[3]);
+      const latestTimeMs = getPurpleAirBoxTimestamp(r);
 
       if (SENSORS[id] && hasValidCoords(lat, lon)) {
-        paCoords[id] = { lat, lon, pm25 };
+        paCoords[id] = { lat, lon, pm25, latestTimeMs };
       }
     }
 
@@ -1217,15 +1406,16 @@
       const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
       const bcRow = rows.find(r => r.streamId === "880nm");
-      const bcTime = Number(bcRow?.time || 0);
-      const bcFresh = bcTime > 0 && (now - bcTime) < THREE_HOURS_MS;
+      const bcTime = normalizeTimestampMs(bcRow?.time);
+      const latestTimeMs = getC12LatestTime(rows);
+      const bcFresh = bcTime !== null && (now - bcTime) < THREE_HOURS_MS;
       const bc = bcFresh ? activeNum(bcRow?.data) : null;
 
       if (!bcFresh && bcRow) {
         console.log(`C12 ${c.compId}: stale reading skipped`);
       }
 
-      c12Cache[c.compId] = { bc, lat, lon };
+      c12Cache[c.compId] = { bc, lat, lon, latestTimeMs };
 
       if (hasValidCoords(lat, lon)) {
         c.lat = lat;
@@ -1258,9 +1448,11 @@
 
       const result = calcCEAQI(buildCompletePollutantsForLocation(lat, lon, ownPollutants, {
         includeNearestQuantPM25: false
-      }));
+      }), {
+        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
+      });
 
-      createMarker(id, lat, lon, result.ceaqi);
+      createMarker(id, lat, lon, result.ceaqi, paCoords[id]?.latestTimeMs ?? null, result.baseLabel);
       sel.add(new Option(SENSORS[id], id));
     }
 
@@ -1273,9 +1465,11 @@
       const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
         skipQuantAQ: s.sn,
         includeNearestQuantPM25: false
-      }));
+      }), {
+        preferredBaseStartsWith: `PM2.5 (${s.sn})`
+      });
 
-      createMarker(s.sn, s.lat, s.lon, result.ceaqi);
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi, getQuantAQTimestampMs(quantCache[s.sn]), result.baseLabel);
       sel.add(new Option(s.name, s.sn));
     }
 
@@ -1289,9 +1483,11 @@
       const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
         skipC12: c.compId,
         includeNearestQuantPM25: true
-      }));
+      }), {
+        preferredBaseStartsWith: "BC non-cancer"
+      });
 
-      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi);
+      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi, cd.latestTimeMs ?? null, result.baseLabel);
       sel.add(new Option(c.name, `C12-${c.compId}`));
     }
 
