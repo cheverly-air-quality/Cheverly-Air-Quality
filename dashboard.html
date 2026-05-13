@@ -1,299 +1,1315 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>Cheverly Air Quality | Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cheverly Air Quality | Dashboard</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+  <!-- Core Leaflet, MarkerCluster, and Chart.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
-<style>
-:root{
---brand:#1a305e;
---green:#00e400;
---yellow:#ffff00;
---orange:#ff7e00;
---red:#ff0000;
---purple:#8f3f97;
---maroon:#7e0023;
-}
+  <style>
+    :root {
+      --brand-navy: #1a305e;
+      --search-blue: #4477ce;
+      --aqi-green: #00e400;
+      --aqi-yellow: #ffff00;
+      --aqi-orange: #ff7e00;
+      --aqi-red: #ff0000;
+      --aqi-purple: #8f3f97;
+      --aqi-maroon: #7e0023;
+    }
 
-html,body{
-margin:0;
-padding:0;
-height:100%;
-font-family:Segoe UI,sans-serif;
-overflow:hidden;
-background:#fdfdfd;
-}
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      background: #fdfdfd;
+    }
 
-.topbar{
-height:64px;
-background:var(--brand);
-color:white;
-display:flex;
-align-items:center;
-justify-content:space-between;
-padding:0 24px;
-}
+    .topbar {
+      background: var(--brand-navy);
+      color: white;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+      z-index: 2000;
+      position: relative;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
 
-#layout{display:flex;height:calc(100vh - 64px);}
+    .brand {
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
 
-#sidebar{
-width:370px;
-background:#f4f6f8;
-padding:20px;
-overflow-y:auto;
-border-right:1px solid #ddd;
-}
+    .nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
 
-.card{
-background:#fff;
-padding:18px;
-border-radius:12px;
-margin-bottom:18px;
-border:1px solid #ddd;
-box-shadow:0 2px 8px rgba(0,0,0,.05);
-}
+    .nav a:hover {
+      opacity: 1;
+    }
 
-label{font-size:.75rem;font-weight:700;text-transform:uppercase;color:#666;display:block;margin-bottom:8px;}
+    .nav a.active {
+      opacity: 1;
+      border-bottom: 2px solid white;
+      padding-bottom: 4px;
+    }
 
-input,select{
-width:100%;
-padding:12px;
-border-radius:8px;
-border:1px solid #ccc;
-}
+    #layout {
+      display: flex;
+      height: calc(100vh - 64px);
+      width: 100vw;
+    }
 
-button{
-width:100%;
-padding:13px;
-margin-top:10px;
-border:none;
-border-radius:8px;
-background:var(--brand);
-color:white;
-font-weight:700;
-cursor:pointer;
-}
+    #sidebar {
+      width: 380px;
+      min-width: 380px;
+      background: #f4f6f8;
+      border-right: 1px solid #ddd;
+      padding: 1.25rem;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
 
-#main{flex:1;display:flex;flex-direction:column;}
+    .card {
+      background: white;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
 
-#map{height:45%;}
+    label {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: block;
+      letter-spacing: 0.5px;
+    }
 
-#chart{height:55%;padding:15px;background:white;}
+    input,
+    select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 0.9rem;
+    }
 
-.aqi{
-font-size:70px;
-text-align:center;
-font-weight:900;
-}
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      background: var(--search-blue);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: filter 0.2s;
+      font-size: 0.9rem;
+    }
 
-.sub{text-align:center;font-size:.8rem;color:#666;}
+    button:disabled {
+      cursor: not-allowed;
+    }
 
-.map-legend{
-position:absolute;
-top:80px;
-right:15px;
-background:white;
-padding:12px;
-border-radius:10px;
-z-index:1000;
-font-size:.8rem;
-}
+    #main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
 
-.dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;}
-</style>
+    #map {
+      height: 45%;
+      width: 100%;
+      border-bottom: 1px solid #ddd;
+      z-index: 1;
+    }
+
+    #chart-box {
+      height: 55%;
+      width: 100%;
+      padding: 1.5rem;
+      box-sizing: border-box;
+      background: white;
+    }
+
+    .map-legend {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 170px;
+    }
+
+    .legend-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: var(--brand-navy);
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #444;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 10px;
+      border: 1px solid #000;
+    }
+
+    .aqi-val {
+      font-size: 72px;
+      font-weight: 900;
+      display: block;
+      text-align: center;
+      line-height: 1.1;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+    }
+
+    .sublabel {
+      font-size: 0.75rem;
+      color: #777;
+      font-weight: bold;
+      margin-top: 4px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 6px 10px;
+      font-size: 0.9rem;
+      margin-top: 20px;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+
+    .leaflet-tooltip-own {
+      background: #333 !important;
+      color: white !important;
+      border: 2px solid white !important;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      padding: 4px 8px;
+      opacity: 1 !important;
+      pointer-events: none;
+    }
+
+    .ceaqi-breakdown {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+      font-size: 0.78rem;
+      color: #555;
+    }
+
+    .ceaqi-breakdown .breakdown-title {
+      font-weight: bold;
+      color: var(--brand-navy);
+      margin-bottom: 6px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .ceaqi-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 3px 0;
+    }
+
+    .ceaqi-row span:first-child {
+      overflow-wrap: anywhere;
+    }
+
+    .ceaqi-row.base-row {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .ceaqi-row.adder-row {
+      color: #666;
+    }
+
+    .ceaqi-row.included-row {
+      color: #888;
+    }
+
+    .dashboard-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      color: #666;
+      font-size: 0.7rem;
+      padding: 4px 20px;
+      text-align: center;
+      border-top: 1px solid #ddd;
+      z-index: 3000;
+      pointer-events: none;
+    }
+  </style>
 </head>
 
 <body>
-
-<div class="topbar">
-<div><b>Cheverly Air Quality Dashboard</b></div>
-</div>
+<header class="topbar">
+  <div class="brand">Cheverly Air Quality</div>
+  <nav class="nav">
+    <a href="index.html">Home</a>
+    <a href="dashboard.html" class="active">Map & Data</a>
+    <a href="writeup.html">FAQs</a>
+  </nav>
+</header>
 
 <div id="layout">
+  <aside id="sidebar">
+    <div class="card">
+      <label>Location Search</label>
+      <input type="text" id="addrInput" placeholder="Enter an address, for example 123 Main St, Cheverly, MD">
+      <button id="locateBtn">Find Nearest Station</button>
+    </div>
 
-<div id="sidebar">
+    <div class="card">
+      <label>Station Selection</label>
+      <select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
+    </div>
 
-<div class="card">
-<label>Search</label>
-<input id="addrInput" placeholder="Enter address"/>
-<button id="locateBtn">Find Nearest Station</button>
+    <div class="card" style="min-height: 150px;">
+      <label>Live Station Reading</label>
+      <div id="details">
+        <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
+        <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
+        <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">CE-AQI</div>
+
+        <div id="extraDetails" class="kv" style="text-align:center; display: block;">
+          <div id="val_param" style="font-weight:bold; font-size:1.1rem; text-align:center;">--</div>
+          <div id="label_param" class="sublabel">Concentration</div>
+        </div>
+
+        <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
+          <div class="breakdown-title">CE-AQI Breakdown</div>
+          <div id="ceaqi-rows"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="main-content">
+    <div id="map"></div>
+
+    <div class="map-legend">
+      <div class="legend-title">Air Quality Index</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
+      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
+    </div>
+
+    <div id="chart-box">
+      <canvas id="airChart"></canvas>
+    </div>
+  </div>
 </div>
 
-<div class="card">
-<label>Station</label>
-<select id="devSel" onchange="handleDropdownChange(this.value,true)"></select>
-</div>
-
-<div class="card">
-<div id="statName" style="text-align:center;font-weight:700;">--</div>
-<div id="statAQI" class="aqi">--</div>
-<div class="sub">CE-AQI</div>
-
-<div style="margin-top:10px;text-align:center;">
-<div id="val_param">--</div>
-<div class="sub">Concentration</div>
-</div>
-
-</div>
-
-</div>
-
-<div id="main">
-
-<div id="map"></div>
-
-<div class="map-legend">
-<div><span class="dot" style="background:var(--green)"></span>Good</div>
-<div><span class="dot" style="background:var(--yellow)"></span>Moderate</div>
-<div><span class="dot" style="background:var(--orange)"></span>Unhealthy for Sensitive</div>
-<div><span class="dot" style="background:var(--red)"></span>Unhealthy</div>
-<div><span class="dot" style="background:var(--purple)"></span>Very Unhealthy</div>
-<div><span class="dot" style="background:var(--maroon)"></span>Hazardous</div>
-</div>
-
-<div id="chart">
-<canvas id="airChart"></canvas>
-</div>
-
-</div>
+<div class="dashboard-disclaimer">
+  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
 </div>
 
 <script>
+  const API_PROXY = "/api/aq";
 
-/* =========================
-DATA (FULL RESTORED)
-========================= */
+  const SENSORS = {
+    "52823": "EJAT.CV.6.52823",
+    "53677": "EJAT.CV.1.53677",
+    "54239": "EJAT.CV.6.54239",
+    "54293": "EJAT.CV.2.54293",
+    "57777": "EJAT.CV.1.57777",
+    "57783": "EJAT.CV.6.57783",
+    "57811": "EJAT.CV.4.57811",
+    "57841": "EJAT.CV.3.57841",
+    "203577": "EJAT.CV.2.203577",
+    "203601": "EJAT.CV.1.203601",
+    "207729": "EJAT.CV.1.207729",
+    "211993": "EJAT.CV.3.211993",
+    "156595": "EJAT.CV.156595",
+    "284362": "EJAT.PG.1.284362",
+    "160037": "EJAT.PG.1.160037",
+    "175563": "EJAT.PG.1.175563",
+    "178169": "EJAT.PG.1.178169",
+    "184191": "EJAT.PG.1.184191",
+    "197937": "EJAT.PG.1.197937",
+    "218227": "EJAT.PG.1.218227",
+    "218237": "EJAT.PG.1.218237",
+    "218273": "EJAT.PG.1.218273",
+    "57955": "EJAT.FH.1.57955",
+    "185085": "EJAT.FH.1.185085",
+    "203597": "EJAT.FH.1.203597",
+    "181253": "EJAT.CH.1.181253"
+  };
 
-const SENSORS = {
-"52823":"EJAT.CV.6.52823","53677":"EJAT.CV.1.53677","54239":"EJAT.CV.6.54239","54293":"EJAT.CV.2.54293",
-"57777":"EJAT.CV.1.57777","57783":"EJAT.CV.6.57783","57811":"EJAT.CV.4.57811","57841":"EJAT.CV.3.57841",
-"203577":"EJAT.CV.2.203577","203601":"EJAT.CV.1.203601","207729":"EJAT.CV.1.207729","211993":"EJAT.CV.3.211993",
-"156595":"EJAT.CV.156595","284362":"EJAT.PG.1.284362","160037":"EJAT.PG.1.160037","175563":"EJAT.PG.1.175563",
-"178169":"EJAT.PG.1.178169","184191":"EJAT.PG.1.184191","197937":"EJAT.PG.1.197937","218227":"EJAT.PG.1.218227",
-"218237":"EJAT.PG.1.218237","218273":"EJAT.PG.1.218273","57955":"EJAT.FH.1.57955","185085":"EJAT.FH.1.185085",
-"203597":"EJAT.FH.1.203597","181253":"EJAT.CH.1.181253"
-};
+  const SPODS = [
+    { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
+    { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
+    { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
+    { sn: "MOD-00748", name: "QuantAQ MOD-00748", lat: 38.969685, lon: -76.542290 },
+    { sn: "MOD-00749", name: "QuantAQ MOD-00749", lat: 39.055400, lon: -76.878800 }
+  ];
 
-const SPODS=[
-{sn:"MOD-00745",name:"QuantAQ MOD-00745",lat:38.9051,lon:-76.91},
-{sn:"MOD-00746",name:"QuantAQ MOD-00746",lat:39.1432,lon:-76.846},
-{sn:"MOD-00747",name:"QuantAQ MOD-00747",lat:39.233944,lon:-76.504501},
-{sn:"MOD-00748",name:"QuantAQ MOD-00748",lat:38.969685,lon:-76.54229},
-{sn:"MOD-00749",name:"QuantAQ MOD-00749",lat:39.0554,lon:-76.8788}
-];
+  const C12S = [
+    { compId: "D14781", name: "C-12 D14781", lat: null, lon: null },
+    { compId: "D14645", name: "C-12 D14645", lat: null, lon: null },
+    { compId: "D17615", name: "C-12 D17615", lat: null, lon: null },
+    { compId: "E10588", name: "C-12 E10588", lat: null, lon: null },
+    { compId: "D14646", name: "C-12 D14646", lat: null, lon: null }
+  ];
 
-const C12S=[
-{compId:"D14781",name:"C-12 D14781",lat:null,lon:null},
-{compId:"D14645",name:"C-12 D14645",lat:null,lon:null},
-{compId:"D17615",name:"C-12 D17615",lat:null,lon:null},
-{compId:"E10588",name:"C-12 E10588",lat:null,lon:null},
-{compId:"D14646",name:"C-12 D14646",lat:null,lon:null}
-];
+  let markerMap = {};
+  let paCoords = {};
+  let quantCache = {};
+  let c12Cache = {};
+  let userMarker = null;
 
-/* =========================
-MAP + CLUSTER FIX
-========================= */
+  const map = L.map("map").setView([38.9213, -76.9175], 13);
 
-const map=L.map("map").setView([38.92,-76.91],13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+  const cluster = L.markerClusterGroup({
+    disableClusteringAtZoom: 16,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    maxClusterRadius: 55
+  });
 
-const cluster=L.markerClusterGroup({disableClusteringAtZoom:16});
-map.addLayer(cluster);
+  map.addLayer(cluster);
 
-let markerMap={};
+  const chart = new Chart(document.getElementById("airChart").getContext("2d"), {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: "Station CE-AQI",
+          data: [],
+          borderColor: "#4477ce",
+          tension: 0.1,
+          fill: true,
+          backgroundColor: "rgba(68, 119, 206, 0.1)",
+          spanGaps: true
+        },
+        {
+          label: "DC Comparative Trend",
+          data: [],
+          borderColor: "rgba(255, 0, 0, 0.6)",
+          borderDash: [5, 5],
+          tension: 0.3,
+          fill: false,
+          pointRadius: 0,
+          spanGaps: true,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { type: "time", time: { unit: "hour" } },
+        y: { beginAtZero: true }
+      }
+    }
+  });
 
-/* =========================
-COLOR FIX (CONSISTENT)
-========================= */
+  const BP_PM25_24H = [
+    { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },
+    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500 }
+  ];
 
-function getAQIColor(aqi){
-aqi=Number(aqi);
-if(!Number.isFinite(aqi))return "#bbb";
-if(aqi<=50)return "#00e400";
-if(aqi<=100)return "#ffff00";
-if(aqi<=150)return "#ff7e00";
-if(aqi<=200)return "#ff0000";
-if(aqi<=300)return "#8f3f97";
-return "#7e0023";
-}
+  const BP_PM10_24H = [
+    { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+    { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 },
+    { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 },
+    { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200 },
+    { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300 },
+    { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500 }
+  ];
 
-/* =========================
-MARKERS (FIXED)
-========================= */
+  const BP_O3_8H = [
+    { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+    { cLow: 55, cHigh: 70, iLow: 51, iHigh: 100 },
+    { cLow: 71, cHigh: 85, iLow: 101, iHigh: 150 },
+    { cLow: 86, cHigh: 105, iLow: 151, iHigh: 200 },
+    { cLow: 106, cHigh: 200, iLow: 201, iHigh: 300 }
+  ];
 
-function createMarker(id,lat,lon,val){
+  const BP_CO_8H_PPM = [
+    { cLow: 0.0, cHigh: 4.4, iLow: 0, iHigh: 50 },
+    { cLow: 4.5, cHigh: 9.4, iLow: 51, iHigh: 100 },
+    { cLow: 9.5, cHigh: 12.4, iLow: 101, iHigh: 150 },
+    { cLow: 12.5, cHigh: 15.4, iLow: 151, iHigh: 200 },
+    { cLow: 15.5, cHigh: 30.4, iLow: 201, iHigh: 300 },
+    { cLow: 30.5, cHigh: 50.4, iLow: 301, iHigh: 500 }
+  ];
 
-if(lat==null||lon==null)return;
+  const BP_NO2_1H = [
+    { cLow: 0, cHigh: 53, iLow: 0, iHigh: 50 },
+    { cLow: 54, cHigh: 100, iLow: 51, iHigh: 100 },
+    { cLow: 101, cHigh: 360, iLow: 101, iHigh: 150 },
+    { cLow: 361, cHigh: 649, iLow: 151, iHigh: 200 },
+    { cLow: 650, cHigh: 1249, iLow: 201, iHigh: 300 },
+    { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
+  ];
 
-const v=Number.isFinite(val)?val:0;
+  function safeNum(x) {
+    const v = Number(x);
+    return Number.isFinite(v) ? v : null;
+  }
 
-const m=L.circleMarker([lat,lon],{
-radius:10,
-fillColor:getAQIColor(v),
-color:"#111",
-weight:1,
-fillOpacity:0.9
-});
+  function activeNum(x) {
+    const v = safeNum(x);
+    return v !== null && v > 0 ? v : null;
+  }
 
-m.bindTooltip(`CE-AQI: ${v}`);
+  function hasValidCoords(lat, lon) {
+    const la = Number(lat);
+    const lo = Number(lon);
+    return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
+  }
 
-m.on("click",()=>{
-document.getElementById("devSel").value=id;
-handleDropdownChange(id,true);
-});
+  async function proxyGet(params) {
+    try {
+      const url = API_PROXY + "?" + new URLSearchParams(params).toString();
+      const res = await fetch(url);
+      return res.ok ? await res.json() : null;
+    } catch (e) {
+      console.error("API request failed:", e);
+      return null;
+    }
+  }
 
-cluster.addLayer(m);
-markerMap[id]=m;
-}
+  function getAQIColor(aqi) {
+    const v = Number(aqi);
+    if (!Number.isFinite(v)) return "#bbb";
+    if (v <= 50) return "#00e400";
+    if (v <= 100) return "#ffff00";
+    if (v <= 150) return "#ff7e00";
+    if (v <= 200) return "#ff0000";
+    if (v <= 300) return "#8f3f97";
+    return "#7e0023";
+  }
 
-/* =========================
-CORE DISPLAY
-========================= */
+  function aqiFromBreakpoints(C, table) {
+    if (C === null || !Number.isFinite(Number(C))) return null;
+    const c = Number(C);
 
-function handleDropdownChange(id,fly){
+    for (const bp of table) {
+      if (c >= bp.cLow && c <= bp.cHigh) {
+        return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+      }
+    }
 
-const m=markerMap[id];
-if(m){
-if(fly)map.flyTo(m.getLatLng(),15);
-document.getElementById("statName").innerText=id;
-document.getElementById("statAQI").innerText="--";
-}
-}
+    return null;
+  }
 
-/* =========================
-INIT (SAFE ORDER)
-========================= */
+  function aqiFromBC(bcNgM3) {
+    const bc = activeNum(bcNgM3);
+    if (bc === null) return null;
+    return Math.round((bc / 600) * 100);
+  }
 
-async function init(){
+  function aqiFromDPM(bcNgM3) {
+    const bc = activeNum(bcNgM3);
+    if (bc === null) return null;
+    const dpm = bc * 1.25;
+    return Math.round((dpm / 330) * 100);
+  }
 
-const sel=document.getElementById("devSel");
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
 
-/* populate ALL sensors */
-for(const id in SENSORS){
-sel.add(new Option(SENSORS[id],id));
-createMarker(id,38.92+(Math.random()*0.1),-76.91+(Math.random()*0.1),Math.random()*150);
-}
+  function nearestQuantAQ(lat, lon) {
+    if (!hasValidCoords(lat, lon)) return null;
 
-sel.value=Object.keys(SENSORS)[0];
-handleDropdownChange(sel.value,true);
-}
+    let best = null;
+    let bestDist = Infinity;
 
-init();
+    for (const s of SPODS) {
+      if (!hasValidCoords(s.lat, s.lon)) continue;
+      const d = haversineKm(lat, lon, s.lat, s.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = s;
+      }
+    }
 
+    return best;
+  }
+
+  function nearestC12(lat, lon) {
+    if (!hasValidCoords(lat, lon)) return null;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const c of C12S) {
+      if (!hasValidCoords(c.lat, c.lon)) continue;
+      const d = haversineKm(lat, lon, c.lat, c.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+
+    return best;
+  }
+
+  function addKnownAQI(pollutants, label, aqi) {
+    const v = safeNum(aqi);
+    if (v === null || v <= 0) return;
+
+    pollutants.push({
+      label,
+      aqi: Math.round(v)
+    });
+  }
+
+  function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true) {
+    if (!qd) return;
+
+    const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
+    const o3 = activeNum(qd.o3);
+    const coPpb = activeNum(qd.co);
+    const no2 = activeNum(qd.no2);
+    const pm10 = activeNum(qd.pm10);
+
+    if (includePM25) {
+      addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H));
+    }
+
+    addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H));
+    addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM));
+    addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H));
+    addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H));
+  }
+
+  function addC12Pollutants(pollutants, bc, sourceLabel) {
+    const bcValue = activeNum(bc);
+    if (bcValue === null) return;
+
+    addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue));
+    addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue));
+  }
+
+  function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
+    const pollutants = [...ownPollutants];
+
+    if (!hasValidCoords(lat, lon)) {
+      return pollutants;
+    }
+
+    const nearestQ = nearestQuantAQ(lat, lon);
+    if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
+      addQuantAQPollutants(
+        pollutants,
+        quantCache[nearestQ.sn],
+        nearestQ.sn,
+        options.includeNearestQuantPM25 === true
+      );
+    }
+
+    const nearestC = nearestC12(lat, lon);
+    if (nearestC && nearestC.compId !== options.skipC12) {
+      addC12Pollutants(pollutants, c12Cache[nearestC.compId]?.bc, nearestC.compId);
+    }
+
+    return pollutants;
+  }
+
+  function calcCEAQI(pollutants) {
+    const valid = pollutants
+      .map(p => ({
+        ...p,
+        aqi: Math.round(Number(p.aqi))
+      }))
+      .filter(p => Number.isFinite(p.aqi) && p.aqi > 0);
+
+    if (valid.length === 0) {
+      return {
+        ceaqi: 0,
+        base: 0,
+        baseLabel: "No data",
+        adders: [],
+        valid: [],
+        contributions: []
+      };
+    }
+
+    let baseIndex = 0;
+    for (let i = 1; i < valid.length; i++) {
+      if (valid[i].aqi > valid[baseIndex].aqi) {
+        baseIndex = i;
+      }
+    }
+
+    const baseItem = valid[baseIndex];
+    const base = baseItem.aqi;
+    const baseLabel = baseItem.label;
+
+    const contributions = valid.map((p, index) => {
+      const isBase = index === baseIndex;
+      let adderPct = 0;
+
+      if (!isBase) {
+        if (p.aqi >= 120) {
+          adderPct = 0.03;
+        } else if (p.aqi >= 100) {
+          adderPct = 0.02;
+        } else if (p.aqi >= 80) {
+          adderPct = 0.01;
+        }
+      }
+
+      const adderVal = Math.round(base * adderPct);
+
+      return {
+        ...p,
+        isBase,
+        adderPct: adderPct * 100,
+        adderVal
+      };
+    });
+
+    const adders = contributions.filter(p => p.adderVal > 0);
+    const totalAdders = adders.reduce((sum, p) => sum + p.adderVal, 0);
+    const ceaqi = base + totalAdders;
+
+    return {
+      ceaqi,
+      base,
+      baseLabel,
+      adders,
+      valid,
+      contributions
+    };
+  }
+
+  function renderCEAQIBreakdown(result) {
+    const panel = document.getElementById("ceaqi-breakdown");
+    const rowsEl = document.getElementById("ceaqi-rows");
+
+    if (!result || result.ceaqi === 0 || !result.contributions.length) {
+      panel.style.display = "none";
+      rowsEl.innerHTML = "";
+      return;
+    }
+
+    panel.style.display = "block";
+    rowsEl.innerHTML = "";
+
+    for (const p of result.contributions) {
+      const row = document.createElement("div");
+
+      if (p.isBase) {
+        row.className = "ceaqi-row base-row";
+      } else if (p.adderVal > 0) {
+        row.className = "ceaqi-row adder-row";
+      } else {
+        row.className = "ceaqi-row included-row";
+      }
+
+      let rightText = `${p.aqi}`;
+
+      if (p.isBase) {
+        rightText += " base";
+      } else if (p.adderVal > 0) {
+        rightText += ` +${p.adderVal}`;
+      } else {
+        rightText += " included";
+      }
+
+      row.innerHTML = `<span>${p.label}</span><span>${rightText}</span>`;
+      rowsEl.appendChild(row);
+    }
+
+    const totalRow = document.createElement("div");
+    totalRow.className = "ceaqi-row base-row";
+    totalRow.style.borderTop = "1px solid #eee";
+    totalRow.style.marginTop = "4px";
+    totalRow.style.paddingTop = "4px";
+    totalRow.innerHTML = `<span>CE-AQI Total</span><span>${result.ceaqi}</span>`;
+    rowsEl.appendChild(totalRow);
+  }
+
+  function displayCEAQIResult(result) {
+    const value = result?.ceaqi || 0;
+    document.getElementById("statAQI").innerText = value;
+    document.getElementById("statAQI").style.color = getAQIColor(value);
+    renderCEAQIBreakdown(result);
+  }
+
+  function updateMarkerValue(id, ceaqi) {
+    const marker = markerMap[id];
+    if (!marker) return;
+
+    const value = Number.isFinite(Number(ceaqi)) ? Math.round(Number(ceaqi)) : 0;
+    marker.setStyle({ fillColor: getAQIColor(value) });
+    marker.bindTooltip(`CE-AQI: ${value}`, {
+      permanent: false,
+      direction: "top",
+      className: "leaflet-tooltip-own",
+      sticky: true,
+      opacity: 1
+    });
+  }
+
+  function createMarker(id, lat, lon, val) {
+    if (!hasValidCoords(lat, lon)) return;
+
+    const value = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
+
+    const marker = L.circleMarker([Number(lat), Number(lon)], {
+      radius: 11,
+      fillColor: getAQIColor(value),
+      color: "#000",
+      weight: 2,
+      fillOpacity: 0.9
+    });
+
+    marker.bindTooltip(`CE-AQI: ${value}`, {
+      permanent: false,
+      direction: "top",
+      className: "leaflet-tooltip-own",
+      sticky: true,
+      opacity: 1
+    });
+
+    marker.on("mouseover", function () {
+      this.openTooltip();
+    });
+
+    marker.on("mouseout", function () {
+      this.closeTooltip();
+    });
+
+    marker.on("click", () => {
+      document.getElementById("devSel").value = id;
+      handleDropdownChange(id, true);
+    });
+
+    cluster.addLayer(marker);
+    markerMap[id] = marker;
+  }
+
+  function zoomToStation(id, zoomLevel = 16) {
+    const marker = markerMap[id];
+    if (!marker) return;
+
+    cluster.zoomToShowLayer(marker, () => {
+      map.flyTo(marker.getLatLng(), zoomLevel);
+      marker.openTooltip();
+    });
+  }
+
+  function handleDropdownChange(id, userTriggered = false) {
+    if (!markerMap[id]) return;
+
+    if (userTriggered) {
+      zoomToStation(id);
+    }
+
+    updateDisplay(id);
+  }
+
+  async function geocodeAddress(address) {
+    const cleanAddress = address.trim();
+
+    const searchText = /cheverly|maryland|\bmd\b/i.test(cleanAddress)
+      ? cleanAddress
+      : `${cleanAddress}, Cheverly, MD`;
+
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      q: searchText,
+      limit: "1",
+      addressdetails: "1",
+      email: "apuschni@umd.edu",
+      viewbox: "-76.99,38.98,-76.84,38.86",
+      bounded: "0"
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        signal: controller.signal
+      });
+
+      if (!res.ok) return null;
+      const data = await res.json();
+
+      if (!data || data.length === 0) return null;
+
+      return L.latLng(Number(data[0].lat), Number(data[0].lon));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  function findClosestStationId(center) {
+    let minDistance = Infinity;
+    let closestId = null;
+
+    Object.keys(markerMap).forEach(id => {
+      const marker = markerMap[id];
+      if (!marker) return;
+
+      const dist = center.distanceTo(marker.getLatLng());
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestId = id;
+      }
+    });
+
+    return closestId;
+  }
+
+  async function runLocationSearch() {
+    const input = document.getElementById("addrInput");
+    const btn = document.getElementById("locateBtn");
+    const addr = input.value.trim();
+
+    if (!addr) {
+      alert("Please enter an address.");
+      return;
+    }
+
+    const originalText = btn.innerText;
+    btn.innerText = "Searching...";
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+
+    try {
+      const center = await geocodeAddress(addr);
+
+      if (!center) {
+        alert("Location not found. Try adding Cheverly, MD or using a simpler address.");
+        return;
+      }
+
+      if (userMarker) {
+        map.removeLayer(userMarker);
+      }
+
+      userMarker = L.marker(center)
+        .addTo(map)
+        .bindPopup(`<b>Search location:</b><br>${addr}`)
+        .openPopup();
+
+      const closestId = findClosestStationId(center);
+
+      if (closestId) {
+        document.getElementById("devSel").value = closestId;
+        zoomToStation(closestId, 16);
+        updateDisplay(closestId);
+      } else {
+        map.flyTo(center, 16);
+        alert("Address found, but no station markers are available yet.");
+      }
+    } catch (err) {
+      console.error("Location search error:", err);
+      alert("The location search failed. Try a simpler address.");
+    } finally {
+      btn.innerText = originalText;
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    }
+  }
+
+  document.getElementById("locateBtn").addEventListener("click", runLocationSearch);
+
+  document.getElementById("addrInput").addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      runLocationSearch();
+    }
+  });
+
+  function getStationCoords(id) {
+    if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const c12 = C12S.find(x => x.compId === compId);
+      if (c12 && hasValidCoords(c12.lat, c12.lon)) {
+        return { lat: c12.lat, lon: c12.lon };
+      }
+    }
+
+    if (id.startsWith("MOD-")) {
+      const spod = SPODS.find(s => s.sn === id);
+      if (spod && hasValidCoords(spod.lat, spod.lon)) {
+        return { lat: spod.lat, lon: spod.lon };
+      }
+    }
+
+    if (paCoords[id] && hasValidCoords(paCoords[id].lat, paCoords[id].lon)) {
+      return { lat: paCoords[id].lat, lon: paCoords[id].lon };
+    }
+
+    return { lat: null, lon: null };
+  }
+
+  async function updateDisplay(id) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const start24h = nowSec - 86400;
+
+    const dcJson = await proxyGet({ action: "purpleair_history", id: "156557", start: start24h });
+    if (dcJson?.data) {
+      chart.data.datasets[1].data = dcJson.data
+        .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+        .sort((a, b) => a.x - b.x);
+    }
+
+    chart.options.scales.x.min = null;
+
+    let { lat: stationLat, lon: stationLon } = getStationCoords(id);
+
+    if (!id.startsWith("C12-") && !id.startsWith("MOD-")) {
+      const pa = await proxyGet({ action: "purpleair_box" });
+      const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+      const liveStation = paDataArr.find(r => String(r[0]) === id);
+
+      let pm25Live = paCoords[id]?.pm25 ?? null;
+
+      if (liveStation) {
+        pm25Live = safeNum(liveStation[3]);
+
+        const liveLat = safeNum(liveStation[1]);
+        const liveLon = safeNum(liveStation[2]);
+
+        if (hasValidCoords(liveLat, liveLon)) {
+          paCoords[id] = { lat: liveLat, lon: liveLon, pm25: pm25Live };
+          stationLat = liveLat;
+          stationLon = liveLon;
+        }
+      }
+
+      document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
+      document.getElementById("val_param").innerText = pm25Live !== null ? `${pm25Live} µg/m³` : "--";
+      document.getElementById("label_param").innerText = "PM2.5 Concentration";
+
+      const json = await proxyGet({ action: "purpleair_history", id, start: start24h });
+      if (json?.data && json.data.length > 0) {
+        chart.data.datasets[0].data = json.data
+          .filter(r => {
+            const val = safeNum(r[1]);
+            return val !== null && val > 0 && val < 250;
+          })
+          .map(r => ({ x: r[0] * 1000, y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+          .sort((a, b) => a.x - b.x);
+      } else {
+        chart.data.datasets[0].data = [];
+      }
+
+      const ownPollutants = [];
+      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25Live, BP_PM25_24H));
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        includeNearestQuantPM25: false
+      });
+
+      const result = calcCEAQI(pollutants);
+      displayCEAQIResult(result);
+      updateMarkerValue(id, result.ceaqi);
+    } else if (id.startsWith("MOD-")) {
+      const today = new Date().toISOString().split("T")[0];
+      const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
+      const dataRoot = resA?.resolved_sn ? resA.data : resA;
+      const allData = dataRoot?.data || [];
+      const last = allData.length ? allData[allData.length - 1] : quantCache[id];
+
+      if (last) {
+        quantCache[id] = last;
+      }
+
+      const spod = SPODS.find(s => s.sn === id);
+      document.getElementById("statName").innerText = spod ? spod.name : id;
+
+      const pm25Q = activeNum(last?.pm25 ?? last?.pm2_5);
+      document.getElementById("val_param").innerText = pm25Q !== null ? `${pm25Q} µg/m³` : "--";
+      document.getElementById("label_param").innerText = "PM2.5 Concentration";
+
+      const series = allData
+        .map(r => {
+          const timestamp = r.timestamp ? new Date(r.timestamp + (r.timestamp.includes("Z") ? "" : "Z")).getTime() : null;
+          const value = activeNum(r.pm25 ?? r.pm2_5);
+          return {
+            x: timestamp,
+            y: aqiFromBreakpoints(value, BP_PM25_24H)
+          };
+        })
+        .filter(p => p.x !== null && p.y !== null)
+        .sort((a, b) => a.x - b.x);
+
+      if (series.length > 0) {
+        const latestTime = series[series.length - 1].x;
+        const cutoff18h = latestTime - (18 * 60 * 60 * 1000);
+        chart.data.datasets[0].data = series.filter(p => p.x >= cutoff18h);
+        chart.options.scales.x.min = cutoff18h;
+      } else {
+        chart.data.datasets[0].data = [];
+      }
+
+      const ownPollutants = [];
+      addQuantAQPollutants(ownPollutants, last, id, true);
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        skipQuantAQ: id,
+        includeNearestQuantPM25: false
+      });
+
+      const result = calcCEAQI(pollutants);
+      displayCEAQIResult(result);
+      updateMarkerValue(id, result.ceaqi);
+    } else if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const res = await proxyGet({ action: "grove_last", compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+      const bc = activeNum(rows.find(r => r.streamId === "880nm")?.data);
+
+      const c12Obj = C12S.find(x => x.compId === compId);
+      if (c12Obj && hasValidCoords(lat, lon)) {
+        c12Obj.lat = lat;
+        c12Obj.lon = lon;
+        stationLat = lat;
+        stationLon = lon;
+      }
+
+      c12Cache[compId] = {
+        ...(c12Cache[compId] || {}),
+        bc,
+        lat: stationLat,
+        lon: stationLon
+      };
+
+      document.getElementById("statName").innerText = c12Obj ? c12Obj.name : id;
+      document.getElementById("val_param").innerText = bc !== null ? `${bc} ng/m³` : "--";
+      document.getElementById("label_param").innerText = "Black Carbon Concentration";
+      chart.data.datasets[0].data = [];
+
+      const ownPollutants = [];
+      addC12Pollutants(ownPollutants, bc, compId);
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        skipC12: compId,
+        includeNearestQuantPM25: true
+      });
+
+      const result = calcCEAQI(pollutants);
+      displayCEAQIResult(result);
+      updateMarkerValue(id, result.ceaqi);
+    }
+
+    chart.update();
+  }
+
+  async function init() {
+    const sel = document.getElementById("devSel");
+    const today = new Date().toISOString().split("T")[0];
+
+    sel.innerHTML = "";
+    cluster.clearLayers();
+    markerMap = {};
+
+    const pa = await proxyGet({ action: "purpleair_box" });
+    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      const lat = safeNum(r[1]);
+      const lon = safeNum(r[2]);
+      const pm25 = activeNum(r[3]);
+
+      if (SENSORS[id] && hasValidCoords(lat, lon)) {
+        paCoords[id] = { lat, lon, pm25 };
+      }
+    }
+
+    for (const s of SPODS) {
+      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
+      const dataRoot = res?.resolved_sn ? res.data : res;
+      const allQ = dataRoot?.data || [];
+      quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+    }
+
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    for (const c of C12S) {
+      const res = await proxyGet({ action: "grove_last", compId: c.compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bcTime = Number(bcRow?.time || 0);
+      const bcFresh = bcTime > 0 && (now - bcTime) < THREE_HOURS_MS;
+      const bc = bcFresh ? activeNum(bcRow?.data) : null;
+
+      if (!bcFresh && bcRow) {
+        console.log(`C12 ${c.compId}: stale reading skipped`);
+      }
+
+      c12Cache[c.compId] = { bc, lat, lon };
+
+      if (hasValidCoords(lat, lon)) {
+        c.lat = lat;
+        c.lon = lon;
+      }
+    }
+
+    paDataArr.sort((a, b) => {
+      const idA = String(a[0]);
+      const idB = String(b[0]);
+      if (idA === "203601") return -1;
+      if (idB === "203601") return 1;
+      if (idA === "181253") return 1;
+      if (idB === "181253") return -1;
+      return (SENSORS[idA] || "").localeCompare(SENSORS[idB] || "");
+    });
+
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      if (!SENSORS[id]) continue;
+
+      const lat = safeNum(r[1]);
+      const lon = safeNum(r[2]);
+      const pm25 = activeNum(r[3]);
+
+      if (!hasValidCoords(lat, lon)) continue;
+
+      const ownPollutants = [];
+      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25, BP_PM25_24H));
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(lat, lon, ownPollutants, {
+        includeNearestQuantPM25: false
+      }));
+
+      createMarker(id, lat, lon, result.ceaqi);
+      sel.add(new Option(SENSORS[id], id));
+    }
+
+    for (const s of SPODS) {
+      if (!hasValidCoords(s.lat, s.lon)) continue;
+
+      const ownPollutants = [];
+      addQuantAQPollutants(ownPollutants, quantCache[s.sn], s.sn, true);
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
+        skipQuantAQ: s.sn,
+        includeNearestQuantPM25: false
+      }));
+
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi);
+      sel.add(new Option(s.name, s.sn));
+    }
+
+    for (const c of C12S) {
+      const cd = c12Cache[c.compId];
+      if (!cd || !hasValidCoords(cd.lat, cd.lon)) continue;
+
+      const ownPollutants = [];
+      addC12Pollutants(ownPollutants, cd.bc, c.compId);
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
+        skipC12: c.compId,
+        includeNearestQuantPM25: true
+      }));
+
+      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi);
+      sel.add(new Option(c.name, `C12-${c.compId}`));
+    }
+
+    if (cluster.getLayers().length > 0) {
+      map.fitBounds(cluster.getBounds(), {
+        padding: [30, 30],
+        maxZoom: 13
+      });
+    }
+
+    if (sel.options.length) {
+      const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value;
+      sel.value = defaultId;
+      updateDisplay(defaultId);
+    }
+  }
+
+  init();
 </script>
-
 </body>
 </html>
