@@ -18,13 +18,31 @@
   <style>
     :root {
       --brand-navy: #1a305e;
+      --brand-navy-2: #243d73;
       --search-blue: #4477ce;
+      --soft-blue: #edf4ff;
+      --page-bg: #eef3f8;
+      --card-bg: #ffffff;
+      --text-main: #17213a;
+      --text-muted: #667085;
+      --line: #dde5ef;
+      --shadow: 0 18px 45px rgba(26, 48, 94, 0.12);
       --aqi-green: #00e400;
       --aqi-yellow: #ffff00;
       --aqi-orange: #ff7e00;
       --aqi-red: #ff0000;
       --aqi-purple: #8f3f97;
       --aqi-maroon: #7e0023;
+      --pastel-green: #eaf8e9;
+      --pastel-yellow: #fff8cf;
+      --pastel-orange: #ffe8d2;
+      --pastel-red: #ffe0e0;
+      --pastel-purple: #f1e2f5;
+      --pastel-maroon: #efdde4;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     html,
@@ -35,11 +53,14 @@
       width: 100%;
       font-family: "Segoe UI", Roboto, sans-serif;
       overflow: hidden;
-      background: #fdfdfd;
+      background:
+        radial-gradient(circle at top left, rgba(68, 119, 206, 0.15), transparent 30%),
+        linear-gradient(135deg, #f8fbff 0%, var(--page-bg) 100%);
+      color: var(--text-main);
     }
 
     .topbar {
-      background: var(--brand-navy);
+      background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
       color: white;
       padding: 0 2rem;
       display: flex;
@@ -48,12 +69,25 @@
       height: 64px;
       z-index: 2000;
       position: relative;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 18px rgba(15, 28, 55, 0.22);
     }
 
     .brand {
       font-size: 1.25rem;
-      font-weight: bold;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .brand::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: #a9d7ff;
+      box-shadow: 0 0 0 5px rgba(169, 215, 255, 0.16);
+      vertical-align: 1px;
     }
 
     .nav a {
@@ -61,9 +95,9 @@
       text-decoration: none;
       margin-left: 1.5rem;
       font-size: 0.95rem;
-      font-weight: 500;
-      opacity: 0.8;
-      transition: opacity 0.2s;
+      font-weight: 700;
+      opacity: 0.78;
+      transition: opacity 0.2s, transform 0.2s;
     }
 
     .nav a:hover {
@@ -78,37 +112,91 @@
 
     #layout {
       display: flex;
+      gap: 18px;
       height: calc(100vh - 64px);
       width: 100vw;
+      padding: 18px;
+      padding-bottom: 42px;
+      overflow: hidden;
     }
 
     #sidebar {
-      width: 380px;
-      min-width: 380px;
-      background: #f4f6f8;
-      border-right: 1px solid #ddd;
-      padding: 1.25rem;
+      width: 320px;
+      min-width: 320px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(221, 229, 239, 0.9);
+      border-radius: 24px;
+      padding: 1rem;
       overflow-y: auto;
-      box-sizing: border-box;
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar-intro {
+      padding: 0.75rem 0.65rem 1rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--search-blue);
+    }
+
+    .sidebar-intro h1 {
+      margin: 0;
+      font-size: 1.55rem;
+      line-height: 1.12;
+      color: var(--brand-navy);
+    }
+
+    .sidebar-intro p {
+      margin: 10px 0 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .card,
+    .panel-card,
+    .summary-card,
+    .map-card,
+    .chart-card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 24px rgba(26, 48, 94, 0.08);
     }
 
     .card {
-      background: white;
-      padding: 1.25rem;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      margin-bottom: 1.25rem;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      padding: 1rem;
+      border-radius: 18px;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      margin: 0 0 6px;
+      color: var(--brand-navy);
+      font-size: 0.98rem;
+      font-weight: 900;
+    }
+
+    .card-help {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
     }
 
     label {
-      font-size: 0.75rem;
-      font-weight: bold;
-      color: #666;
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #667085;
       text-transform: uppercase;
       margin-bottom: 8px;
       display: block;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
     }
 
     input,
@@ -116,82 +204,264 @@
       width: 100%;
       padding: 12px;
       margin-top: 5px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
+      border-radius: 12px;
+      border: 1px solid #cfd8e5;
       box-sizing: border-box;
       font-size: 0.9rem;
+      background: white;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--search-blue);
+      box-shadow: 0 0 0 3px rgba(68, 119, 206, 0.14);
     }
 
     button {
       width: 100%;
-      padding: 14px;
+      padding: 13px 14px;
       margin-top: 10px;
-      border-radius: 8px;
+      border-radius: 12px;
       border: none;
-      background: var(--search-blue);
+      background: linear-gradient(135deg, var(--search-blue), #2f62c3);
       color: white;
-      font-weight: bold;
+      font-weight: 900;
       cursor: pointer;
-      transition: filter 0.2s;
+      transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
       font-size: 0.9rem;
+      box-shadow: 0 8px 18px rgba(68, 119, 206, 0.22);
+    }
+
+    button:hover {
+      filter: brightness(1.04);
+      transform: translateY(-1px);
     }
 
     button:disabled {
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
+
+    .secondary-button {
+      background: #eef4ff;
+      color: var(--brand-navy);
+      border: 1px solid #cfe0ff;
+      box-shadow: none;
+    }
+
+    .mini-guide {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .guide-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .guide-row.good { background: var(--pastel-green); }
+    .guide-row.moderate { background: var(--pastel-yellow); }
+    .guide-row.sensitive { background: var(--pastel-orange); }
+    .guide-row.unhealthy { background: var(--pastel-red); }
 
     #main-content {
       flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .dashboard-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      padding: 18px 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .dashboard-hero h2 {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
+
+    .dashboard-hero p {
+      margin: 6px 0 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      max-width: 800px;
+    }
+
+    .hero-status {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 150px;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      border-radius: 18px;
+      padding: 14px;
+      min-height: 86px;
       position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::after {
+      content: "";
+      position: absolute;
+      right: -24px;
+      top: -24px;
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: rgba(68, 119, 206, 0.08);
+    }
+
+    .summary-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      position: relative;
+      z-index: 1;
+      color: var(--brand-navy);
+      font-size: 1.35rem;
+      font-weight: 950;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-note {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(520px, 1.7fr) minmax(320px, 0.9fr);
+      gap: 14px;
+      min-height: 480px;
+    }
+
+    .map-card,
+    .panel-card,
+    .chart-card {
+      border-radius: 24px;
+      overflow: hidden;
+    }
+
+    .map-card {
+      min-height: 480px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-card {
+      padding: 18px;
+      min-height: 480px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,251,255,0.95));
+    }
+
+    .card-header h3 {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1rem;
+      font-weight: 950;
+    }
+
+    .card-header p {
+      margin: 4px 0 0;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
     }
 
     #map {
-      height: 45%;
+      flex: 1;
+      min-height: 390px;
       width: 100%;
-      border-bottom: 1px solid #ddd;
       z-index: 1;
-    }
-
-    #chart-box {
-      height: 55%;
-      width: 100%;
-      padding: 1.5rem;
-      box-sizing: border-box;
-      background: white;
+      background: #edf2f7;
     }
 
     .map-legend {
       position: absolute;
-      top: 15px;
-      right: 15px;
+      top: 86px;
+      right: 14px;
       z-index: 1000;
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.94);
       padding: 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      min-width: 170px;
+      border-radius: 16px;
+      border: 1px solid rgba(221, 229, 239, 0.95);
+      box-shadow: 0 12px 30px rgba(26, 48, 94, 0.14);
+      min-width: 184px;
+      backdrop-filter: blur(12px);
     }
 
     .legend-title {
-      font-size: 0.8rem;
-      font-weight: 800;
+      font-size: 0.76rem;
+      font-weight: 950;
       margin-bottom: 10px;
       color: var(--brand-navy);
-      text-align: center;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 6px;
+      text-align: left;
+      border-bottom: 1px solid #eef2f7;
+      padding-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
       margin-bottom: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #444;
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: #475467;
     }
 
     .dot {
@@ -199,72 +469,221 @@
       height: 12px;
       border-radius: 50%;
       margin-right: 10px;
-      border: 1px solid #000;
+      border: 1px solid rgba(0, 0, 0, 0.45);
     }
 
+    .sensor-key {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .sensor-key-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #475467;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .sensor-symbol {
+      width: 12px;
+      height: 12px;
+      background: #4477ce;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+    }
+
+    .sensor-symbol.pa { border-radius: 50%; }
+    .sensor-symbol.mod { border-radius: 3px; }
+    .sensor-symbol.c12 { transform: rotate(45deg); border-radius: 2px; }
+
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    #statName {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1.15rem;
+      line-height: 1.2;
+      font-weight: 950;
+      overflow-wrap: anywhere;
+    }
+
+    .station-subtitle {
+      margin-top: 5px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .status-pill,
+    .type-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 0.72rem;
+      font-weight: 950;
+      white-space: nowrap;
+      color: var(--brand-navy);
+      background: #eef4ff;
+      border: 1px solid #cfe0ff;
+    }
+
+    .status-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-pill.good { background: var(--pastel-green); color: #247a34; border-color: #ccebc8; }
+    .status-pill.moderate { background: var(--pastel-yellow); color: #8a6d00; border-color: #efe2a2; }
+    .status-pill.sensitive { background: var(--pastel-orange); color: #a35200; border-color: #f1c4a0; }
+    .status-pill.unhealthy { background: var(--pastel-red); color: #a32020; border-color: #f2baba; }
+    .status-pill.very-unhealthy { background: var(--pastel-purple); color: #71337a; border-color: #d9b9df; }
+    .status-pill.hazardous { background: var(--pastel-maroon); color: #7e0023; border-color: #d6a8b8; }
+
+    .aqi-showcase {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 16px;
+      align-items: center;
+      border-radius: 22px;
+      padding: 16px;
+      background: #f8fbff;
+      border: 1px solid #e7edf6;
+      margin-bottom: 14px;
+    }
+
+    .aqi-showcase.good { background: var(--pastel-green); }
+    .aqi-showcase.moderate { background: var(--pastel-yellow); }
+    .aqi-showcase.sensitive { background: var(--pastel-orange); }
+    .aqi-showcase.unhealthy { background: var(--pastel-red); }
+    .aqi-showcase.very-unhealthy { background: var(--pastel-purple); }
+    .aqi-showcase.hazardous { background: var(--pastel-maroon); }
+
     .aqi-val {
-      font-size: 72px;
-      font-weight: 900;
+      font-size: 4.4rem;
+      font-weight: 950;
       display: block;
       text-align: center;
-      line-height: 1.1;
-      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+      line-height: 1;
+      color: var(--brand-navy);
+      text-shadow: none;
     }
 
     .sublabel {
-      font-size: 0.75rem;
-      color: #777;
-      font-weight: bold;
-      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 950;
+      margin-top: 6px;
       text-align: center;
       text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .risk-copy {
+      margin: 0;
+      color: #334155;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .driver-chip {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid rgba(255,255,255,0.9);
+      color: var(--brand-navy);
+      font-size: 0.76rem;
+      font-weight: 950;
+    }
+
+    .reading-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .reading-tile {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid #e7edf6;
+      background: #f8fbff;
+    }
+
+    .reading-tile-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 5px;
+    }
+
+    .reading-tile-value {
+      color: var(--brand-navy);
+      font-weight: 950;
+      font-size: 0.92rem;
+      overflow-wrap: anywhere;
     }
 
     .kv {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 6px 10px;
+      display: block;
       font-size: 0.9rem;
-      margin-top: 20px;
-      border-top: 1px solid #eee;
-      padding-top: 15px;
+      margin-top: 0;
+      border-top: none;
+      padding-top: 0;
     }
 
-    .leaflet-tooltip-own {
-      background: #333 !important;
-      color: white !important;
-      border: 2px solid white !important;
-      font-weight: bold;
-      font-size: 14px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      border-radius: 4px;
-      padding: 4px 8px;
-      opacity: 1 !important;
-      pointer-events: none;
+    .latest-time {
+      margin-top: 0;
+      font-size: 0.9rem;
+      color: var(--brand-navy);
+      text-align: left;
+      font-weight: 950;
     }
 
     .ceaqi-breakdown {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #eee;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #eef2f7;
       font-size: 0.78rem;
       color: #555;
     }
 
     .ceaqi-breakdown .breakdown-title {
-      font-weight: bold;
+      font-weight: 950;
       color: var(--brand-navy);
       margin-bottom: 6px;
       font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
     }
 
     .ceaqi-row {
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      padding: 3px 0;
+      padding: 4px 0;
     }
 
     .ceaqi-row span:first-child {
@@ -272,29 +691,99 @@
     }
 
     .ceaqi-row.base-row {
-      font-weight: bold;
-      color: #333;
+      font-weight: 950;
+      color: #263245;
     }
 
     .ceaqi-row.adder-row {
-      color: #666;
+      color: #667085;
     }
 
     .ceaqi-row.included-row {
-      color: #888;
+      color: #8a94a6;
     }
 
-    .latest-time {
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: #666;
-      text-align: center;
-      font-weight: 600;
+    .chart-card {
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
     }
 
+    #chart-box {
+      height: 280px;
+      width: 100%;
+      padding: 1rem 1.25rem 1.25rem;
+      background: white;
+    }
 
+    .leaflet-tooltip-own {
+      background: #1f2937 !important;
+      color: white !important;
+      border: 2px solid white !important;
+      font-weight: 900;
+      font-size: 13px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+      border-radius: 10px;
+      padding: 6px 9px;
+      opacity: 1 !important;
+      pointer-events: none;
+    }
 
-    /* Risk breakdown modal */
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(26, 48, 94, 0.2);
+    }
+
+    .popup-breakdown-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: var(--search-blue);
+      color: white;
+      border: none;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: none;
+    }
+
+    .aq-marker-icon {
+      background: transparent !important;
+      border: 0 !important;
+    }
+
+    .aq-marker {
+      width: 24px;
+      height: 24px;
+      background: var(--marker-color, #bbb);
+      border: 3px solid white;
+      box-shadow: 0 3px 14px rgba(15, 23, 42, 0.35);
+      position: relative;
+    }
+
+    .aq-marker::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: inherit;
+      background: var(--marker-color, #bbb);
+      opacity: 0.18;
+      z-index: -1;
+    }
+
+    .aq-marker.pa {
+      border-radius: 50%;
+    }
+
+    .aq-marker.mod {
+      border-radius: 6px;
+    }
+
+    .aq-marker.c12 {
+      border-radius: 5px;
+      transform: rotate(45deg);
+    }
+
     .risk-modal {
       position: fixed;
       inset: 0;
@@ -315,7 +804,7 @@
       max-height: 85vh;
       overflow-y: auto;
       background: white;
-      border-radius: 18px;
+      border-radius: 22px;
       box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
       padding: 24px;
       box-sizing: border-box;
@@ -353,6 +842,7 @@
       color: #333;
       font-size: 1.25rem;
       line-height: 1;
+      box-shadow: none;
     }
 
     .risk-summary {
@@ -372,7 +862,7 @@
 
     .risk-summary-value {
       font-size: 1.5rem;
-      font-weight: 900;
+      font-weight: 950;
       color: var(--brand-navy);
     }
 
@@ -380,7 +870,7 @@
       font-size: 0.72rem;
       text-transform: uppercase;
       color: #666;
-      font-weight: 800;
+      font-weight: 900;
       margin-top: 4px;
     }
 
@@ -392,7 +882,7 @@
       margin-bottom: 6px;
       font-size: 0.72rem;
       color: #666;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .risk-scale-ticks {
@@ -411,28 +901,14 @@
       border: 1px solid rgba(0, 0, 0, 0.06);
     }
 
-    .risk-bar-row.good {
-      background: #eefbea;
-    }
-
-    .risk-bar-row.moderate {
-      background: #fff8cf;
-    }
-
-    .risk-bar-row.sensitive {
-      background: #ffe8d2;
-    }
-
-    .risk-bar-row.unhealthy {
-      background: #ffe0e0;
-    }
-
-    .risk-bar-row.very-unhealthy {
-      background: #f1e2f5;
-    }
+    .risk-bar-row.good { background: var(--pastel-green); }
+    .risk-bar-row.moderate { background: var(--pastel-yellow); }
+    .risk-bar-row.sensitive { background: var(--pastel-orange); }
+    .risk-bar-row.unhealthy { background: var(--pastel-red); }
+    .risk-bar-row.very-unhealthy { background: var(--pastel-purple); }
 
     .risk-pollutant {
-      font-weight: 800;
+      font-weight: 900;
       color: #333;
       overflow-wrap: anywhere;
     }
@@ -460,62 +936,24 @@
       border-radius: 999px;
     }
 
-    .risk-bar-fill.good {
-      background: rgba(0, 140, 0, 0.55);
-    }
-
-    .risk-bar-fill.moderate {
-      background: rgba(210, 180, 0, 0.65);
-    }
-
-    .risk-bar-fill.sensitive {
-      background: rgba(255, 126, 0, 0.65);
-    }
-
-    .risk-bar-fill.unhealthy {
-      background: rgba(220, 0, 0, 0.65);
-    }
-
-    .risk-bar-fill.very-unhealthy {
-      background: rgba(120, 45, 135, 0.65);
-    }
+    .risk-bar-fill.good { background: rgba(0, 140, 0, 0.55); }
+    .risk-bar-fill.moderate { background: rgba(210, 180, 0, 0.65); }
+    .risk-bar-fill.sensitive { background: rgba(255, 126, 0, 0.65); }
+    .risk-bar-fill.unhealthy { background: rgba(220, 0, 0, 0.65); }
+    .risk-bar-fill.very-unhealthy { background: rgba(120, 45, 135, 0.65); }
 
     .risk-bar-caption {
       margin-top: 4px;
       font-size: 0.72rem;
       color: #666;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .risk-score {
       font-size: 1rem;
-      font-weight: 900;
+      font-weight: 950;
       color: #222;
       text-align: right;
-    }
-
-    .popup-breakdown-btn {
-      width: 100%;
-      margin-top: 8px;
-      padding: 9px 10px;
-      border-radius: 8px;
-      background: var(--search-blue);
-      color: white;
-      border: none;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    @media (max-width: 700px) {
-      .risk-summary,
-      .risk-scale,
-      .risk-bar-row {
-        grid-template-columns: 1fr;
-      }
-
-      .risk-score {
-        text-align: left;
-      }
     }
 
     .dashboard-disclaimer {
@@ -523,14 +961,99 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(255, 255, 255, 0.9);
-      color: #666;
+      background: rgba(255, 255, 255, 0.92);
+      color: #667085;
       font-size: 0.7rem;
-      padding: 4px 20px;
+      padding: 5px 20px;
       text-align: center;
-      border-top: 1px solid #ddd;
+      border-top: 1px solid #dde5ef;
       z-index: 3000;
       pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+
+    @media (max-width: 1100px) {
+      #layout {
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      #sidebar {
+        width: 100%;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .sidebar-intro,
+      .card {
+        margin-bottom: 0;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        padding: 0 1rem;
+      }
+
+      .nav a {
+        margin-left: 0.75rem;
+        font-size: 0.82rem;
+      }
+
+      #layout {
+        padding: 12px;
+        padding-bottom: 44px;
+      }
+
+      #sidebar {
+        grid-template-columns: 1fr;
+        border-radius: 18px;
+      }
+
+      .dashboard-hero,
+      .station-header,
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-status {
+        align-items: flex-start;
+      }
+
+      .summary-strip,
+      .reading-grid,
+      .aqi-showcase,
+      .risk-summary,
+      .risk-scale,
+      .risk-bar-row {
+        grid-template-columns: 1fr;
+      }
+
+      .map-card,
+      .panel-card,
+      .chart-card {
+        border-radius: 18px;
+      }
+
+      .map-legend {
+        position: static;
+        margin: 10px;
+      }
+
+      #map {
+        min-height: 360px;
+      }
+
+      .risk-score {
+        text-align: left;
+      }
     }
   </style>
 </head>
@@ -547,57 +1070,157 @@
 
 <div id="layout">
   <aside id="sidebar">
+    <div class="sidebar-intro">
+      <p class="eyebrow">Community monitoring</p>
+      <h1>Live neighborhood air quality</h1>
+      <p>Explore current CE-AQI, pollutant drivers, and recent trends from PurpleAir, QuantAQ, and C-12 stations.</p>
+    </div>
+
     <div class="card">
+      <h2 class="card-title">Find your nearest station</h2>
+      <p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
       <label>Location Search</label>
       <input type="text" id="addrInput" placeholder="Enter an address, for example 123 Main St, Cheverly, MD">
       <button id="locateBtn">Find Nearest Station</button>
     </div>
 
     <div class="card">
-      <label>Station Selection</label>
+      <h2 class="card-title">Station selection</h2>
+      <p class="card-help">Choose a station directly, or click a marker on the map.</p>
+      <label>Station</label>
       <select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
     </div>
 
-    <div class="card" style="min-height: 150px;">
-      <label>Live Station Reading</label>
-      <div id="details">
-        <div id="statName" style="font-weight:bold; font-size:1rem; margin-bottom:10px; color:var(--brand-navy); text-align:center;">--</div>
-        <div id="statAQI" class="aqi-val" style="color:#ccc;">--</div>
-        <div class="sublabel" style="color:var(--brand-navy); margin-bottom:15px;">CE-AQI</div>
+    <div class="card">
+      <h2 class="card-title">Quick AQI guide</h2>
+      <p class="card-help">The dashboard uses softer shades of the AQI scale for readability.</p>
+      <div class="mini-guide">
+        <div class="guide-row good"><span>Good</span><span>0 to 50</span></div>
+        <div class="guide-row moderate"><span>Moderate</span><span>51 to 100</span></div>
+        <div class="guide-row sensitive"><span>Sensitive groups</span><span>101 to 150</span></div>
+        <div class="guide-row unhealthy"><span>Unhealthy</span><span>151+</span></div>
+      </div>
+    </div>
+  </aside>
 
-        <div id="extraDetails" class="kv" style="text-align:center; display: block;">
-          <div id="val_param" style="font-weight:bold; font-size:1.1rem; text-align:center;">--</div>
-          <div id="label_param" class="sublabel">Concentration</div>
-          <div id="latest_time" class="latest-time">Latest detected: --</div>
+  <main id="main-content">
+    <section class="dashboard-hero">
+      <div>
+        <h2>Air quality snapshot</h2>
+        <p>Click any station to view current risk, main pollutant driver, sensor type, and a pollutant-by-pollutant breakdown.</p>
+      </div>
+      <div class="hero-status">
+        <span id="statusPill" class="status-pill">Waiting for data</span>
+        <span id="summaryUpdated" class="summary-note">Latest update: --</span>
+      </div>
+    </section>
+
+    <section class="summary-strip" aria-label="Selected station summary">
+      <div class="summary-card">
+        <div class="summary-label">Current CE-AQI</div>
+        <div id="summaryAQI" class="summary-value">--</div>
+        <div id="summaryCategory" class="summary-note">No category yet</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Main driver</div>
+        <div id="summaryDriver" class="summary-value">--</div>
+        <div class="summary-note">Highest base contributor</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Station type</div>
+        <div id="summaryType" class="summary-value">--</div>
+        <div class="summary-note">PurpleAir, QuantAQ, or C-12</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Reading</div>
+        <div id="summaryConcentration" class="summary-value">--</div>
+        <div id="summaryConcentrationLabel" class="summary-note">Concentration</div>
+      </div>
+    </section>
+
+    <section class="dashboard-grid">
+      <div class="map-card">
+        <div class="card-header">
+          <div>
+            <h3>Station map</h3>
+            <p>Marker color follows CE-AQI. Marker shape shows sensor type.</p>
+          </div>
+          <span id="mapStationType" class="type-pill">Select a station</span>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="map-legend">
+          <div class="legend-title">Air Quality Index</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
+
+          <div class="sensor-key">
+            <div class="sensor-key-row"><span class="sensor-symbol pa"></span> PurpleAir</div>
+            <div class="sensor-key-row"><span class="sensor-symbol mod"></span> QuantAQ</div>
+            <div class="sensor-key-row"><span class="sensor-symbol c12"></span> C-12</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel-card" aria-label="Selected station reading">
+        <div class="station-header">
+          <div>
+            <h3 id="statName">--</h3>
+            <div id="stationTypeText" class="station-subtitle">Select a station to begin</div>
+          </div>
+          <span id="panelCategory" class="status-pill">--</span>
+        </div>
+
+        <div id="aqiShowcase" class="aqi-showcase">
+          <div>
+            <div id="statAQI" class="aqi-val">--</div>
+            <div class="sublabel">CE-AQI</div>
+          </div>
+          <div>
+            <p id="riskDescription" class="risk-copy">Choose a station or click a map marker to load the latest reading.</p>
+            <div id="panelDriver" class="driver-chip">Main driver: --</div>
+          </div>
+        </div>
+
+        <button class="secondary-button" type="button" onclick="openRiskBreakdownModal()">View breakdown chart</button>
+
+        <div id="extraDetails" class="reading-grid">
+          <div class="reading-tile">
+            <div id="label_param" class="reading-tile-label">Concentration</div>
+            <div id="val_param" class="reading-tile-value">--</div>
+          </div>
+          <div class="reading-tile">
+            <div class="reading-tile-label">Latest detected</div>
+            <div id="latest_time" class="latest-time">--</div>
+          </div>
         </div>
 
         <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
           <div class="breakdown-title">CE-AQI Breakdown</div>
           <div id="ceaqi-rows"></div>
         </div>
+      </aside>
+    </section>
+
+    <section class="chart-card">
+      <div class="card-header">
+        <div>
+          <h3>18-hour CE-AQI trend</h3>
+          <p>Selected station compared with the HU-Beltsville reference trend.</p>
+        </div>
+        <span class="type-pill">Live trend</span>
       </div>
-    </div>
-  </aside>
-
-  <div id="main-content">
-    <div id="map"></div>
-
-    <div class="map-legend">
-      <div class="legend-title">Air Quality Index</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
-      <div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
-    </div>
-
-    <div id="chart-box">
-      <canvas id="airChart"></canvas>
-    </div>
-  </div>
+      <div id="chart-box">
+        <canvas id="airChart"></canvas>
+      </div>
+    </section>
+  </main>
 </div>
-
 
 <div id="riskBreakdownModal" class="risk-modal hidden" aria-hidden="true">
   <div class="risk-modal-card" role="dialog" aria-modal="true" aria-labelledby="riskBreakdownTitle">
@@ -737,9 +1360,9 @@
 
   const map = L.map("map").setView([38.9283, -76.9158], 15);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
 
   const cluster = L.markerClusterGroup({
@@ -907,9 +1530,12 @@
   }
 
   function setLatestTimeDisplay(ms) {
-    const el = document.getElementById("latest_time");
-    if (!el) return;
-    el.innerText = `Latest detected: ${formatLatestTime(ms)}`;
+    const formatted = formatLatestTime(ms);
+    const latestEl = document.getElementById("latest_time");
+    if (latestEl) latestEl.innerText = formatted;
+
+    const summaryEl = document.getElementById("summaryUpdated");
+    if (summaryEl) summaryEl.innerText = `Latest update: ${formatted}`;
   }
 
   function getTimestampFromObject(obj) {
@@ -1630,6 +2256,159 @@
     rowsEl.appendChild(totalRow);
   }
 
+
+  function getStationTypeLabel(id) {
+    if (!id) return "--";
+    if (String(id).startsWith("MOD-")) return "QuantAQ";
+    if (String(id).startsWith("C12-")) return "C-12";
+    return "PurpleAir";
+  }
+
+  function getStationMarkerClass(id) {
+    if (!id) return "pa";
+    if (String(id).startsWith("MOD-")) return "mod";
+    if (String(id).startsWith("C12-")) return "c12";
+    return "pa";
+  }
+
+  function createStationIcon(id, ceaqi) {
+    const markerClass = getStationMarkerClass(id);
+    const color = getAQIColor(ceaqi);
+
+    return L.divIcon({
+      className: "aq-marker-icon",
+      html: `<div class="aq-marker ${markerClass}" style="--marker-color:${color}"></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -12],
+      tooltipAnchor: [0, -12]
+    });
+  }
+
+  function bindStationPopup(marker, id, value) {
+    const safeIdArg = JSON.stringify(id);
+    const popupTitle = escapeHTML(getStationDisplayName(id));
+    const sensorType = escapeHTML(getStationTypeLabel(id));
+    const category = getAQICategory(value);
+
+    marker.bindPopup(`
+      <div style="min-width:205px;">
+        <div style="font-weight:900; color:#1a305e; margin-bottom:4px;">${popupTitle}</div>
+        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${sensorType} station</div>
+        <div style="font-size:0.82rem; color:#334155; margin-bottom:4px;">
+          CE-AQI: <strong>${value || "--"}</strong>
+        </div>
+        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${escapeHTML(category.label)}</div>
+        <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
+          View breakdown chart
+        </button>
+      </div>
+    `);
+  }
+
+  function getAQICategory(aqi) {
+    const value = Number(aqi);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return {
+        className: "",
+        label: "No data",
+        guidance: "No current risk category is available for this station yet."
+      };
+    }
+
+    if (value <= 50) {
+      return {
+        className: "good",
+        label: "Good",
+        guidance: "Air quality is currently good at this station."
+      };
+    }
+
+    if (value <= 100) {
+      return {
+        className: "moderate",
+        label: "Moderate",
+        guidance: "Air quality is acceptable, though unusually sensitive people may want to keep an eye on conditions."
+      };
+    }
+
+    if (value <= 150) {
+      return {
+        className: "sensitive",
+        label: "Unhealthy for Sensitive Groups",
+        guidance: "Sensitive groups may want to reduce prolonged or heavy outdoor activity near this station."
+      };
+    }
+
+    if (value <= 200) {
+      return {
+        className: "unhealthy",
+        label: "Unhealthy",
+        guidance: "Air quality is elevated. Consider reducing prolonged outdoor activity."
+      };
+    }
+
+    if (value <= 300) {
+      return {
+        className: "very-unhealthy",
+        label: "Very Unhealthy",
+        guidance: "Air quality is very elevated. Outdoor activity should be limited, especially for sensitive groups."
+      };
+    }
+
+    return {
+      className: "hazardous",
+      label: "Hazardous",
+      guidance: "Air quality is extremely elevated. Avoid outdoor activity if possible."
+    };
+  }
+
+  function setElementText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+  }
+
+  function setStatusClass(id, category) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `status-pill ${category.className || ""}`.trim();
+    el.innerText = category.label;
+  }
+
+  function setShowcaseClass(category) {
+    const el = document.getElementById("aqiShowcase");
+    if (!el) return;
+    el.className = `aqi-showcase ${category.className || ""}`.trim();
+  }
+
+  function updateSelectedStationVisuals(id, result) {
+    const value = Number(result?.ceaqi || 0);
+    const category = getAQICategory(value);
+    const typeLabel = getStationTypeLabel(id);
+    const driver = result?.baseLabel ? formatPollutantLabel(result.baseLabel) : "--";
+
+    setElementText("summaryAQI", value || "--");
+    setElementText("summaryCategory", category.label);
+    setElementText("summaryDriver", driver);
+    setElementText("summaryType", typeLabel);
+    setElementText("stationTypeText", `${typeLabel} station`);
+    setElementText("mapStationType", typeLabel);
+    setElementText("riskDescription", category.guidance);
+    setElementText("panelDriver", `Main driver: ${driver}`);
+
+    setStatusClass("statusPill", category);
+    setStatusClass("panelCategory", category);
+    setShowcaseClass(category);
+  }
+
+  function updateReadingSummary() {
+    const value = document.getElementById("val_param")?.innerText || "--";
+    const label = document.getElementById("label_param")?.innerText || "Concentration";
+    setElementText("summaryConcentration", value);
+    setElementText("summaryConcentrationLabel", label);
+  }
+
   function cacheBreakdownResult(id, result) {
     if (!id || !result) return;
     stationBreakdownCache[id] = result;
@@ -1791,8 +2570,11 @@
       cacheBreakdownResult(activeId, result);
     }
 
-    document.getElementById("statAQI").innerText = value;
+    document.getElementById("statAQI").innerText = value || "--";
     document.getElementById("statAQI").style.color = getAQIColor(value);
+
+    updateSelectedStationVisuals(activeId, result);
+    updateReadingSummary();
     renderCEAQIBreakdown(result);
   }
 
@@ -1809,7 +2591,7 @@
       baseLabel: baseLabel ?? oldMeta.baseLabel ?? null
     };
 
-    marker.setStyle({ fillColor: getAQIColor(value) });
+    marker.setIcon(createStationIcon(id, value));
     marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
       permanent: false,
       direction: "top",
@@ -1817,6 +2599,8 @@
       sticky: true,
       opacity: 1
     });
+
+    bindStationPopup(marker, id, value);
   }
 
   function createMarker(id, lat, lon, val, latestTimeMs = null, baseLabel = null) {
@@ -1824,12 +2608,9 @@
 
     const value = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
 
-    const marker = L.circleMarker([Number(lat), Number(lon)], {
-      radius: 11,
-      fillColor: getAQIColor(value),
-      color: "#000",
-      weight: 2,
-      fillOpacity: 0.9
+    const marker = L.marker([Number(lat), Number(lon)], {
+      icon: createStationIcon(id, value),
+      title: getStationDisplayName(id)
     });
 
     markerMeta[id] = {
@@ -1846,20 +2627,7 @@
       opacity: 1
     });
 
-    const safeIdArg = JSON.stringify(id);
-    const popupTitle = escapeHTML(getStationDisplayName(id));
-
-    marker.bindPopup(`
-      <div style="min-width:190px;">
-        <div style="font-weight:800; color:#1a305e; margin-bottom:6px;">${popupTitle}</div>
-        <div style="font-size:0.8rem; color:#666; margin-bottom:8px;">
-          CE-AQI: <strong>${value}</strong>
-        </div>
-        <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
-          View breakdown chart
-        </button>
-      </div>
-    `);
+    bindStationPopup(marker, id, value);
 
     marker.on("mouseover", function () {
       this.openTooltip();
@@ -1994,8 +2762,7 @@
 
       if (closestId) {
         document.getElementById("devSel").value = closestId;
-        zoomToStation(closestId, 16);
-        await handleDropdownChange(closestId, false);
+        await handleDropdownChange(closestId, true);
       } else {
         map.flyTo(center, 16);
         alert("Address found, but no station markers are available yet.");
@@ -2042,6 +2809,11 @@
   }
 
   async function updateDisplay(id) {
+    selectedStationId = id;
+    setElementText("summaryType", getStationTypeLabel(id));
+    setElementText("stationTypeText", `${getStationTypeLabel(id)} station`);
+    setElementText("mapStationType", getStationTypeLabel(id));
+
     const windowEndMs = stationSeriesWindowEndMs();
     const nowSec = Math.floor(windowEndMs / 1000);
     const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
