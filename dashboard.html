@@ -1104,39 +1104,6 @@
   </aside>
 
   <main id="main-content">
-    <section class="dashboard-hero">
-      <div>
-        <h2>Air quality snapshot</h2>
-        <p>Click any station to view current risk, main pollutant driver, sensor type, and a pollutant-by-pollutant breakdown.</p>
-      </div>
-      <div class="hero-status">
-        <span id="statusPill" class="status-pill">Waiting for data</span>
-        <span id="summaryUpdated" class="summary-note">Latest update: --</span>
-      </div>
-    </section>
-
-    <section class="summary-strip" aria-label="Selected station summary">
-      <div class="summary-card">
-        <div class="summary-label">Current CE-AQI</div>
-        <div id="summaryAQI" class="summary-value">--</div>
-        <div id="summaryCategory" class="summary-note">No category yet</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Main driver</div>
-        <div id="summaryDriver" class="summary-value">--</div>
-        <div class="summary-note">Highest base contributor</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Station type</div>
-        <div id="summaryType" class="summary-value">--</div>
-        <div class="summary-note">PurpleAir, QuantAQ, or C-12</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Reading</div>
-        <div id="summaryConcentration" class="summary-value">--</div>
-        <div id="summaryConcentrationLabel" class="summary-note">Concentration</div>
-      </div>
-    </section>
 
     <section class="dashboard-grid">
       <div class="map-card">
@@ -1325,11 +1292,11 @@
 
   const SPODS = [
     // Newly added QuantAQ device. The public QuantAQ page lists this as
-    // "Mosleys - Cheverly" with serial number MOD-00536.
+    // "MOD-00536".
     // Coordinates are left as null so the code can fill them dynamically
     // if your API proxy returns lat/lon. If it does not show on the map,
     // replace null/null below with the exact deployed latitude and longitude.
-    { sn: "MOD-00536", name: "QuantAQ MOD-00536 - Mosleys Cheverly", lat: null, lon: null },
+    { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: null, lon: null },
     { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
     { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
     { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
@@ -1360,9 +1327,15 @@
 
   const map = L.map("map").setView([38.9283, -76.9158], 15);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    attribution: 'Tiles &copy; Esri'
+  }).addTo(map);
+
+  L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    attribution: 'Labels &copy; Esri',
+    pane: 'overlayPane'
   }).addTo(map);
 
   const cluster = L.markerClusterGroup({
@@ -1403,8 +1376,20 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: "nearest",
+        intersect: false
+      },
       scales: {
-        x: { type: "time", time: { unit: "hour" } },
+        x: {
+          type: "time",
+          time: { unit: "hour" },
+          bounds: "ticks",
+          offset: false,
+          ticks: {
+            source: "auto"
+          }
+        },
         y: { beginAtZero: true }
       }
     }
@@ -1839,10 +1824,35 @@
     return end - STATION_TIMESERIES_WINDOW_MS;
   }
 
+  function getChartDataExtent(fallbackEndMs = Date.now()) {
+    const fallbackEnd = normalizeTimestampMs(fallbackEndMs) || Date.now();
+    const points = chart.data.datasets
+      .flatMap(ds => Array.isArray(ds?.data) ? ds.data : [])
+      .map(p => normalizeTimestampMs(p?.x))
+      .filter(isReasonableSensorTime);
+
+    if (!points.length) {
+      return {
+        min: stationSeriesCutoffMs(fallbackEnd),
+        max: fallbackEnd
+      };
+    }
+
+    let min = Math.min(...points);
+    let max = Math.max(...points);
+
+    if (min === max) {
+      min -= 30 * 60 * 1000;
+      max += 30 * 60 * 1000;
+    }
+
+    return { min, max };
+  }
+
   function setChartTimeWindow(endTimeMs = Date.now()) {
-    const end = normalizeTimestampMs(endTimeMs) || Date.now();
-    chart.options.scales.x.min = stationSeriesCutoffMs(end);
-    chart.options.scales.x.max = end;
+    const extent = getChartDataExtent(endTimeMs);
+    chart.options.scales.x.min = extent.min;
+    chart.options.scales.x.max = extent.max;
   }
 
   function filterToStationWindow(series, endTimeMs = Date.now()) {
@@ -2285,27 +2295,6 @@
     });
   }
 
-  function bindStationPopup(marker, id, value) {
-    const safeIdArg = JSON.stringify(id);
-    const popupTitle = escapeHTML(getStationDisplayName(id));
-    const sensorType = escapeHTML(getStationTypeLabel(id));
-    const category = getAQICategory(value);
-
-    marker.bindPopup(`
-      <div style="min-width:205px;">
-        <div style="font-weight:900; color:#1a305e; margin-bottom:4px;">${popupTitle}</div>
-        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${sensorType} station</div>
-        <div style="font-size:0.82rem; color:#334155; margin-bottom:4px;">
-          CE-AQI: <strong>${value || "--"}</strong>
-        </div>
-        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${escapeHTML(category.label)}</div>
-        <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
-          View breakdown chart
-        </button>
-      </div>
-    `);
-  }
-
   function getAQICategory(aqi) {
     const value = Number(aqi);
 
@@ -2382,22 +2371,30 @@
     el.className = `aqi-showcase ${category.className || ""}`.trim();
   }
 
+  function applyAQINumberStyle(value) {
+    const el = document.getElementById("statAQI");
+    if (!el) return;
+
+    el.style.color = getAQIColor(value);
+
+    if (Number(value) > 50 && Number(value) <= 100) {
+      el.style.textShadow = "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000";
+    } else {
+      el.style.textShadow = "none";
+    }
+  }
+
   function updateSelectedStationVisuals(id, result) {
     const value = Number(result?.ceaqi || 0);
     const category = getAQICategory(value);
     const typeLabel = getStationTypeLabel(id);
     const driver = result?.baseLabel ? formatPollutantLabel(result.baseLabel) : "--";
 
-    setElementText("summaryAQI", value || "--");
-    setElementText("summaryCategory", category.label);
-    setElementText("summaryDriver", driver);
-    setElementText("summaryType", typeLabel);
     setElementText("stationTypeText", `${typeLabel} station`);
     setElementText("mapStationType", typeLabel);
     setElementText("riskDescription", category.guidance);
     setElementText("panelDriver", `Main driver: ${driver}`);
 
-    setStatusClass("statusPill", category);
     setStatusClass("panelCategory", category);
     setShowcaseClass(category);
   }
@@ -2599,8 +2596,6 @@
       sticky: true,
       opacity: 1
     });
-
-    bindStationPopup(marker, id, value);
   }
 
   function createMarker(id, lat, lon, val, latestTimeMs = null, baseLabel = null) {
@@ -2627,7 +2622,22 @@
       opacity: 1
     });
 
-    bindStationPopup(marker, id, value);
+    const safeIdArg = JSON.stringify(id);
+    const popupTitle = escapeHTML(getStationDisplayName(id));
+    const sensorType = escapeHTML(getStationTypeLabel(id));
+
+    marker.bindPopup(`
+      <div style="min-width:205px;">
+        <div style="font-weight:900; color:#1a305e; margin-bottom:4px;">${popupTitle}</div>
+        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${sensorType} station</div>
+        <div style="font-size:0.82rem; color:#334155; margin-bottom:8px;">
+          CE-AQI: <strong>${value || "--"}</strong>
+        </div>
+        <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
+          View breakdown chart
+        </button>
+      </div>
+    `);
 
     marker.on("mouseover", function () {
       this.openTooltip();
