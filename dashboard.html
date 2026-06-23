@@ -1111,7 +1111,7 @@
       <h2 class="card-title">Find your nearest station</h2>
       <p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="Enter an address in Cheverly, MD">
+      <input type="text" id="addrInput" placeholder="Enter an Address">
       <button id="locateBtn">Find Nearest Station</button>
     </div>
 
@@ -2407,12 +2407,7 @@
     if (!el) return;
 
     el.style.color = getAQIColor(value);
-
-    if (Number(value) > 50 && Number(value) <= 100) {
-      el.style.textShadow = "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000";
-    } else {
-      el.style.textShadow = "none";
-    }
+    el.style.textShadow = "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 3px rgba(0,0,0,0.18)";
   }
 
   function updateSelectedStationVisuals(id, result) {
