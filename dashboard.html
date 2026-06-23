@@ -112,7 +112,7 @@
 
     #layout {
       display: flex;
-      gap: 18px;
+      gap: 14px;
       height: calc(100vh - 64px);
       width: 100vw;
       padding: 18px;
@@ -121,13 +121,13 @@
     }
 
     #sidebar {
-      width: 320px;
-      min-width: 320px;
+      width: 286px;
+      min-width: 286px;
       background: rgba(255, 255, 255, 0.78);
       backdrop-filter: blur(14px);
       border: 1px solid rgba(221, 229, 239, 0.9);
       border-radius: 24px;
-      padding: 1rem;
+      padding: 0.9rem;
       overflow-y: auto;
       box-shadow: var(--shadow);
     }
@@ -138,7 +138,7 @@
 
     .eyebrow {
       margin: 0 0 8px;
-      font-size: 0.72rem;
+      font-size: 0.69rem;
       font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -147,14 +147,14 @@
 
     .sidebar-intro h1 {
       margin: 0;
-      font-size: 1.55rem;
+      font-size: 1.42rem;
       line-height: 1.12;
       color: var(--brand-navy);
     }
 
     .sidebar-intro p {
       margin: 10px 0 0;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       line-height: 1.5;
       color: var(--text-muted);
     }
@@ -164,15 +164,15 @@
     .summary-card,
     .map-card,
     .chart-card {
-      background: rgba(255, 255, 255, 0.94);
+      background: rgba(255, 255, 255, 0.76);
       border: 1px solid var(--line);
       box-shadow: 0 10px 24px rgba(26, 48, 94, 0.08);
     }
 
     .card {
-      padding: 1rem;
+      padding: 0.9rem;
       border-radius: 18px;
-      margin-bottom: 1rem;
+      margin-bottom: 0.9rem;
     }
 
     .card-title {
@@ -185,7 +185,7 @@
     .card-help {
       margin: 0 0 12px;
       color: var(--text-muted);
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       line-height: 1.4;
     }
 
@@ -202,12 +202,12 @@
     input,
     select {
       width: 100%;
-      padding: 12px;
+      padding: 9px;
       margin-top: 5px;
       border-radius: 12px;
       border: 1px solid #cfd8e5;
       box-sizing: border-box;
-      font-size: 0.9rem;
+      font-size: 0.84rem;
       background: white;
       color: var(--text-main);
       outline: none;
@@ -265,7 +265,7 @@
       gap: 10px;
       padding: 8px 10px;
       border-radius: 12px;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 800;
       color: #334155;
     }
@@ -289,7 +289,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 18px;
+      gap: 14px;
       padding: 18px 20px;
       background: rgba(255, 255, 255, 0.9);
       border: 1px solid var(--line);
@@ -346,7 +346,7 @@
     }
 
     .summary-label {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--text-muted);
@@ -373,8 +373,8 @@
 
     .dashboard-grid {
       display: grid;
-      grid-template-columns: minmax(520px, 1.7fr) minmax(320px, 0.9fr);
-      gap: 14px;
+      grid-template-columns: minmax(560px, 2fr) minmax(280px, 0.78fr);
+      gap: 12px;
       min-height: 480px;
     }
 
@@ -393,7 +393,7 @@
     }
 
     .panel-card {
-      padding: 18px;
+      padding: 14px;
       min-height: 480px;
     }
 
@@ -402,7 +402,7 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 14px;
-      padding: 16px 18px;
+      padding: 14px 16px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,251,255,0.95));
     }
@@ -423,7 +423,7 @@
 
     #map {
       flex: 1;
-      min-height: 390px;
+      min-height: 400px;
       width: 100%;
       z-index: 1;
       background: #edf2f7;
@@ -431,26 +431,26 @@
 
     .map-legend {
       position: absolute;
-      top: 86px;
-      right: 14px;
+      top: 78px;
+      right: 10px;
       z-index: 1000;
       background: rgba(255, 255, 255, 0.94);
       padding: 12px;
-      border-radius: 16px;
+      border-radius: 14px;
       border: 1px solid rgba(221, 229, 239, 0.95);
-      box-shadow: 0 12px 30px rgba(26, 48, 94, 0.14);
-      min-width: 184px;
-      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 24px rgba(26, 48, 94, 0.12);
+      min-width: 156px;
+      backdrop-filter: blur(8px);
     }
 
     .legend-title {
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 950;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       color: var(--brand-navy);
       text-align: left;
       border-bottom: 1px solid #eef2f7;
-      padding-bottom: 7px;
+      padding-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
@@ -458,8 +458,8 @@
     .legend-item {
       display: flex;
       align-items: center;
-      margin-bottom: 6px;
-      font-size: 0.76rem;
+      margin-bottom: 5px;
+      font-size: 0.71rem;
       font-weight: 800;
       color: #475467;
     }
@@ -475,18 +475,18 @@
     .sensor-key {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 7px;
-      margin-top: 10px;
-      padding-top: 10px;
+      gap: 5px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid #eef2f7;
     }
 
     .sensor-key-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       color: #475467;
-      font-size: 0.76rem;
+      font-size: 0.71rem;
       font-weight: 800;
     }
 
@@ -507,13 +507,13 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     #statName {
       margin: 0;
       color: var(--brand-navy);
-      font-size: 1.15rem;
+      font-size: 1.06rem;
       line-height: 1.2;
       font-weight: 950;
       overflow-wrap: anywhere;
@@ -533,7 +533,7 @@
       justify-content: center;
       gap: 6px;
       border-radius: 999px;
-      padding: 7px 10px;
+      padding: 6px 9px;
       font-size: 0.72rem;
       font-weight: 950;
       white-space: nowrap;
@@ -559,14 +559,14 @@
 
     .aqi-showcase {
       display: grid;
-      grid-template-columns: 150px 1fr;
-      gap: 16px;
+      grid-template-columns: 118px 1fr;
+      gap: 12px;
       align-items: center;
-      border-radius: 22px;
-      padding: 16px;
+      border-radius: 18px;
+      padding: 14px;
       background: #f8fbff;
       border: 1px solid #e7edf6;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .aqi-showcase.good { background: var(--pastel-green); }
@@ -577,7 +577,7 @@
     .aqi-showcase.hazardous { background: var(--pastel-maroon); }
 
     .aqi-val {
-      font-size: 4.4rem;
+      font-size: 3.9rem;
       font-weight: 950;
       display: block;
       text-align: center;
@@ -599,33 +599,33 @@
     .risk-copy {
       margin: 0;
       color: #334155;
-      font-size: 0.92rem;
+      font-size: 0.86rem;
       line-height: 1.45;
       font-weight: 700;
     }
 
     .driver-chip {
       display: inline-block;
-      margin-top: 10px;
-      padding: 7px 10px;
+      margin-top: 8px;
+      padding: 6px 9px;
       border-radius: 999px;
       background: rgba(255,255,255,0.65);
       border: 1px solid rgba(255,255,255,0.9);
       color: var(--brand-navy);
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 950;
     }
 
     .reading-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin: 14px 0;
+      gap: 8px;
+      margin: 12px 0;
     }
 
     .reading-tile {
-      padding: 12px;
-      border-radius: 16px;
+      padding: 10px;
+      border-radius: 14px;
       border: 1px solid #e7edf6;
       background: #f8fbff;
     }
@@ -642,7 +642,7 @@
     .reading-tile-value {
       color: var(--brand-navy);
       font-weight: 950;
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       overflow-wrap: anywhere;
     }
 
@@ -663,8 +663,8 @@
     }
 
     .ceaqi-breakdown {
-      margin-top: 14px;
-      padding-top: 14px;
+      margin-top: 12px;
+      padding-top: 12px;
       border-top: 1px solid #eef2f7;
       font-size: 0.78rem;
       color: #555;
@@ -972,6 +972,37 @@
       backdrop-filter: blur(10px);
     }
 
+    @media (max-width: 1500px) {
+      #sidebar {
+        width: 272px;
+        min-width: 272px;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: minmax(0, 2.15fr) minmax(255px, 0.72fr);
+      }
+
+      .panel-card {
+        padding: 12px;
+      }
+
+      .aqi-showcase {
+        grid-template-columns: 104px 1fr;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .aqi-val {
+        font-size: 3.5rem;
+      }
+
+      .map-legend {
+        min-width: 148px;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.68);
+      }
+    }
+
     @media (max-width: 1100px) {
       #layout {
         flex-direction: column;
@@ -1080,7 +1111,7 @@
       <h2 class="card-title">Find your nearest station</h2>
       <p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="Enter an address, for example 123 Main St, Cheverly, MD">
+      <input type="text" id="addrInput" placeholder="Enter an address in Cheverly, MD">
       <button id="locateBtn">Find Nearest Station</button>
     </div>
 
@@ -3164,4 +3195,3 @@
 </script>
 </body>
 </html>
-
