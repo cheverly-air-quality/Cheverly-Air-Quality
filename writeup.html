@@ -4,52 +4,372 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cheverly Air Quality | FAQs</title>
-    <style>
-        :root { 
-            --brand-navy: #1a305e; 
-            --search-blue: #4477ce; 
-            --bg-light: #f8fafc;
-            
-            /* VIBRANT HEALTH COLORS */
+        <style>
+        :root {
+            --brand-navy: #1a305e;
+            --search-blue: #4477ce;
+            --aqi-green: #00e400;
+            --aqi-yellow: #ffff00;
+            --aqi-orange: #ff7e00;
+            --aqi-red: #ff0000;
+            --aqi-purple: #8f3f97;
+            --aqi-maroon: #7e0023;
             --good-green: #00e400;
             --moderate-yellow: #ffff00;
             --unhealthy-sensitive-orange: #ff7e00;
             --unhealthy-red: #ff0000;
             --very-unhealthy-purple: #8f3f97;
             --hazardous-maroon: #7e0023;
+            --pastel-green: #e8f8e6;
+            --pastel-yellow: #fff8c7;
+            --pastel-orange: #ffe5c8;
+            --pastel-red: #ffdada;
+            --pastel-purple: #ecd9f1;
+            --text-main: #1f2a44;
+            --text-muted: #667085;
+            --line: #dde5ef;
+            --page-bg: #eef3f8;
+            --shadow: 0 18px 44px rgba(26, 48, 94, 0.12);
         }
-        html { scroll-behavior: smooth; }
-        body { margin: 0; font-family: "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; background: #fff; }
-        .topbar { background: var(--brand-navy); color: white; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; height: 64px; position: sticky; top: 0; z-index: 1000; }
-        .nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: 500; }
-        .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-        
-        .jump-menu { background: var(--bg-light); border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 40px; display: flex; flex-wrap: wrap; gap: 10px; }
-        .jump-menu a { color: var(--search-blue); text-decoration: none; font-weight: 600; background: white; padding: 5px 15px; border-radius: 20px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
 
-        section { scroll-margin-top: 80px; margin-bottom: 80px; padding-bottom: 40px; border-bottom: 1px solid #eee; }
-        h1 { color: var(--brand-navy); font-size: 2.2rem; }
-        h2 { color: var(--brand-navy); font-size: 1.6rem; border-left: 4px solid var(--search-blue); padding-left: 15px; margin-top: 2rem; }
-        h3 { color: var(--search-blue); font-size: 1.2rem; margin-top: 1.5rem; }
-        
-        .draft-tag { color: #ef4444; font-weight: bold; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
-        .info-box { background: var(--bg-light); padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0; }
-        
-        /* UPDATED TABLE WITH VIBRANT, OPAQUE COLORS */
-        table { width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-        th { background: #f1f5f9; color: var(--brand-navy); padding: 15px; text-align: left; }
-        td { padding: 15px; border-bottom: 1px solid #eee; }
+        html {
+            scroll-behavior: smooth;
+        }
 
-        /* Applying vibrant background colors directly to the rows */
-        .aqi-good { background-color: var(--good-green); color: black; font-weight: 600; }
-        .aqi-moderate { background-color: var(--moderate-yellow); color: black; font-weight: 600; }
-        .aqi-sensitive { background-color: var(--unhealthy-sensitive-orange); color: black; font-weight: 600; }
-        .aqi-unhealthy { background-color: var(--unhealthy-red); color: white; font-weight: 600; }
-        .aqi-very-unhealthy { background-color: var(--very-unhealthy-purple); color: white; font-weight: 600; }
-        .aqi-hazardous { background-color: var(--hazardous-maroon); color: white; font-weight: 600; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Roboto, sans-serif;
+            line-height: 1.65;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at top left, rgba(68, 119, 206, 0.12), transparent 35%),
+                linear-gradient(180deg, #f6f9fd 0%, var(--page-bg) 100%);
+            padding-bottom: 34px;
+        }
 
-        .contact-card { background: #1a305e; color: white; padding: 25px; border-radius: 12px; margin-top: 20px; }
-        .contact-card h4 { margin: 0 0 10px 0; color: #60a5fa; }
+        .topbar {
+            background: var(--brand-navy);
+            color: #fff;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            font-size: 1.25rem;
+            font-weight: 950;
+            letter-spacing: 0.02em;
+        }
+
+        .brand::before {
+            content: "";
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #9bc4ff;
+            box-shadow: 0 0 0 6px rgba(155, 196, 255, 0.16);
+        }
+
+        .nav a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 1.5rem;
+            font-weight: 800;
+            opacity: 0.82;
+            transition: opacity 0.2s;
+        }
+
+        .nav a:hover,
+        .nav a.active {
+            opacity: 1;
+        }
+
+        .nav a.active {
+            border-bottom: 2px solid white;
+            padding-bottom: 4px;
+        }
+
+        .container {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 34px 1.5rem 3rem;
+        }
+
+        .page-intro {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            border-radius: 26px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            color: var(--brand-navy);
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            line-height: 1.08;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .jump-menu {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 18px;
+            margin-bottom: 34px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
+        }
+
+        .jump-menu a {
+            color: var(--brand-navy);
+            text-decoration: none;
+            font-weight: 900;
+            background: #eef4ff;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid #cfe0ff;
+            font-size: 0.86rem;
+            transition: transform 0.2s, filter 0.2s;
+        }
+
+        .jump-menu a:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.03);
+        }
+
+        section {
+            scroll-margin-top: 86px;
+            margin-bottom: 28px;
+            padding: 2rem;
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: var(--shadow);
+        }
+
+        section p {
+            color: #4f5d73;
+            font-size: 1rem;
+        }
+
+        h2 {
+            color: var(--brand-navy);
+            font-size: 1.48rem;
+            line-height: 1.25;
+            border-left: 5px solid var(--search-blue);
+            padding-left: 14px;
+            margin: 0.55rem 0 1.25rem;
+        }
+
+        h3 {
+            color: var(--search-blue);
+            font-size: 1.12rem;
+            margin-top: 1.55rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .draft-tag {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            color: var(--brand-navy);
+            background: #eef4ff;
+            border: 1px solid #cfe0ff;
+            font-weight: 950;
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            padding: 6px 10px;
+            border-radius: 999px;
+            margin: 0 0 0.9rem;
+        }
+
+        .info-box {
+            background: #f8fbff;
+            padding: 1.25rem;
+            border-radius: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--line);
+        }
+
+        .info-box p:first-child {
+            margin-top: 0;
+        }
+
+        .info-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        ul {
+            color: #4f5d73;
+            padding-left: 1.35rem;
+        }
+
+        li {
+            margin-bottom: 0.45rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 25px 0 8px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
+            background: white;
+        }
+
+        th {
+            background: #eef4ff;
+            color: var(--brand-navy);
+            padding: 15px;
+            text-align: left;
+            font-weight: 950;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.35);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .aqi-good {
+            background-color: var(--good-green);
+            color: black;
+            font-weight: 750;
+        }
+
+        .aqi-moderate {
+            background-color: var(--moderate-yellow);
+            color: black;
+            font-weight: 750;
+        }
+
+        .aqi-sensitive {
+            background-color: var(--unhealthy-sensitive-orange);
+            color: black;
+            font-weight: 750;
+        }
+
+        .aqi-unhealthy {
+            background-color: var(--unhealthy-red);
+            color: white;
+            font-weight: 750;
+        }
+
+        .aqi-very-unhealthy {
+            background-color: var(--very-unhealthy-purple);
+            color: white;
+            font-weight: 750;
+        }
+
+        .aqi-hazardous {
+            background-color: var(--hazardous-maroon);
+            color: white;
+            font-weight: 750;
+        }
+
+        .contact-card {
+            background: linear-gradient(135deg, var(--brand-navy), #24427f);
+            color: white;
+            padding: 1.45rem;
+            border-radius: 22px;
+            margin-top: 20px;
+            box-shadow: 0 14px 34px rgba(26, 48, 94, 0.2);
+        }
+
+        .contact-card h4 {
+            margin: 0 0 10px 0;
+            color: #9bc4ff;
+            font-weight: 950;
+            letter-spacing: 0.03em;
+        }
+
+        .contact-card p {
+            color: white;
+            margin: 0.45rem 0;
+        }
+
+        .site-footer {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-size: 0.9rem;
+            border-top: 1px solid var(--line);
+            background: rgba(255,255,255,0.58);
+        }
+
+        .site-footer p {
+            margin: 0;
+        }
+
+        .dashboard-disclaimer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.92);
+            color: #667085;
+            font-size: 0.7rem;
+            padding: 5px 20px;
+            text-align: center;
+            border-top: 1px solid #dde5ef;
+            z-index: 3000;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 760px) {
+            .topbar {
+                padding: 0 1rem;
+            }
+
+            .nav a {
+                margin-left: 0.75rem;
+                font-size: 0.82rem;
+            }
+
+            .container {
+                padding: 22px 1rem 2.5rem;
+            }
+
+            .page-intro,
+            section {
+                border-radius: 20px;
+                padding: 1.35rem;
+            }
+
+            .jump-menu {
+                border-radius: 18px;
+            }
+
+            table {
+                font-size: 0.86rem;
+            }
+
+            th,
+            td {
+                padding: 11px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -59,12 +379,14 @@
     <nav class="nav">
         <a href="index.html">Home</a>
         <a href="dashboard.html">Map & Data</a>
-        <a href="writeup.html">FAQs</a>
+        <a href="writeup.html" class="active">FAQs</a>
     </nav>
 </header>
 
 <main class="container">
-    <h1>Project Documentation & Methodology</h1>
+    <div class="page-intro">
+        <h1>Project Documentation & Methodology</h1>
+    </div>
     
     <nav class="jump-menu">
         <a href="#network-basics">Network History</a>
@@ -156,7 +478,7 @@
     </section>
 </main>
 
-<footer style="text-align:center; padding:40px; color:#64748b; font-size:0.9rem; border-top:1px solid #eee;">
+<footer class="site-footer">
     <p>© 2026 Environmental Justice Action Team (EJAT) | Cheverly, MD</p>
 </footer>
 
