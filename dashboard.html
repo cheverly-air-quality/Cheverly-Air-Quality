@@ -583,7 +583,9 @@
       text-align: center;
       line-height: 1;
       color: var(--brand-navy);
-      text-shadow: none;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      -webkit-text-stroke: 2px #000;
+      paint-order: stroke fill;
     }
 
     .sublabel {
@@ -2407,7 +2409,9 @@
     if (!el) return;
 
     el.style.color = getAQIColor(value);
-    el.style.textShadow = "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 3px rgba(0,0,0,0.18)";
+    el.style.webkitTextStroke = "2px #000";
+    el.style.paintOrder = "stroke fill";
+    el.style.textShadow = "0 2px 4px rgba(0,0,0,0.2)";
   }
 
   function updateSelectedStationVisuals(id, result) {
@@ -3190,3 +3194,4 @@
 </script>
 </body>
 </html>
+
