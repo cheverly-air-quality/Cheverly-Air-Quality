@@ -11,84 +11,398 @@
     :root {
       --brand-navy: #1a305e;
       --search-blue: #4477ce;
+      --aqi-green: #00e400;
+      --aqi-yellow: #ffff00;
       --aqi-orange: #ff7e00;
       --aqi-red: #ff0000;
       --aqi-purple: #8f3f97;
+      --aqi-maroon: #7e0023;
       --success-green: #28a745;
+      --tile-orange: #f28c28;
+      --tile-red: #d84a4a;
+      --tile-purple: #8b4bb3;
+      --tile-green: #35a957;
+      --pastel-green: #e8f8e6;
+      --pastel-yellow: #fff8c7;
+      --pastel-orange: #ffe5c8;
+      --pastel-red: #ffdada;
+      --pastel-purple: #ecd9f1;
+      --text-main: #1f2a44;
+      --text-muted: #667085;
+      --line: #dde5ef;
+      --page-bg: #eef3f8;
+      --shadow: 0 18px 44px rgba(26, 48, 94, 0.12);
     }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; font-family: "Segoe UI", Roboto, sans-serif; background: #fdfdfd; color: #333; }
 
-    .topbar { background: var(--brand-navy); color: #fff; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; height: 64px; position: sticky; top: 0; z-index: 1000; }
-    .topbar .nav a { color: #fff; text-decoration: none; margin-left: 1.5rem; font-weight: 500; opacity: 0.8; transition: opacity 0.2s; }
-    .topbar .nav a:hover { opacity: 1; }
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(68, 119, 206, 0.12), transparent 35%),
+        linear-gradient(180deg, #f6f9fd 0%, var(--page-bg) 100%);
+      color: var(--text-main);
+    }
+
+    .topbar {
+      background: var(--brand-navy);
+      color: #fff;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 1.25rem;
+      font-weight: 950;
+      letter-spacing: 0.02em;
+    }
+
+    .brand::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #9bc4ff;
+      box-shadow: 0 0 0 6px rgba(155, 196, 255, 0.16);
+    }
+
+    .topbar .nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-weight: 800;
+      opacity: 0.82;
+      transition: opacity 0.2s;
+    }
+
+    .topbar .nav a:hover,
+    .topbar .nav a.active {
+      opacity: 1;
+    }
+
+    .topbar .nav a.active {
+      border-bottom: 2px solid white;
+      padding-bottom: 4px;
+    }
 
     .hero {
       position: relative;
       color: #fff;
       text-align: center;
-      background: linear-gradient(180deg, rgba(26,48,94,0.7), rgba(26,48,94,0.4)), 
-                  url('cloudy sky.jpg') 
-                  center/cover no-repeat;
+      background:
+        linear-gradient(180deg, rgba(26,48,94,0.78), rgba(26,48,94,0.52)),
+        url('cloudy sky.jpg') center/cover no-repeat;
       padding: 6rem 1rem 9rem;
-    }
-    .hero h1 { font-size: 3rem; margin-bottom: 0.5rem; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-    .hero p { font-size: 1.25rem; max-width: 800px; margin: 0 auto 2rem; opacity: 0.95; }
-
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem 3rem; }
-
-    .tiles--grid { 
-      display: grid; 
-      gap: 20px; 
-      grid-template-columns: repeat(4, 1fr); 
-      margin-top: -80px; 
-      position: relative; 
-      z-index: 10; 
+      overflow: hidden;
     }
 
-    .tile { 
-      padding: 1.5rem 1rem; 
-      border-radius: 12px; 
-      text-decoration: none; 
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -140px;
+      width: 1200px;
+      height: 260px;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.13);
+      border-radius: 50%;
+      filter: blur(8px);
+    }
+
+    .hero__content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.35rem, 5vw, 3.4rem);
+      margin: 0 0 0.5rem;
+      text-shadow: 0 2px 14px rgba(0,0,0,0.32);
+      letter-spacing: -0.02em;
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      max-width: 800px;
+      margin: 0 auto 2rem;
+      opacity: 0.95;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 0 1.5rem 3rem;
+    }
+
+    .tiles--grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(4, 1fr);
+      margin-top: -80px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .tile {
+      padding: 1.5rem 1rem;
+      border-radius: 22px;
+      text-decoration: none;
       text-align: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      color: white; 
+      box-shadow: var(--shadow);
+      transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
+      color: white;
       display: flex;
       flex-direction: column;
       justify-content: center;
       min-height: 180px;
       box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+      position: relative;
     }
 
-    .tile-main { grid-column: span 4; background-color: var(--search-blue); min-height: 150px; padding: 2rem; }
-    .tile-2 { background-color: var(--aqi-orange); }
-    .tile-3 { background-color: var(--aqi-red); }
-    .tile-4 { background-color: var(--aqi-purple); }
-    .tile-5 { background-color: var(--success-green); } 
-
-    .tile:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.25); filter: brightness(1.1); }
-    .tile h3 { margin: 0 0 10px; font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
-    .tile p { font-size: 0.9rem; opacity: 0.9; margin: 0; line-height: 1.4; }
-
-    @media (max-width: 950px) { .tiles--grid { grid-template-columns: repeat(2, 1fr); } .tile-main { grid-column: span 2; } }
-    @media (max-width: 600px) { .tiles--grid { grid-template-columns: 1fr; } .tile-main { grid-column: span 1; } }
-
-    .info-section { margin-top: 6rem; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
-    @media (max-width: 850px) { .info-section { grid-template-columns: 1fr; } }
-
-    .info-text h2 { color: var(--brand-navy); font-size: 2.2rem; margin-top: 0; }
-    .info-text p { font-size: 1.1rem; line-height: 1.7; color: #555; }
-    
-    #mini-map { 
-      height: 400px; 
-      border-radius: 16px; 
-      border: 1px solid #ddd; 
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      z-index: 1; 
+    .tile::after {
+      content: "";
+      position: absolute;
+      right: -34px;
+      top: -34px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.20);
     }
 
-    .footer { background: var(--brand-navy); color: #fff; text-align: center; padding: 3rem; margin-top: 5rem; }
+    .tile-main {
+      grid-column: span 4;
+      background: linear-gradient(135deg, var(--search-blue), #2f62c3);
+      color: white;
+      min-height: 150px;
+      padding: 2rem;
+    }
+
+    .tile-2 {
+      background: linear-gradient(135deg, var(--tile-orange), #e47415);
+      color: white;
+    }
+
+    .tile-3 {
+      background: linear-gradient(135deg, var(--tile-red), #c43b3b);
+      color: white;
+    }
+
+    .tile-4 {
+      background: linear-gradient(135deg, var(--tile-purple), #743a9e);
+      color: white;
+    }
+
+    .tile-5 {
+      background: linear-gradient(135deg, var(--tile-green), #228c47);
+      color: white;
+    }
+
+    .tile:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 24px 54px rgba(26, 48, 94, 0.18);
+      filter: brightness(1.06);
+    }
+
+    .tile h3 {
+      margin: 0 0 10px;
+      font-size: 1.08rem;
+      font-weight: 950;
+      line-height: 1.2;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+
+    .tile p {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin: 0;
+      line-height: 1.45;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+    }
+
+    .tile p + p {
+      margin-top: 8px;
+      font-weight: 900;
+    }
+
+    .info-section {
+      margin-top: 6rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .info-text,
+    .preview-map-card {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 26px;
+      overflow: hidden;
+    }
+
+    .info-text {
+      padding: 2rem;
+    }
+
+    .info-text h2 {
+      color: var(--brand-navy);
+      font-size: 2.1rem;
+      line-height: 1.12;
+      margin: 0 0 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .info-text p {
+      font-size: 1.04rem;
+      line-height: 1.72;
+      color: #4f5d73;
+    }
+
+    .preview-map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.15rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.96));
+    }
+
+    .preview-map-head h2 {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1rem;
+      font-weight: 950;
+    }
+
+    .preview-map-head span {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--brand-navy);
+      background: #eef4ff;
+      border: 1px solid #cfe0ff;
+      font-size: 0.72rem;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    #mini-map {
+      height: 430px;
+      z-index: 1;
+      background: #edf2f7;
+    }
+
+    .mini-marker {
+      width: 18px;
+      height: 18px;
+      border: 3px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 3px 10px rgba(0,0,0,0.22);
+      box-sizing: border-box;
+    }
+
+    .mini-marker.pa {
+      border-radius: 50%;
+    }
+
+    .mini-marker.mod {
+      border-radius: 4px;
+    }
+
+    .mini-marker.c12 {
+      border-radius: 4px;
+      transform: rotate(45deg);
+    }
+
+    .mini-map-note {
+      padding: 0.75rem 1.15rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,0.94);
+    }
+
+    .footer {
+      background: var(--brand-navy);
+      color: #fff;
+      text-align: center;
+      padding: 3rem;
+      margin-top: 5rem;
+    }
+
+    .footer p {
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    @media (max-width: 950px) {
+      .tiles--grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .tile-main {
+        grid-column: span 2;
+      }
+
+      .info-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .topbar {
+        padding: 0 1rem;
+      }
+
+      .topbar .nav a {
+        margin-left: 0.75rem;
+        font-size: 0.82rem;
+      }
+
+      .tiles--grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tile-main {
+        grid-column: span 1;
+      }
+
+      .container {
+        padding: 0 1rem 2rem;
+      }
+
+      .info-text {
+        padding: 1.35rem;
+      }
+
+      #mini-map {
+        height: 350px;
+      }
+    }
   </style>
 </head>
 
@@ -96,7 +410,7 @@
   <header class="topbar">
     <div class="brand">Cheverly Air Quality</div>
     <nav class="nav">
-      <a href="index.html">Home</a>
+      <a href="index.html" class="active">Home</a>
       <a href="dashboard.html">Map & Data</a>
       <a href="writeup.html">FAQs</a>
     </nav>
@@ -144,7 +458,15 @@
         <p>Traditional air quality maps often rely on distant regional sensors and focus on a limited list of criteria pollutants. This dashboard provides hyper-local data from sensors placed directly within our neighborhoods to provide targeted and specific estimates of health risks.</p>
         <p>By using our CE-AQI (Cumulative Exposure Air Quality Index), we provide a more accurate picture of the air you are actually breathing. Unlike standard tools, the CE-AQI covers high-priority pollutants for overburdened areas like Cheverly, including Black Carbon, diesel particulate matter, and specific volatile organic chemicals. It communicates the health impact of cumulative exposure to multiple criteria and toxic air pollutants at the same time, ensuring you have the real-time information needed to make safe choices for your family.</p>
       </div>
-      <div id="mini-map"></div>
+
+      <div class="preview-map-card">
+        <div class="preview-map-head">
+          <h2>Station map</h2>
+          <span>Preview</span>
+        </div>
+        <div id="mini-map"></div>
+        <div class="mini-map-note">Marker color follows CE-AQI. Marker shape shows sensor type.</div>
+      </div>
     </section>
   </main>
 
@@ -154,9 +476,8 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // --- MINI-MAP SETUP ---
-    const miniMap = L.map('mini-map', {
-      center: [38.9213, -76.9175], 
+    const miniMap = L.map("mini-map", {
+      center: [38.9213, -76.9175],
       zoom: 14,
       dragging: false,
       zoomControl: false,
@@ -165,40 +486,362 @@
       touchZoom: false
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { opacity: 0.7 }).addTo(miniMap);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+    }).addTo(miniMap);
+
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      pane: "overlayPane"
+    }).addTo(miniMap);
 
     const API_PROXY = "/api/aq";
-    
-    // Aligned with Dashboard SENSORS
-    const SENSORS = { "284362": "EJAT.PG.1.284362", "52823": "EJAT.CV.6.52823", "53677": "EJAT.CV.1.53677", "54239": "EJAT.CV.6.54239", "54293": "EJAT.CV.2.54293", "57777": "EJAT.CV.1.57777", "57783": "EJAT.CV.6.57783", "57811": "EJAT.CV.4.57811", "57841": "EJAT.CV.3.57841", "57955": "EJAT.FH.1.57955", "160037": "EJAT.PG.1.160037", "175563": "EJAT.PG.1.175563", "178169": "EJAT.PG.1.178169", "181253": "EJAT.CH.1.181253", "184191": "EJAT.PG.1.184191", "185085": "EJAT.FH.1.185085", "197937": "EJAT.PG.1.197937", "203577": "EJAT.CV.2.203577", "203597": "EJAT.FH.1.203597", "203601": "EJAT.CV.1.203601", "207729": "EJAT.CV.1.207729", "211993": "EJAT.CV.3.211993", "218227": "EJAT.PG.1.218227", "218237": "EJAT.PG.1.218237", "218273": "EJAT.PG.1.218273", "156595": "EJAT.CV.156595" };
 
-    const SPODS = [ 
-      { sn: "MOD-00745", lat: 38.9051, lon: -76.9100 }, 
-      { sn: "MOD-00746", lat: 39.1432, lon: -76.8460 }, 
-      { sn: "MOD-00747", lat: 39.2339, lon: -76.5045 }, 
-      { sn: "MOD-00748", lat: 38.9696, lon: -76.5422 }, 
-      { sn: "MOD-00749", lat: 39.0554, lon: -76.8788 } 
+    const SENSORS = {
+      "52823": "EJAT.CV.6.52823",
+      "53677": "EJAT.CV.1.53677",
+      "54293": "EJAT.CV.2.54293",
+      "57777": "EJAT.CV.1.57777",
+      "57783": "EJAT.CV.6.57783",
+      "57811": "EJAT.CV.4.57811",
+      "57841": "EJAT.CV.3.57841",
+      "203577": "EJAT.CV.2.203577",
+      "203601": "EJAT.CV.1.203601",
+      "207729": "EJAT.CV.1.207729",
+      "211993": "EJAT.CV.3.211993",
+      "156595": "EJAT.CV.156595",
+      "284362": "EJAT.PG.1.284362",
+      "160037": "EJAT.PG.1.160037",
+      "175563": "EJAT.PG.1.175563",
+      "178169": "EJAT.PG.1.178169",
+      "184191": "EJAT.PG.1.184191",
+      "197937": "EJAT.PG.1.197937",
+      "218227": "EJAT.PG.1.218227",
+      "218237": "EJAT.PG.1.218237",
+      "218273": "EJAT.PG.1.218273",
+      "57955": "EJAT.FH.1.57955",
+      "185085": "EJAT.FH.1.185085",
+      "203597": "EJAT.FH.1.203597",
+      "181253": "EJAT.CH.1.181253"
+    };
+
+    const SPODS = [
+      { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: null, lon: null },
+      { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
+      { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
+      { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
+      { sn: "MOD-00748", name: "QuantAQ MOD-00748", lat: 38.969685, lon: -76.542290 },
+      { sn: "MOD-00749", name: "QuantAQ MOD-00749", lat: 39.055400, lon: -76.878800 }
     ];
 
-    const C12S = [ { compId: "D14781" }, { compId: "D14645" }, { compId: "D17615" }, { compId: "E10588" }, { compId: "D14646" } ];
+    const C12S = [
+      { compId: "D14645", name: "C-12 D14645", lat: null, lon: null },
+      { compId: "D17615", name: "C-12 D17615", lat: null, lon: null },
+      { compId: "E10588", name: "C-12 E10588", lat: null, lon: null },
+      { compId: "D14646", name: "C-12 D14646", lat: null, lon: null },
+      { compId: "B19939", name: "C-12 B19939", lat: null, lon: null }
+    ];
 
-    const BP_PM25_24H = [ { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 }, { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 }, { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 }, { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 } ];
+    const BP_PM25_24H = [
+      { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },
+      { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+      { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+      { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+      { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+      { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500 }
+    ];
+
+    const BP_PM10_24H = [
+      { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+      { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 },
+      { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 },
+      { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200 },
+      { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300 },
+      { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500 }
+    ];
+
+    const BP_O3_8H = [
+      { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+      { cLow: 55, cHigh: 70, iLow: 51, iHigh: 100 },
+      { cLow: 71, cHigh: 85, iLow: 101, iHigh: 150 },
+      { cLow: 86, cHigh: 105, iLow: 151, iHigh: 200 },
+      { cLow: 106, cHigh: 200, iLow: 201, iHigh: 300 }
+    ];
+
+    const BP_CO_8H_PPM = [
+      { cLow: 0.0, cHigh: 4.4, iLow: 0, iHigh: 50 },
+      { cLow: 4.5, cHigh: 9.4, iLow: 51, iHigh: 100 },
+      { cLow: 9.5, cHigh: 12.4, iLow: 101, iHigh: 150 },
+      { cLow: 12.5, cHigh: 15.4, iLow: 151, iHigh: 200 },
+      { cLow: 15.5, cHigh: 30.4, iLow: 201, iHigh: 300 },
+      { cLow: 30.5, cHigh: 50.4, iLow: 301, iHigh: 500 }
+    ];
+
+    const BP_NO2_1H = [
+      { cLow: 0, cHigh: 53, iLow: 0, iHigh: 50 },
+      { cLow: 54, cHigh: 100, iLow: 51, iHigh: 100 },
+      { cLow: 101, cHigh: 360, iLow: 101, iHigh: 150 },
+      { cLow: 361, cHigh: 649, iLow: 151, iHigh: 200 },
+      { cLow: 650, cHigh: 1249, iLow: 201, iHigh: 300 },
+      { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
+    ];
+
+    let paCoords = {};
+    let quantCache = {};
+    let c12Cache = {};
+
+    function safeNum(x) {
+      const v = Number(x);
+      return Number.isFinite(v) ? v : null;
+    }
+
+    function activeNum(x) {
+      const v = safeNum(x);
+      return v !== null && v > 0 ? v : null;
+    }
+
+    function hasValidCoords(lat, lon) {
+      const la = Number(lat);
+      const lo = Number(lon);
+      return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
+    }
 
     function getAQIColor(aqi) {
-      if (aqi <= 50) return "#00e400";
-      if (aqi <= 100) return "#ffff00";
-      if (aqi <= 150) return "#ff7e00";
-      if (aqi <= 200) return "#ff0000";
-      if (aqi <= 300) return "#8f3f97";
+      const v = Number(aqi);
+      if (!Number.isFinite(v)) return "#bbb";
+      if (v <= 50) return "#00e400";
+      if (v <= 100) return "#ffff00";
+      if (v <= 150) return "#ff7e00";
+      if (v <= 200) return "#ff0000";
+      if (v <= 300) return "#8f3f97";
       return "#7e0023";
     }
 
     function aqiFromBreakpoints(C, table) {
       if (C === null || !Number.isFinite(Number(C))) return null;
       const c = Number(C);
-      for (const bp of table) { if (c >= bp.cLow && c <= bp.cHigh) return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow); }
-      if (c > 150.4 && c <= 250.4) return Math.round(((300 - 201) / (250.4 - 150.5)) * (c - 150.5) + 201);
-      return c > 250.4 ? 301 : null;
+      for (const bp of table) {
+        if (c >= bp.cLow && c <= bp.cHigh) {
+          return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+        }
+      }
+      return null;
+    }
+
+    function aqiFromBC(bcNgM3) {
+      const bc = activeNum(bcNgM3);
+      if (bc === null) return null;
+      return Math.round((bc / 600) * 100);
+    }
+
+    function aqiFromDPM(bcNgM3) {
+      const bc = activeNum(bcNgM3);
+      if (bc === null) return null;
+      const dpm = bc * 1.25;
+      return Math.round((dpm / 330) * 100);
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function nearestQuantAQ(lat, lon) {
+      if (!hasValidCoords(lat, lon)) return null;
+      let best = null;
+      let bestDist = Infinity;
+      for (const s of SPODS) {
+        if (!hasValidCoords(s.lat, s.lon)) continue;
+        const d = haversineKm(lat, lon, s.lat, s.lon);
+        if (d < bestDist) {
+          bestDist = d;
+          best = s;
+        }
+      }
+      return best;
+    }
+
+    function nearestC12(lat, lon) {
+      if (!hasValidCoords(lat, lon)) return null;
+      let best = null;
+      let bestDist = Infinity;
+      for (const c of C12S) {
+        if (!hasValidCoords(c.lat, c.lon)) continue;
+        const d = haversineKm(lat, lon, c.lat, c.lon);
+        if (d < bestDist) {
+          bestDist = d;
+          best = c;
+        }
+      }
+      return best;
+    }
+
+    function addKnownAQI(pollutants, label, aqi, options = {}) {
+      const v = safeNum(aqi);
+      if (v === null || v <= 0) return;
+      pollutants.push({
+        label,
+        aqi: Math.round(v),
+        canBeBase: options.canBeBase !== false,
+        isSupport: options.isSupport === true
+      });
+    }
+
+    function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
+      if (!qd) return;
+      const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
+      const o3 = activeNum(qd.o3);
+      const coPpb = activeNum(qd.co);
+      const no2 = activeNum(qd.no2);
+      const pm10 = activeNum(qd.pm10);
+      const meta = {
+        canBeBase: options.canBeBase !== false,
+        isSupport: options.isSupport === true
+      };
+
+      if (includePM25) {
+        addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H), meta);
+      }
+
+      addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H), meta);
+      addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
+      addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
+      addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
+    }
+
+    function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
+      const bcValue = activeNum(bc);
+      if (bcValue === null) return;
+      const meta = {
+        canBeBase: options.canBeBase !== false,
+        isSupport: options.isSupport === true
+      };
+      addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue), meta);
+      addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue), meta);
+    }
+
+    function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
+      const pollutants = [...ownPollutants];
+      if (!hasValidCoords(lat, lon)) return pollutants;
+
+      const supportMeta = {
+        canBeBase: options.supportCanBeBase === true,
+        isSupport: true
+      };
+
+      const nearestQ = nearestQuantAQ(lat, lon);
+      if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
+        addQuantAQPollutants(
+          pollutants,
+          quantCache[nearestQ.sn],
+          `nearby ${nearestQ.sn}`,
+          options.includeNearestQuantPM25 === true,
+          supportMeta
+        );
+      }
+
+      const nearestC = nearestC12(lat, lon);
+      if (nearestC && nearestC.compId !== options.skipC12) {
+        addC12Pollutants(
+          pollutants,
+          c12Cache[nearestC.compId]?.bc,
+          `nearby ${nearestC.compId}`,
+          supportMeta
+        );
+      }
+
+      return pollutants;
+    }
+
+    function calcCEAQI(pollutants) {
+      const valid = pollutants
+        .map(p => ({ ...p, aqi: Math.round(Number(p.aqi)) }))
+        .filter(p => Number.isFinite(p.aqi) && p.aqi > 0);
+
+      if (valid.length === 0) return { ceaqi: 0, baseLabel: "No data" };
+
+      const baseCandidates = valid.filter(p => p.canBeBase !== false);
+      const candidates = baseCandidates.length ? baseCandidates : valid;
+      const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
+      const baseIndex = valid.indexOf(baseItem);
+      const base = baseItem.aqi;
+
+      const totalAdders = valid.reduce((sum, p, index) => {
+        if (index === baseIndex) return sum;
+        if (p.aqi >= 120) return sum + Math.round(base * 0.03);
+        if (p.aqi >= 100) return sum + Math.round(base * 0.02);
+        if (p.aqi >= 80) return sum + Math.round(base * 0.01);
+        return sum;
+      }, 0);
+
+      return {
+        ceaqi: base + totalAdders,
+        baseLabel: baseItem.label
+      };
+    }
+
+    function getCoordsFromObject(obj, depth = 0) {
+      if (!obj || typeof obj !== "object" || depth > 4) return null;
+
+      const latKeys = ["lat", "latitude", "Latitude", "device_lat", "deviceLatitude", "site_lat"];
+      const lonKeys = ["lon", "lng", "long", "longitude", "Longitude", "device_lon", "deviceLongitude", "site_lon"];
+      let lat = null;
+      let lon = null;
+
+      for (const key of latKeys) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          lat = safeNum(obj[key]);
+          if (lat !== null) break;
+        }
+      }
+
+      for (const key of lonKeys) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          lon = safeNum(obj[key]);
+          if (lon !== null) break;
+        }
+      }
+
+      if (hasValidCoords(lat, lon)) return { lat, lon };
+
+      if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
+        const coordLon = safeNum(obj.coordinates[0]);
+        const coordLat = safeNum(obj.coordinates[1]);
+        if (hasValidCoords(coordLat, coordLon)) return { lat: coordLat, lon: coordLon };
+      }
+
+      for (const value of Object.values(obj)) {
+        const found = getCoordsFromObject(value, depth + 1);
+        if (found) return found;
+      }
+
+      return null;
+    }
+
+    function makeMiniIcon(aqi, type) {
+      const className = type === "c12" ? "c12" : type === "mod" ? "mod" : "pa";
+      const color = getAQIColor(aqi);
+      return L.divIcon({
+        className: "",
+        html: `<div class="mini-marker ${className}" style="background:${color};"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+      });
+    }
+
+    function addMiniMarker(id, lat, lon, ceaqi, type, label) {
+      if (!hasValidCoords(lat, lon)) return;
+      const marker = L.marker([Number(lat), Number(lon)], {
+        icon: makeMiniIcon(ceaqi, type),
+        interactive: false,
+        title: label || id
+      });
+      marker.addTo(miniMap);
     }
 
     async function proxyGet(params) {
@@ -206,41 +849,90 @@
         const url = API_PROXY + "?" + new URLSearchParams(params).toString();
         const res = await fetch(url);
         return res.ok ? await res.json() : null;
-      } catch(e) { return null; }
+      } catch (e) {
+        return null;
+      }
     }
 
     async function loadPreviewDots() {
-      // PurpleAir Box call
+      const today = new Date().toISOString().split("T")[0];
+
       const paBox = await proxyGet({ action: "purpleair_box" });
       const paDataArr = Array.isArray(paBox?.data) ? paBox.data : (paBox?.data?.data || []);
+
       for (const r of paDataArr) {
         const id = String(r[0]);
-        if (id in SENSORS) {
-          const val = aqiFromBreakpoints(Number(r[3]), BP_PM25_24H) || 0;
-          L.circleMarker([r[1], r[2]], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
+        const lat = safeNum(r[1]);
+        const lon = safeNum(r[2]);
+        const pm25 = activeNum(r[3]);
+        if (SENSORS[id] && hasValidCoords(lat, lon)) {
+          paCoords[id] = { lat, lon, pm25 };
         }
       }
 
-      // QuantAQ
       for (const s of SPODS) {
-        const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: new Date().toISOString().split('T')[0] });
+        const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
         const dataRoot = res?.resolved_sn ? res.data : res;
-        const last = (dataRoot?.data || []).slice(-1)[0];
-        const val = last ? aqiFromBreakpoints(Number(last.pm25 || last.pm2_5), BP_PM25_24H) : 0;
-        L.circleMarker([s.lat, s.lon], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
+        const allQ = dataRoot?.data || [];
+        quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+
+        const coords = getCoordsFromObject(res) || getCoordsFromObject(dataRoot) || getCoordsFromObject(quantCache[s.sn]);
+        if (coords) {
+          s.lat = coords.lat;
+          s.lon = coords.lon;
+        }
       }
 
-      // C-12s
+      const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+      const now = Date.now();
+
       for (const c of C12S) {
         const last = await proxyGet({ action: "grove_last", compId: c.compId });
         const rows = Array.isArray(last) ? last : (last?.data || []);
-        const lat = Number(rows.find(r=>r.streamId==="lat")?.data);
-        const lon = Number(rows.find(r=>r.streamId==="long")?.data);
-        const bcVal = Number(rows.find(r=>r.streamId==="880nm")?.data || 0);
-        const val = bcVal ? Math.round((bcVal / 600) * 100) : 0;
-        if (lat && lon) {
-           L.circleMarker([lat, lon], { radius: 8, fillColor: getAQIColor(val), color: "#333", weight: 1, fillOpacity: 0.8 }).addTo(miniMap);
+        const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+        const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+        const bcRow = rows.find(r => r.streamId === "880nm");
+        const bcTime = bcRow?.time ? new Date(String(bcRow.time).includes("Z") ? bcRow.time : `${bcRow.time}Z`).getTime() : null;
+        const bcFresh = Number.isFinite(bcTime) && (now - bcTime) < THREE_HOURS_MS;
+        const bc = bcFresh ? activeNum(bcRow?.data) : null;
+
+        c12Cache[c.compId] = { bc, lat, lon };
+        if (hasValidCoords(lat, lon)) {
+          c.lat = lat;
+          c.lon = lon;
         }
+      }
+
+      for (const [id, station] of Object.entries(paCoords)) {
+        const ownPollutants = [];
+        addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(station.pm25, BP_PM25_24H));
+        const result = calcCEAQI(buildCompletePollutantsForLocation(station.lat, station.lon, ownPollutants, {
+          includeNearestQuantPM25: false
+        }));
+        addMiniMarker(id, station.lat, station.lon, result.ceaqi, "pa", SENSORS[id]);
+      }
+
+      for (const s of SPODS) {
+        if (!hasValidCoords(s.lat, s.lon)) continue;
+        const ownPollutants = [];
+        addQuantAQPollutants(ownPollutants, quantCache[s.sn], s.sn, true);
+        const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
+          skipQuantAQ: s.sn,
+          includeNearestQuantPM25: false
+        }));
+        addMiniMarker(s.sn, s.lat, s.lon, result.ceaqi, "mod", s.name);
+      }
+
+      for (const c of C12S) {
+        const cd = c12Cache[c.compId];
+        if (!cd || !hasValidCoords(cd.lat, cd.lon)) continue;
+        const ownPollutants = [];
+        addC12Pollutants(ownPollutants, cd.bc, c.compId);
+        const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
+          skipC12: c.compId,
+          includeNearestQuantPM25: true
+        }));
+        addMiniMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi, "c12", c.name);
       }
     }
 
@@ -248,4 +940,3 @@
   </script>
 </body>
 </html>
-
