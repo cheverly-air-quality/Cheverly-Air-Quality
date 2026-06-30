@@ -1,2564 +1,3195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Cheverly Air Quality | Dashboard</title>
-<!-- Core Leaflet, MarkerCluster, and Chart.js -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<style>
-:root {
-  --brand-navy: #1a305e;
-  --brand-navy-2: #243d73;
-  --search-blue: #4477ce;
-  --soft-blue: #edf4ff;
-  --page-bg: #eef3f8;
-  --card-bg: #ffffff;
-  --text-main: #17213a;
-  --text-muted: #667085;
-  --line: #dde5ef;
-  --shadow: 0 18px 45px rgba(26, 48, 94, 0.12);
-  --aqi-green: #00e400;
-  --aqi-yellow: #ffff00;
-  --aqi-orange: #ff7e00;
-  --aqi-red: #ff0000;
-  --aqi-purple: #8f3f97;
-  --aqi-maroon: #7e0023;
-  --pastel-green: #eaf8e9;
-  --pastel-yellow: #fff8cf;
-  --pastel-orange: #ffe8d2;
-  --pastel-red: #ffe0e0;
-  --pastel-purple: #f1e2f5;
-  --pastel-maroon: #efdde4;
-}
-*{
-  box-sizing: border-box;
-}
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  font-family: "Segoe UI", Roboto, sans-serif;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(68, 119, 206, 0.15), transparent 30%),
-    linear-gradient(135deg, #f8fbff 0%, var(--page-bg) 100%);
-  color: var(--text-main);
-}
-.topbar {
-  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
-  color: white;
-  padding: 0 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 64px;
-  z-index: 2000;
-  position: relative;
-  box-shadow: 0 4px 18px rgba(15, 28, 55, 0.22);
-}
-.brand {
-  font-size: 1.25rem;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-}
-.brand::before {
-  content: "";
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 10px;
-  border-radius: 50%;
-  background: #a9d7ff;
-  box-shadow: 0 0 0 5px rgba(169, 215, 255, 0.16);
-  vertical-align: 1px;
-}
-.nav a {
-  color: white;
-  text-decoration: none;
-  margin-left: 1.5rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  opacity: 0.78;
-  transition: opacity 0.2s, transform 0.2s;
-}
-.nav a:hover {
-  opacity: 1;
-}
-.nav a.active {
-  opacity: 1;
-  border-bottom: 2px solid white;
-  padding-bottom: 4px;
-}
-#layout {
-  display: flex;
-  gap: 14px;
-  height: calc(100vh - 64px);
-  width: 100vw;
-  padding: 18px;
-  padding-bottom: 42px;
-  overflow: hidden;
-}
-#sidebar {
-  width: 286px;
-  min-width: 286px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(221, 229, 239, 0.9);
-  border-radius: 24px;
-  padding: 0.9rem;
-  overflow-y: auto;
-  box-shadow: var(--shadow);
-}
-.sidebar-intro {
-  padding: 0.75rem 0.65rem 1rem;
-}
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 0.69rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--search-blue);
-}
-.sidebar-intro h1 {
-  margin: 0;
-  font-size: 1.42rem;
-  line-height: 1.12;
-  color: var(--brand-navy);
-}
-.sidebar-intro p {
-  margin: 10px 0 0;
-  font-size: 0.84rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-.card,
-.panel-card,
-.summary-card,
-.map-card,
-.chart-card {
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid var(--line);
-  box-shadow: 0 10px 24px rgba(26, 48, 94, 0.08);
-}
-.card {
-  padding: 0.9rem;
-  border-radius: 18px;
-  margin-bottom: 0.9rem;
-}
-.card-title {
-  margin: 0 0 6px;
-  color: var(--brand-navy);
-  font-size: 0.98rem;
-  font-weight: 900;
-}
-.card-help {
-  margin: 0 0 12px;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  line-height: 1.4;
-}
-label {
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: #667085;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-  display: block;
-  letter-spacing: 0.06em;
-}
-input,
-select {
-  width: 100%;
-  padding: 9px;
-  margin-top: 5px;
-  border-radius: 12px;
-  border: 1px solid #cfd8e5;
-  box-sizing: border-box;
-  font-size: 0.84rem;
-  background: white;
-  color: var(--text-main);
-  outline: none;
-}
-input:focus,
-select:focus {
-  border-color: var(--search-blue);
-  box-shadow: 0 0 0 3px rgba(68, 119, 206, 0.14);
-}
-button {
-  width: 100%;
-  padding: 13px 14px;
-  margin-top: 10px;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(135deg, var(--search-blue), #2f62c3);
-  color: white;
-  font-weight: 900;
-  cursor: pointer;
-  transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
-  font-size: 0.9rem;
-  box-shadow: 0 8px 18px rgba(68, 119, 206, 0.22);
-}
-button:hover {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
-}
-button:disabled {
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-.secondary-button {
-  background: #eef4ff;
-  color: var(--brand-navy);
-  border: 1px solid #cfe0ff;
-  box-shadow: none;
-}
-.mini-guide {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-.guide-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-size: 0.74rem;
-  font-weight: 800;
-  color: #334155;
-}
-.guide-row.good { background: var(--pastel-green); }
-.guide-row.moderate { background: var(--pastel-yellow); }
-.guide-row.sensitive { background: var(--pastel-orange); }
-.guide-row.unhealthy { background: var(--pastel-red); }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cheverly Air Quality | Dashboard</title>
 
-#main-content {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-.dashboard-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  box-shadow: var(--shadow);
-}
-.dashboard-hero h2 {
-  margin: 0;
-  color: var(--brand-navy);
-  font-size: 1.35rem;
-  line-height: 1.2;
-}
-.dashboard-hero p {
-  margin: 6px 0 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  max-width: 800px;
-}
-.hero-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  min-width: 150px;
-}
-.summary-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 12px;
-}
-.summary-card {
-  border-radius: 18px;
-  padding: 14px;
-  min-height: 86px;
-  position: relative;
-  overflow: hidden;
-}
-.summary-card::after {
-  content: "";
-  position: absolute;
-  right: -24px;
-  top: -24px;
-  width: 72px;
-  height: 72px;
-  border-radius: 999px;
-  background: rgba(68, 119, 206, 0.08);
-}
-.summary-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  font-weight: 900;
-  margin-bottom: 8px;
-}
-.summary-value {
-  position: relative;
-  z-index: 1;
-  color: var(--brand-navy);
-  font-size: 1.35rem;
-  font-weight: 950;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-}
-.summary-note {
-  margin-top: 6px;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(560px, 2fr) minmax(280px, 0.78fr);
-  gap: 12px;
-  min-height: 480px;
-}
-.map-card,
-.panel-card,
-.chart-card {
-  border-radius: 24px;
-  overflow: hidden;
-}
-.map-card {
-  min-height: 480px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-.panel-card {
-  padding: 14px;
-  min-height: 480px;
-}
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,251,255,0.95));
-}
-.card-header h3 {
-  margin: 0;
-  color: var(--brand-navy);
-  font-size: 1rem;
-  font-weight: 950;
-}
-.card-header p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-#map {
-  flex: 1;
-  min-height: 400px;
-  width: 100%;
-  z-index: 1;
-  background: #edf2f7;
-}
-.map-legend {
-  position: absolute;
-  top: 78px;
-  right: 10px;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.94);
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(221, 229, 239, 0.95);
-  box-shadow: 0 10px 24px rgba(26, 48, 94, 0.12);
-  min-width: 156px;
-  backdrop-filter: blur(8px);
-}
-.legend-title {
-  font-size: 0.72rem;
-  font-weight: 950;
-  margin-bottom: 8px;
-  color: var(--brand-navy);
-  text-align: left;
-  border-bottom: 1px solid #eef2f7;
-  padding-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-  font-size: 0.71rem;
-  font-weight: 800;
-  color: #475467;
-}
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-right: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.45);
-}
-.sensor-key {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 5px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #eef2f7;
-}
-.sensor-key-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #475467;
-  font-size: 0.71rem;
-  font-weight: 800;
-}
-.sensor-symbol {
-  width: 12px;
-  height: 12px;
-  background: #4477ce;
-  border: 2px solid white;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
-}
-.sensor-symbol.pa { border-radius: 50%; }
-.sensor-symbol.mod { border-radius: 3px; }
-.sensor-symbol.c12 { transform: rotate(45deg); border-radius: 2px; }
+  <!-- Core Leaflet, MarkerCluster, and Chart.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
 
-.station-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-#statName {
-  margin: 0;
-  color: var(--brand-navy);
-  font-size: 1.06rem;
-  line-height: 1.2;
-  font-weight: 950;
-  overflow-wrap: anywhere;
-}
-.station-subtitle {
-  margin-top: 5px;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-.status-pill,
-.type-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 6px 9px;
-  font-size: 0.72rem;
-  font-weight: 950;
-  white-space: nowrap;
-  color: var(--brand-navy);
-  background: #eef4ff;
-  border: 1px solid #cfe0ff;
-}
-.status-pill::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.status-pill.good { background: var(--pastel-green); color: #247a34; border-color: #ccebc8; }
-.status-pill.moderate { background: var(--pastel-yellow); color: #8a6d00; border-color: #efe2a2; }
-.status-pill.sensitive { background: var(--pastel-orange); color: #a35200; border-color: #f1c4a0; }
-.status-pill.unhealthy { background: var(--pastel-red); color: #a32020; border-color: #f2baba; }
-.status-pill.very-unhealthy { background: var(--pastel-purple); color: #71337a; border-color: #d9b9df; }
-.status-pill.hazardous { background: var(--pastel-maroon); color: #7e0023; border-color: #d6a8b8; }
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
-.aqi-showcase {
-  display: grid;
-  grid-template-columns: 118px 1fr;
-  gap: 12px;
-  align-items: center;
-  border-radius: 18px;
-  padding: 14px;
-  background: #f8fbff;
-  border: 1px solid #e7edf6;
-  margin-bottom: 12px;
-}
-.aqi-showcase.good { background: var(--pastel-green); }
-.aqi-showcase.moderate { background: var(--pastel-yellow); }
-.aqi-showcase.sensitive { background: var(--pastel-orange); }
-.aqi-showcase.unhealthy { background: var(--pastel-red); }
-.aqi-showcase.very-unhealthy { background: var(--pastel-purple); }
-.aqi-showcase.hazardous { background: var(--pastel-maroon); }
+  <style>
+    :root {
+      --brand-navy: #1a305e;
+      --brand-navy-2: #243d73;
+      --search-blue: #4477ce;
+      --soft-blue: #edf4ff;
+      --page-bg: #eef3f8;
+      --card-bg: #ffffff;
+      --text-main: #17213a;
+      --text-muted: #667085;
+      --line: #dde5ef;
+      --shadow: 0 18px 45px rgba(26, 48, 94, 0.12);
+      --aqi-green: #00e400;
+      --aqi-yellow: #ffff00;
+      --aqi-orange: #ff7e00;
+      --aqi-red: #ff0000;
+      --aqi-purple: #8f3f97;
+      --aqi-maroon: #7e0023;
+      --pastel-green: #eaf8e9;
+      --pastel-yellow: #fff8cf;
+      --pastel-orange: #ffe8d2;
+      --pastel-red: #ffe0e0;
+      --pastel-purple: #f1e2f5;
+      --pastel-maroon: #efdde4;
+    }
 
-.aqi-val {
-  font-size: 3.9rem;
-  font-weight: 950;
-  display: block;
-  text-align: center;
-  line-height: 1;
-  color: var(--brand-navy);
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  -webkit-text-stroke: 2px #000;
-  paint-order: stroke fill;
-}
-.sublabel {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 950;
-  margin-top: 6px;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.risk-copy {
-  margin: 0;
-  color: #334155;
-  font-size: 0.86rem;
-  line-height: 1.45;
-  font-weight: 700;
-}
-.driver-chip {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.65);
-  border: 1px solid rgba(255,255,255,0.9);
-  color: var(--brand-navy);
-  font-size: 0.72rem;
-  font-weight: 950;
-}
-.reading-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 12px 0;
-}
-.reading-tile {
-  padding: 10px;
-  border-radius: 14px;
-  border: 1px solid #e7edf6;
-  background: #f8fbff;
-}
-.reading-tile-label {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  font-weight: 950;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 5px;
-}
-.reading-tile-value {
-  color: var(--brand-navy);
-  font-weight: 950;
-  font-size: 0.88rem;
-  overflow-wrap: anywhere;
-}
-.kv {
-  display: block;
-  font-size: 0.9rem;
-  margin-top: 0;
-  border-top: none;
-  padding-top: 0;
-}
-.latest-time {
-  margin-top: 0;
-  font-size: 0.9rem;
-  color: var(--brand-navy);
-  text-align: left;
-  font-weight: 950;
-}
-.ceaqi-breakdown {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #eef2f7;
-  font-size: 0.78rem;
-  color: #555;
-}
-.ceaqi-breakdown .breakdown-title {
-  font-weight: 950;
-  color: var(--brand-navy);
-  margin-bottom: 6px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.ceaqi-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 4px 0;
-}
-.ceaqi-row span:first-child {
-  overflow-wrap: anywhere;
-}
-.ceaqi-row.base-row {
-  font-weight: 950;
-  color: #263245;
-}
-.ceaqi-row.adder-row {
-  color: #667085;
-}
-.ceaqi-row.included-row {
-  color: #8a94a6;
-}
-.chart-card {
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-}
-#chart-box {
-  height: 280px;
-  width: 100%;
-  padding: 1rem 1.25rem 1.25rem;
-  background: white;
-}
-.leaflet-tooltip-own {
-  background: #1f2937 !important;
-  color: white !important;
-  border: 2px solid white !important;
-  font-weight: 900;
-  font-size: 13px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-  border-radius: 10px;
-  padding: 6px 9px;
-  opacity: 1 !important;
-  pointer-events: none;
-}
-.leaflet-popup-content-wrapper {
-  border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(26, 48, 94, 0.2);
-}
-.popup-breakdown-btn {
-  width: 100%;
-  margin-top: 8px;
-  padding: 9px 10px;
-  border-radius: 10px;
-  background: var(--search-blue);
-  color: white;
-  border: none;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: none;
-}
-.aq-marker-icon {
-  background: transparent !important;
-  border: 0 !important;
-}
-.aq-marker {
-  width: 24px;
-  height: 24px;
-  background: var(--marker-color, #bbb);
-  border: 3px solid white;
-  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.35);
-  position: relative;
-}
-.aq-marker::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: inherit;
-  background: var(--marker-color, #bbb);
-  opacity: 0.18;
-  z-index: -1;
-}
-.aq-marker.pa {
-  border-radius: 50%;
-}
-.aq-marker.mod {
-  border-radius: 6px;
-}
-.aq-marker.c12 {
-  border-radius: 5px;
-  transform: rotate(45deg);
-}
-.risk-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 20, 40, 0.45);
-  z-index: 5000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.risk-modal.hidden {
-  display: none;
-}
-.risk-modal-card {
-  width: min(820px, 95vw);
-  max-height: 85vh;
-  overflow-y: auto;
-  background: white;
-  border-radius: 22px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
-  padding: 24px;
-  box-sizing: border-box;
-}
-.risk-modal-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  border-bottom: 1px solid #e6ebeb;
-  padding-bottom: 12px;
-  margin-bottom: 18px;
-}
-.risk-modal-title {
-  margin: 0;
-  color: var(--brand-navy);
-  font-size: 1.25rem;
-}
-.risk-modal-subtitle {
-  margin-top: 4px;
-  color: #666;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.risk-close {
-  width: auto;
-  margin: 0;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #eef1f6;
-  color: #333;
-  font-size: 1.25rem;
-  line-height: 1;
-  box-shadow: none;
-}
-.risk-summary {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 18px;
-}
-.risk-summary-card {
-  background: #f6f8fb;
-  border: 1px solid #e1e6ee;
-  border-radius: 12px;
-  padding: 12px;
-  text-align: center;
-}
-.risk-summary-value {
-  font-size: 1.5rem;
-  font-weight: 950;
-  color: var(--brand-navy);
-}
-.risk-summary-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  color: #666;
-  font-weight: 900;
-  margin-top: 4px;
-}
-.risk-scale {
-  display: grid;
-  grid-template-columns: 170px 1fr 55px;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 6px;
-  font-size: 0.72rem;
-  color: #666;
-  font-weight: 800;
-}
-.risk-scale-ticks {
-  display: flex;
-  justify-content: space-between;
-}
-.risk-bar-row {
-  display: grid;
-  grid-template-columns: 170px 1fr 55px;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
-  border-radius: 12px;
-  margin-bottom: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-}
-.risk-bar-row.good { background: var(--pastel-green); }
-.risk-bar-row.moderate { background: var(--pastel-yellow); }
-.risk-bar-row.sensitive { background: var(--pastel-orange); }
-.risk-bar-row.unhealthy { background: var(--pastel-red); }
-.risk-bar-row.very-unhealthy { background: var(--pastel-purple); }
-.risk-pollutant {
-  font-weight: 900;
-  color: #333;
-  overflow-wrap: anywhere;
-}
-.risk-bar-track {
-  height: 20px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: linear-gradient(
-    to right,
-    rgba(0, 228, 0, 0.18) 0%,
-    rgba(0, 228, 0, 0.18) 25%,
-    rgba(255, 255, 0, 0.25) 25%,
-    rgba(255, 255, 0, 0.25) 50%,
-    rgba(255, 126, 0, 0.22) 50%,
-    rgba(255, 126, 0, 0.22) 75%,
-    rgba(255, 0, 0, 0.18) 75%,
-    rgba(143, 63, 151, 0.2) 100%
-  );
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}
-.risk-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-}
-.risk-bar-fill.good { background: rgba(0, 140, 0, 0.55); }
-.risk-bar-fill.moderate { background: rgba(210, 180, 0, 0.65); }
-.risk-bar-fill.sensitive { background: rgba(255, 126, 0, 0.65); }
-.risk-bar-fill.unhealthy { background: rgba(220, 0, 0, 0.65); }
-.risk-bar-fill.very-unhealthy { background: rgba(120, 45, 135, 0.65); }
-.risk-bar-caption {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  color: #666;
-  font-weight: 800;
-}
-.risk-score {
-  font-size: 1rem;
-  font-weight: 950;
-  color: #222;
-  text-align: right;
-}
-.dashboard-disclaimer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.92);
-  color: #667085;
-  font-size: 0.7rem;
-  padding: 5px 20px;
-  text-align: center;
-  border-top: 1px solid #dde5ef;
-  z-index: 3000;
-  pointer-events: none;
-  backdrop-filter: blur(10px);
-}
+    * {
+      box-sizing: border-box;
+    }
 
-@media (max-width: 1500px) {
-  #sidebar {
-    width: 272px;
-    min-width: 272px;
-  }
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 2.15fr) minmax(255px, 0.72fr);
-  }
-  .panel-card {
-    padding: 12px;
-  }
-  .aqi-showcase {
-    grid-template-columns: 104px 1fr;
-    gap: 10px;
-    padding: 12px;
-  }
-  .aqi-val {
-    font-size: 3.5rem;
-  }
-  .map-legend {
-    min-width: 148px;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.68);
-  }
-}
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(68, 119, 206, 0.15), transparent 30%),
+        linear-gradient(135deg, #f8fbff 0%, var(--page-bg) 100%);
+      color: var(--text-main);
+    }
 
-@media (max-width: 1100px) {
-  #layout {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  #sidebar {
-    width: 100%;
-    min-width: 0;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-  .sidebar-intro,
-  .card {
-    margin-bottom: 0;
-  }
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-}
+    .topbar {
+      background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+      color: white;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+      z-index: 2000;
+      position: relative;
+      box-shadow: 0 4px 18px rgba(15, 28, 55, 0.22);
+    }
 
-@media (max-width: 760px) {
-  .topbar {
-    padding: 0 1rem;
-  }
-  .nav a {
-    margin-left: 0.75rem;
-    font-size: 0.82rem;
-  }
-  #layout {
-    padding: 12px;
-    padding-bottom: 44px;
-  }
-  #sidebar {
-    grid-template-columns: 1fr;
-    border-radius: 18px;
-  }
-  .dashboard-hero,
-  .station-header,
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .hero-status {
-    align-items: flex-start;
-  }
-  .summary-strip,
-  .reading-grid,
-  .aqi-showcase,
-  .risk-summary,
-  .risk-scale,
-  .risk-bar-row {
-    grid-template-columns: 1fr;
-  }
-  .map-card,
-  .panel-card,
-  .chart-card {
-    border-radius: 18px;
-  }
-  .map-legend {
-    position: static;
-    margin: 10px;
-  }
-  #map {
-    min-height: 360px;
-  }
-  .risk-score {
-    text-align: left;
-  }
-}
-</style>
+    .brand {
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .brand::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: #a9d7ff;
+      box-shadow: 0 0 0 5px rgba(169, 215, 255, 0.16);
+      vertical-align: 1px;
+    }
+
+    .nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      opacity: 0.78;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .nav a:hover {
+      opacity: 1;
+    }
+
+    .nav a.active {
+      opacity: 1;
+      border-bottom: 2px solid white;
+      padding-bottom: 4px;
+    }
+
+    #layout {
+      display: flex;
+      gap: 14px;
+      height: calc(100vh - 64px);
+      width: 100vw;
+      padding: 18px;
+      padding-bottom: 42px;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 286px;
+      min-width: 286px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(221, 229, 239, 0.9);
+      border-radius: 24px;
+      padding: 0.9rem;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar-intro {
+      padding: 0.75rem 0.65rem 1rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 0.69rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--search-blue);
+    }
+
+    .sidebar-intro h1 {
+      margin: 0;
+      font-size: 1.42rem;
+      line-height: 1.12;
+      color: var(--brand-navy);
+    }
+
+    .sidebar-intro p {
+      margin: 10px 0 0;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .card,
+    .panel-card,
+    .summary-card,
+    .map-card,
+    .chart-card {
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 24px rgba(26, 48, 94, 0.08);
+    }
+
+    .card {
+      padding: 0.9rem;
+      border-radius: 18px;
+      margin-bottom: 0.9rem;
+    }
+
+    .card-title {
+      margin: 0 0 6px;
+      color: var(--brand-navy);
+      font-size: 0.98rem;
+      font-weight: 900;
+    }
+
+    .card-help {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+
+    label {
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #667085;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: block;
+      letter-spacing: 0.06em;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 9px;
+      margin-top: 5px;
+      border-radius: 12px;
+      border: 1px solid #cfd8e5;
+      box-sizing: border-box;
+      font-size: 0.84rem;
+      background: white;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--search-blue);
+      box-shadow: 0 0 0 3px rgba(68, 119, 206, 0.14);
+    }
+
+    button {
+      width: 100%;
+      padding: 13px 14px;
+      margin-top: 10px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--search-blue), #2f62c3);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+      transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
+      font-size: 0.9rem;
+      box-shadow: 0 8px 18px rgba(68, 119, 206, 0.22);
+    }
+
+    button:hover {
+      filter: brightness(1.04);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .secondary-button {
+      background: #eef4ff;
+      color: var(--brand-navy);
+      border: 1px solid #cfe0ff;
+      box-shadow: none;
+    }
+
+    .mini-guide {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .guide-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .guide-row.good { background: var(--pastel-green); }
+    .guide-row.moderate { background: var(--pastel-yellow); }
+    .guide-row.sensitive { background: var(--pastel-orange); }
+    .guide-row.unhealthy { background: var(--pastel-red); }
+
+    #main-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .dashboard-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .dashboard-hero h2 {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
+
+    .dashboard-hero p {
+      margin: 6px 0 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      max-width: 800px;
+    }
+
+    .hero-status {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 150px;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      border-radius: 18px;
+      padding: 14px;
+      min-height: 86px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::after {
+      content: "";
+      position: absolute;
+      right: -24px;
+      top: -24px;
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: rgba(68, 119, 206, 0.08);
+    }
+
+    .summary-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      position: relative;
+      z-index: 1;
+      color: var(--brand-navy);
+      font-size: 1.35rem;
+      font-weight: 950;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-note {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(560px, 2fr) minmax(280px, 0.78fr);
+      gap: 12px;
+      min-height: 480px;
+    }
+
+    .map-card,
+    .panel-card,
+    .chart-card {
+      border-radius: 24px;
+      overflow: hidden;
+    }
+
+    .map-card {
+      min-height: 480px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-card {
+      padding: 14px;
+      min-height: 480px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,251,255,0.95));
+    }
+
+    .card-header h3 {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1rem;
+      font-weight: 950;
+    }
+
+    .card-header p {
+      margin: 4px 0 0;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    #map {
+      flex: 1;
+      min-height: 400px;
+      width: 100%;
+      z-index: 1;
+      background: #edf2f7;
+    }
+
+    .map-legend {
+      position: absolute;
+      top: 78px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.94);
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(221, 229, 239, 0.95);
+      box-shadow: 0 10px 24px rgba(26, 48, 94, 0.12);
+      min-width: 156px;
+      backdrop-filter: blur(8px);
+    }
+
+    .legend-title {
+      font-size: 0.72rem;
+      font-weight: 950;
+      margin-bottom: 8px;
+      color: var(--brand-navy);
+      text-align: left;
+      border-bottom: 1px solid #eef2f7;
+      padding-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 0.71rem;
+      font-weight: 800;
+      color: #475467;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.45);
+    }
+
+    .sensor-key {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 5px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .sensor-key-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #475467;
+      font-size: 0.71rem;
+      font-weight: 800;
+    }
+
+    .sensor-symbol {
+      width: 12px;
+      height: 12px;
+      background: #4477ce;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+    }
+
+    .sensor-symbol.pa { border-radius: 50%; }
+    .sensor-symbol.mod { border-radius: 3px; }
+    .sensor-symbol.c12 { transform: rotate(45deg); border-radius: 2px; }
+
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    #statName {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1.06rem;
+      line-height: 1.2;
+      font-weight: 950;
+      overflow-wrap: anywhere;
+    }
+
+    .station-subtitle {
+      margin-top: 5px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .status-pill,
+    .type-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 0.72rem;
+      font-weight: 950;
+      white-space: nowrap;
+      color: var(--brand-navy);
+      background: #eef4ff;
+      border: 1px solid #cfe0ff;
+    }
+
+    .status-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-pill.good { background: var(--pastel-green); color: #247a34; border-color: #ccebc8; }
+    .status-pill.moderate { background: var(--pastel-yellow); color: #8a6d00; border-color: #efe2a2; }
+    .status-pill.sensitive { background: var(--pastel-orange); color: #a35200; border-color: #f1c4a0; }
+    .status-pill.unhealthy { background: var(--pastel-red); color: #a32020; border-color: #f2baba; }
+    .status-pill.very-unhealthy { background: var(--pastel-purple); color: #71337a; border-color: #d9b9df; }
+    .status-pill.hazardous { background: var(--pastel-maroon); color: #7e0023; border-color: #d6a8b8; }
+
+    .aqi-showcase {
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 12px;
+      align-items: center;
+      border-radius: 18px;
+      padding: 14px;
+      background: #f8fbff;
+      border: 1px solid #e7edf6;
+      margin-bottom: 12px;
+    }
+
+    .aqi-showcase.good { background: var(--pastel-green); }
+    .aqi-showcase.moderate { background: var(--pastel-yellow); }
+    .aqi-showcase.sensitive { background: var(--pastel-orange); }
+    .aqi-showcase.unhealthy { background: var(--pastel-red); }
+    .aqi-showcase.very-unhealthy { background: var(--pastel-purple); }
+    .aqi-showcase.hazardous { background: var(--pastel-maroon); }
+
+    .aqi-val {
+      font-size: 3.9rem;
+      font-weight: 950;
+      display: block;
+      text-align: center;
+      line-height: 1;
+      color: var(--brand-navy);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      -webkit-text-stroke: 2px #000;
+      paint-order: stroke fill;
+    }
+
+    .sublabel {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 950;
+      margin-top: 6px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .risk-copy {
+      margin: 0;
+      color: #334155;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .driver-chip {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid rgba(255,255,255,0.9);
+      color: var(--brand-navy);
+      font-size: 0.72rem;
+      font-weight: 950;
+    }
+
+    .reading-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .reading-tile {
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid #e7edf6;
+      background: #f8fbff;
+    }
+
+    .reading-tile-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 5px;
+    }
+
+    .reading-tile-value {
+      color: var(--brand-navy);
+      font-weight: 950;
+      font-size: 0.88rem;
+      overflow-wrap: anywhere;
+    }
+
+    .kv {
+      display: block;
+      font-size: 0.9rem;
+      margin-top: 0;
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .latest-time {
+      margin-top: 0;
+      font-size: 0.9rem;
+      color: var(--brand-navy);
+      text-align: left;
+      font-weight: 950;
+    }
+
+    .ceaqi-breakdown {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #eef2f7;
+      font-size: 0.78rem;
+      color: #555;
+    }
+
+    .ceaqi-breakdown .breakdown-title {
+      font-weight: 950;
+      color: var(--brand-navy);
+      margin-bottom: 6px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ceaqi-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 0;
+    }
+
+    .ceaqi-row span:first-child {
+      overflow-wrap: anywhere;
+    }
+
+    .ceaqi-row.base-row {
+      font-weight: 950;
+      color: #263245;
+    }
+
+    .ceaqi-row.adder-row {
+      color: #667085;
+    }
+
+    .ceaqi-row.included-row {
+      color: #8a94a6;
+    }
+
+    .chart-card {
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #chart-box {
+      height: 280px;
+      width: 100%;
+      padding: 1rem 1.25rem 1.25rem;
+      background: white;
+    }
+
+    .leaflet-tooltip-own {
+      background: #1f2937 !important;
+      color: white !important;
+      border: 2px solid white !important;
+      font-weight: 900;
+      font-size: 13px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+      border-radius: 10px;
+      padding: 6px 9px;
+      opacity: 1 !important;
+      pointer-events: none;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(26, 48, 94, 0.2);
+    }
+
+    .popup-breakdown-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: var(--search-blue);
+      color: white;
+      border: none;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: none;
+    }
+
+    .aq-marker-icon {
+      background: transparent !important;
+      border: 0 !important;
+    }
+
+    .aq-marker {
+      width: 24px;
+      height: 24px;
+      background: var(--marker-color, #bbb);
+      border: 3px solid white;
+      box-shadow: 0 3px 14px rgba(15, 23, 42, 0.35);
+      position: relative;
+    }
+
+    .aq-marker::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: inherit;
+      background: var(--marker-color, #bbb);
+      opacity: 0.18;
+      z-index: -1;
+    }
+
+    .aq-marker.pa {
+      border-radius: 50%;
+    }
+
+    .aq-marker.mod {
+      border-radius: 6px;
+    }
+
+    .aq-marker.c12 {
+      border-radius: 5px;
+      transform: rotate(45deg);
+    }
+
+    .risk-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 40, 0.45);
+      z-index: 5000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .risk-modal.hidden {
+      display: none;
+    }
+
+    .risk-modal-card {
+      width: min(820px, 95vw);
+      max-height: 85vh;
+      overflow-y: auto;
+      background: white;
+      border-radius: 22px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .risk-modal-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      border-bottom: 1px solid #e6e6e6;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+
+    .risk-modal-title {
+      margin: 0;
+      color: var(--brand-navy);
+      font-size: 1.25rem;
+    }
+
+    .risk-modal-subtitle {
+      margin-top: 4px;
+      color: #666;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .risk-close {
+      width: auto;
+      margin: 0;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef1f6;
+      color: #333;
+      font-size: 1.25rem;
+      line-height: 1;
+      box-shadow: none;
+    }
+
+    .risk-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .risk-summary-card {
+      background: #f6f8fb;
+      border: 1px solid #e1e6ee;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .risk-summary-value {
+      font-size: 1.5rem;
+      font-weight: 950;
+      color: var(--brand-navy);
+    }
+
+    .risk-summary-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: #666;
+      font-weight: 900;
+      margin-top: 4px;
+    }
+
+    .risk-scale {
+      display: grid;
+      grid-template-columns: 170px 1fr 55px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 0.72rem;
+      color: #666;
+      font-weight: 800;
+    }
+
+    .risk-scale-ticks {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .risk-bar-row {
+      display: grid;
+      grid-template-columns: 170px 1fr 55px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .risk-bar-row.good { background: var(--pastel-green); }
+    .risk-bar-row.moderate { background: var(--pastel-yellow); }
+    .risk-bar-row.sensitive { background: var(--pastel-orange); }
+    .risk-bar-row.unhealthy { background: var(--pastel-red); }
+    .risk-bar-row.very-unhealthy { background: var(--pastel-purple); }
+
+    .risk-pollutant {
+      font-weight: 900;
+      color: #333;
+      overflow-wrap: anywhere;
+    }
+
+    .risk-bar-track {
+      height: 20px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: linear-gradient(
+        to right,
+        rgba(0, 228, 0, 0.18) 0%,
+        rgba(0, 228, 0, 0.18) 25%,
+        rgba(255, 255, 0, 0.25) 25%,
+        rgba(255, 255, 0, 0.25) 50%,
+        rgba(255, 126, 0, 0.22) 50%,
+        rgba(255, 126, 0, 0.22) 75%,
+        rgba(255, 0, 0, 0.18) 75%,
+        rgba(143, 63, 151, 0.2) 100%
+      );
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .risk-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .risk-bar-fill.good { background: rgba(0, 140, 0, 0.55); }
+    .risk-bar-fill.moderate { background: rgba(210, 180, 0, 0.65); }
+    .risk-bar-fill.sensitive { background: rgba(255, 126, 0, 0.65); }
+    .risk-bar-fill.unhealthy { background: rgba(220, 0, 0, 0.65); }
+    .risk-bar-fill.very-unhealthy { background: rgba(120, 45, 135, 0.65); }
+
+    .risk-bar-caption {
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: #666;
+      font-weight: 800;
+    }
+
+    .risk-score {
+      font-size: 1rem;
+      font-weight: 950;
+      color: #222;
+      text-align: right;
+    }
+
+    .dashboard-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.92);
+      color: #667085;
+      font-size: 0.7rem;
+      padding: 5px 20px;
+      text-align: center;
+      border-top: 1px solid #dde5ef;
+      z-index: 3000;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+
+    @media (max-width: 1500px) {
+      #sidebar {
+        width: 272px;
+        min-width: 272px;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: minmax(0, 2.15fr) minmax(255px, 0.72fr);
+      }
+
+      .panel-card {
+        padding: 12px;
+      }
+
+      .aqi-showcase {
+        grid-template-columns: 104px 1fr;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .aqi-val {
+        font-size: 3.5rem;
+      }
+
+      .map-legend {
+        min-width: 148px;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.68);
+      }
+    }
+
+    @media (max-width: 1100px) {
+      #layout {
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      #sidebar {
+        width: 100%;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .sidebar-intro,
+      .card {
+        margin-bottom: 0;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        padding: 0 1rem;
+      }
+
+      .nav a {
+        margin-left: 0.75rem;
+        font-size: 0.82rem;
+      }
+
+      #layout {
+        padding: 12px;
+        padding-bottom: 44px;
+      }
+
+      #sidebar {
+        grid-template-columns: 1fr;
+        border-radius: 18px;
+      }
+
+      .dashboard-hero,
+      .station-header,
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-status {
+        align-items: flex-start;
+      }
+
+      .summary-strip,
+      .reading-grid,
+      .aqi-showcase,
+      .risk-summary,
+      .risk-scale,
+      .risk-bar-row {
+        grid-template-columns: 1fr;
+      }
+
+      .map-card,
+      .panel-card,
+      .chart-card {
+        border-radius: 18px;
+      }
+
+      .map-legend {
+        position: static;
+        margin: 10px;
+      }
+
+      #map {
+        min-height: 360px;
+      }
+
+      .risk-score {
+        text-align: left;
+      }
+    }
+  </style>
 </head>
+
 <body>
 <header class="topbar">
-<div class="brand">Cheverly Air Quality</div>
-<nav class="nav">
-<a href="index.html">Home</a>
-<a href="dashboard.html" class="active">Map & Data</a>
-<a href="writeup.html">FAQs</a>
-</nav>
+  <div class="brand">Cheverly Air Quality</div>
+  <nav class="nav">
+    <a href="index.html">Home</a>
+    <a href="dashboard.html" class="active">Map & Data</a>
+    <a href="writeup.html">FAQs</a>
+  </nav>
 </header>
-<div id="layout">
-<aside id="sidebar">
-<div class="sidebar-intro">
-<p class="eyebrow">Community monitoring</p>
-<h1>Live neighborhood air quality</h1>
-<p>Explore current CE-AQI, pollutant drivers, and recent trends from PurpleAir, QuantAQ, and C-12 stations.</p>
-</div>
-<div class="card">
-<h2 class="card-title">Find your nearest station</h2>
-<p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
-<label>Location Search</label>
-<input type="text" id="addrInput" placeholder="Enter an Address">
-<button id="locateBtn">Find Nearest Station</button>
-</div>
-<div class="card">
-<h2 class="card-title">Station selection</h2>
-<p class="card-help">Choose a station directly, or click a marker on the map.</p>
-<label>Station</label>
-<select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
-</div>
-<div class="card">
-<h2 class="card-title">Quick AQI guide</h2>
-<p class="card-help">The dashboard uses softer shades of the AQI scale for readability.</p>
-<div class="mini-guide">
-<div class="guide-row good"><span>Good</span><span>0 to 50</span></div>
-<div class="guide-row moderate"><span>Moderate</span><span>51 to 100</span></div>
-<div class="guide-row sensitive"><span>Sensitive groups</span><span>101 to 150</span></div>
-<div class="guide-row unhealthy"><span>Unhealthy</span><span>151+</span></div>
-</div>
-</div>
-</aside>
-<main id="main-content">
-<section class="dashboard-grid">
-<div class="map-card">
-<div class="card-header">
-<div>
-<h3>Station map</h3>
-<p>Marker color follows CE-AQI. Marker shape shows sensor type.</p>
-</div>
-<span id="mapStationType" class="type-pill">Select a station</span>
-</div>
-<div id="map"></div>
-<div class="map-legend">
-<div class="legend-title">Air Quality Index</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
-<div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
-<div class="sensor-key">
-<div class="sensor-key-row"><span class="sensor-symbol pa"></span> PurpleAir</div>
-<div class="sensor-key-row"><span class="sensor-symbol mod"></span> QuantAQ</div>
-<div class="sensor-key-row"><span class="sensor-symbol c12"></span> C-12</div>
-</div>
-</div>
-</div>
-<aside class="panel-card" aria-label="Selected station reading">
-<div class="station-header">
-<div>
-<h3 id="statName">--</h3>
-<div id="stationTypeText" class="station-subtitle">Select a station to begin</div>
-</div>
-<span id="panelCategory" class="status-pill">--</span>
-</div>
-<div id="aqiShowcase" class="aqi-showcase">
-<div>
-<div id="statAQI" class="aqi-val">--</div>
-<div class="sublabel">CE-AQI</div>
-</div>
-<div>
-<p id="riskDescription" class="risk-copy">Choose a station or click a map marker to load the latest reading.</p>
-<div id="panelDriver" class="driver-chip">Main driver: --</div>
-</div>
-</div>
-<button class="secondary-button" type="button" onclick="openRiskBreakdownModal()">View breakdown chart</button>
-<div id="extraDetails" class="reading-grid">
-<div class="reading-tile">
-<div id="label_param" class="reading-tile-label">Concentration</div>
-<div id="val_param" class="reading-tile-value">--</div>
-</div>
-<div class="reading-tile">
-<div class="reading-tile-label">Latest detected</div>
-<div id="latest_time" class="latest-time">--</div>
-</div>
-</div>
-<div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
-<div class="breakdown-title">CE-AQI Breakdown</div>
-<div id="ceaqi-rows"></div>
-</div>
-</aside>
-</section>
-<section class="chart-card">
-<div class="card-header">
-<div>
-<h3>18-hour CE-AQI trend</h3>
-<p>Selected station compared with the HU-Beltsville reference trend.</p>
-</div>
-<span class="type-pill">Live trend</span>
-</div>
-<div id="chart-box">
-<canvas id="airChart"></canvas>
-</div>
-</section>
-</main>
-</div>
-<div id="riskBreakdownModal" class="risk-modal hidden" aria-hidden="true">
-<div class="risk-modal-card" role="dialog" aria-modal="true" aria-labelledby="riskBreakdownTitle">
-<div class="risk-modal-header">
-<div>
-<h2 id="riskBreakdownTitle" class="risk-modal-title">Station Risk Breakdown</h2>
-<div id="riskBreakdownSubtitle" class="risk-modal-subtitle">--</div>
-</div>
-<button class="risk-close" type="button" onclick="closeRiskBreakdownModal()">×</button>
-</div>
-<div class="risk-summary">
-<div class="risk-summary-card">
-<div id="riskTotalAQI" class="risk-summary-value">--</div>
-<div class="risk-summary-label">CE-AQI</div>
-</div>
-<div class="risk-summary-card">
-<div id="riskMainDriver" class="risk-summary-value" style="font-size:1rem;">--</div>
-<div class="risk-summary-label">Main Driver</div>
-</div>
-<div class="risk-summary-card">
-<div id="riskVariableCount" class="risk-summary-value">--</div>
-<div class="risk-summary-label">Variables Used</div>
-</div>
-</div>
-<div class="risk-scale">
-<div>Pollutant</div>
-<div class="risk-scale-ticks">
-<span>0</span>
-<span>50</span>
-<span>100</span>
-<span>150</span>
-<span>200+</span>
-</div>
-<div>Sub-AQI</div>
-</div>
-<div id="riskBreakdownBars"></div>
-</div>
-</div>
-<div class="dashboard-disclaimer">
-Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
-</div>
-<script>
-const API_PROXY = "/api/aq";
-const STATION_TIMESERIES_HOURS = 18;
-// HU-Beltsville / MDE Howard University reference monitor.
-// AQS ID: 240330030. Used to replace the older DC comparative trend line.
-const BELTSVILLE_REFERENCE = {
-  aqsidPlain: "240330030",
-  aqsidDashed: "24-033-0030",
-  name: "HU-Beltsville Reference Trend",
-  lat: 39.055277,
-  lon: -76.878333
-};
-const AIRNOW_CURRENT_LAYER_URL = "https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/Air%20Now%20Current%20Monitor%20Data%20Public/FeatureServer/0";
-const AIRNOW_24H_ITEM_IDS = [
-  "394b9bf591e14596bb57b9085b425f7d", // AirNow monitoring site data, last 24 hours
-  "6568bde341404076b13898381f383c43" // AirNow ozone and PM, last 24 hours
-];
-let beltsvilleTrendCache = { data: [], fetchedAt: 0 };
-const SENSORS = {
-  "52823": "EJAT.CV.6.52823",
-  "53677": "EJAT.CV.1.53677",
-  // Temporarily excluded at user request. Add back when ready.
-  // "54239": "EJAT.CV.6.54239",
-  "54293": "EJAT.CV.2.54293",
-  "57777": "EJAT.CV.1.57777",
-  "57783": "EJAT.CV.6.57783",
-  "57811": "EJAT.CV.4.57811",
-  "57841": "EJAT.CV.3.57841",
-  "203577": "EJAT.CV.2.203577",
-  "203601": "EJAT.CV.1.203601",
-  "207729": "EJAT.CV.1.207729",
-  "211993": "EJAT.CV.3.211993",
-  "156595": "EJAT.CV.156595",
-  "284362": "EJAT.PG.1.284362",
-  "160037": "EJAT.PG.1.160037",
-  "175563": "EJAT.PG.1.175563",
-  "178169": "EJAT.PG.1.178169",
-  "184191": "EJAT.PG.1.184191",
-  "197937": "EJAT.PG.1.197937",
-  "218227": "EJAT.PG.1.218227",
-  "218237": "EJAT.PG.1.218237",
-  "218273": "EJAT.PG.1.218273",
-  "57955": "EJAT.FH.1.57955",
-  "185085": "EJAT.FH.1.185085",
-  "203597": "EJAT.FH.1.203597",
-  "181253": "EJAT.CH.1.181253"
-};
-const SPODS = [
-  // Newly added QuantAQ device. The public QuantAQ page lists this as "MOD-00536".
-  // Coordinates are left as null so the code can fill them dynamically
-  // if your API proxy returns lat/lon. If it does not show on the map,
-  // replace null/null below with the exact deployed latitude and longitude.
-  { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: null, lon: null },
-  { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
-  { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
-  { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
-  { sn: "MOD-00748", name: "QuantAQ MOD-00748", lat: 38.969685, lon: -76.542290 },
-  { sn: "MOD-00749", name: "QuantAQ MOD-00749", lat: 39.055400, lon: -76.878800 }
-];
-// Temporarily excluded because it appears to be stuck/high and was overwhelming nearby station CE-AQI values.
-// To turn it back on later, add this line back into C12S:
-// { compId: "D14781", name: "C-12 D14781", lat: null, lon: null },
-const C12S = [
-  { compId: "D14645", name: "C-12 D14645", lat: null, lon: null },
-  { compId: "D17615", name: "C-12 D17615", lat: null, lon: null },
-  { compId: "E10588", name: "C-12 E10588", lat: null, lon: null },
-  { compId: "D14646", name: "C-12 D14646", lat: null, lon: null },
-  { compId: "B19939", name: "C-12 B19939", lat: null, lon: null }
-];
-let markerMap = {};
-let paCoords = {};
-let quantCache = {};
-let c12Cache = {};
-let userMarker = null;
-let markerMeta = {};
-let selectedStationId = null;
-const stationBreakdownCache = {};
-const BREAKDOWN_MAX_AQI = 200;
-const map = L.map("map").setView([38.9283, -76.9158], 15);
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-  maxZoom: 19,
-}).addTo(map);
-L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
-  maxZoom: 19,
-  pane: 'overlayPane'
-}).addTo(map);
-const cluster = L.markerClusterGroup({
-  disableClusteringAtZoom: 16,
-  spiderfyOnMaxZoom: true,
-  showCoverageOnHover: false,
-  maxClusterRadius: 55
-});
-map.addLayer(cluster);
-const chart = new Chart(document.getElementById("airChart").getContext("2d"), {
-  type: "line",
-  data: {
-    datasets: [
-      {
-        label: "Station CE-AQI",
-        data: [],
-        borderColor: "#4477ce",
-        tension: 0.1,
-        fill: true,
-        backgroundColor: "rgba(68, 119, 206, 0.1)",
-        spanGaps: true
-      },
-      {
-        label: "HU-Beltsville Reference Trend",
-        data: [],
-        borderColor: "rgba(255, 0, 0, 0.6)",
-        borderDash: [5, 5],
-        tension: 0.3,
-        fill: false,
-        pointRadius: 0,
-        spanGaps: true,
-        borderWidth: 2
-      }
-    ]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: "nearest",
-      intersect: false
-    },
-    scales: {
-      x: {
-        type: "time",
-        time: { unit: "hour" },
-        bounds: "ticks",
-        offset: false,
-        ticks: {
-          source: "auto"
-        }
-      },
-      y: { beginAtZero: true }
-    }
-  }
-});
 
-const BP_PM25_24H = [
-  { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },
-  { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100},
-  { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
-  { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
-  { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
-  { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500}
-];
-const BP_PM10_24H = [
-  { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
-  { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 },
-  { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 },
-  { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200 },
-  { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300 },
-  { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500 }
-];
-const BP_O3_8H = [
-  { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
-  { cLow: 55, cHigh: 70, iLow: 51, iHigh: 100},
-  { cLow: 71, cHigh: 85, iLow: 101, iHigh: 150 },
-  { cLow: 86, cHigh: 105, iLow: 151, iHigh: 200 },
-  { cLow: 106, cHigh: 200, iLow: 201, iHigh: 300 }
-];
-const BP_CO_8H_PPM = [
-  { cLow: 0.0, cHigh: 4.4, iLow: 0, iHigh: 50 },
-  { cLow: 4.5, cHigh: 9.4, iLow: 51, iHigh: 100},
-  { cLow: 9.5, cHigh: 12.4, iLow: 101, iHigh: 150},
-  { cLow: 12.5, cHigh: 15.4, iLow: 151, iHigh: 200 },
-  { cLow: 15.5, cHigh: 30.4, iLow: 201, iHigh: 300 },
-  { cLow: 30.5, cHigh: 50.4, iLow: 301, iHigh: 500 }
-];
-const BP_NO2_1H = [
-  { cLow: 0, cHigh: 53, iLow: 0, iHigh: 50 },
-  { cLow: 54, cHigh: 100, iLow: 51, iHigh: 100 },
-  { cLow: 101, cHigh: 360, iLow: 101, iHigh: 150 },
-  { cLow: 361, cHigh: 649, iLow: 151, iHigh: 200 },
-  { cLow: 650, cHigh: 1249, iLow: 201, iHigh: 300 },
-  { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
-];
-function safeNum(x) {
-  const v = Number(x);
-  return Number.isFinite(v) ? v : null;
-}
-function activeNum(x) {
-  const v = safeNum(x);
-  return v !== null && v > 0 ? v : null;
-}
-function hasValidCoords(lat, lon) {
-  const la = Number(lat);
-  const lo = Number(lon);
-  return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
-}
-function normalizeTimestampMs(value) {
-  if (value === null || value === undefined || value === "") return null;
-  if (value instanceof Date) {
-    const ms = value.getTime();
-    return Number.isFinite(ms) ? ms : null;
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || value <= 0) return null;
-    return value < 1e12 ? value * 1000 : value;
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const numeric = Number(trimmed);
-    if (Number.isFinite(numeric)) {
-      return normalizeTimestampMs(numeric);
-    }
-    const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(trimmed);
-    const parsed = Date.parse(hasTimezone ? trimmed : `${trimmed}Z`);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-function isReasonableSensorTime(ms) {
-  if (!Number.isFinite(Number(ms))) return false;
-  const t = Number(ms);
-  const jan2020 = Date.UTC(2020, 0, 1);
-  const oneDayAhead = Date.now() + (24*60*60*1000);
-  return t >= jan2020 && t <= oneDayAhead;
-}
-function freshestTime(...times) {
-  const valid = times
-    .map(normalizeTimestampMs)
-    .filter(isReasonableSensorTime);
-  return valid.length ? Math.max(...valid) : null;
-}
-function formatLatestTime(ms) {
-  const t = normalizeTimestampMs(ms);
-  if (!isReasonableSensorTime(t)) return "--";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short"
-  }).format(new Date(t));
-}
-function setLatestTimeDisplay(ms) {
-  const formatted = formatLatestTime(ms);
-  const latestEl = document.getElementById("latest_time");
-  if (latestEl) latestEl.innerText = formatted;
-  const summaryEl = document.getElementById("summaryUpdated");
-  if (summaryEl) summaryEl.innerText = `Latest update: ${formatted}`;
-}
-function getTimestampFromObject(obj) {
-  if (!obj || typeof obj !== "object") return null;
-  const possibleKeys = [
-    "timestamp",
-    "time",
-    "last_seen",
-    "lastSeen",
-    "time_stamp",
-    "datetime",
-    "dateTime",
-    "created_at",
-    "observed_at",
-    "ts"
+<div id="layout">
+  <aside id="sidebar">
+    <div class="sidebar-intro">
+      <p class="eyebrow">Community monitoring</p>
+      <h1>Live neighborhood air quality</h1>
+      <p>Explore current CE-AQI, pollutant drivers, and recent trends from PurpleAir, QuantAQ, and C-12 stations.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Find your nearest station</h2>
+      <p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
+      <label>Location Search</label>
+      <input type="text" id="addrInput" placeholder="Enter an Address">
+      <button id="locateBtn">Find Nearest Station</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Station selection</h2>
+      <p class="card-help">Choose a station directly, or click a marker on the map.</p>
+      <label>Station</label>
+      <select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Quick AQI guide</h2>
+      <p class="card-help">The dashboard uses softer shades of the AQI scale for readability.</p>
+      <div class="mini-guide">
+        <div class="guide-row good"><span>Good</span><span>0 to 50</span></div>
+        <div class="guide-row moderate"><span>Moderate</span><span>51 to 100</span></div>
+        <div class="guide-row sensitive"><span>Sensitive groups</span><span>101 to 150</span></div>
+        <div class="guide-row unhealthy"><span>Unhealthy</span><span>151+</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="main-content">
+
+    <section class="dashboard-grid">
+      <div class="map-card">
+        <div class="card-header">
+          <div>
+            <h3>Station map</h3>
+            <p>Marker color follows CE-AQI. Marker shape shows sensor type.</p>
+          </div>
+          <span id="mapStationType" class="type-pill">Select a station</span>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="map-legend">
+          <div class="legend-title">Air Quality Index</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-green);"></span> Good (0-50)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-yellow);"></span> Moderate (51-100)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-orange);"></span> Sensitive (101-150)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-red);"></span> Unhealthy (151-200)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-purple);"></span> Very Unhealthy (201-300)</div>
+          <div class="legend-item"><span class="dot" style="background-color:var(--aqi-maroon);"></span> Hazardous (301+)</div>
+
+          <div class="sensor-key">
+            <div class="sensor-key-row"><span class="sensor-symbol pa"></span> PurpleAir</div>
+            <div class="sensor-key-row"><span class="sensor-symbol mod"></span> QuantAQ</div>
+            <div class="sensor-key-row"><span class="sensor-symbol c12"></span> C-12</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel-card" aria-label="Selected station reading">
+        <div class="station-header">
+          <div>
+            <h3 id="statName">--</h3>
+            <div id="stationTypeText" class="station-subtitle">Select a station to begin</div>
+          </div>
+          <span id="panelCategory" class="status-pill">--</span>
+        </div>
+
+        <div id="aqiShowcase" class="aqi-showcase">
+          <div>
+            <div id="statAQI" class="aqi-val">--</div>
+            <div class="sublabel">CE-AQI</div>
+          </div>
+          <div>
+            <p id="riskDescription" class="risk-copy">Choose a station or click a map marker to load the latest reading.</p>
+            <div id="panelDriver" class="driver-chip">Main driver: --</div>
+          </div>
+        </div>
+
+        <button class="secondary-button" type="button" onclick="openRiskBreakdownModal()">View breakdown chart</button>
+
+        <div id="extraDetails" class="reading-grid">
+          <div class="reading-tile">
+            <div id="label_param" class="reading-tile-label">Concentration</div>
+            <div id="val_param" class="reading-tile-value">--</div>
+          </div>
+          <div class="reading-tile">
+            <div class="reading-tile-label">Latest detected</div>
+            <div id="latest_time" class="latest-time">--</div>
+          </div>
+        </div>
+
+        <div id="ceaqi-breakdown" class="ceaqi-breakdown" style="display:none;">
+          <div class="breakdown-title">CE-AQI Breakdown</div>
+          <div id="ceaqi-rows"></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="chart-card">
+      <div class="card-header">
+        <div>
+          <h3>18-hour CE-AQI trend</h3>
+          <p>Selected station compared with the HU-Beltsville reference trend.</p>
+        </div>
+        <span class="type-pill">Live trend</span>
+      </div>
+      <div id="chart-box">
+        <canvas id="airChart"></canvas>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="riskBreakdownModal" class="risk-modal hidden" aria-hidden="true">
+  <div class="risk-modal-card" role="dialog" aria-modal="true" aria-labelledby="riskBreakdownTitle">
+    <div class="risk-modal-header">
+      <div>
+        <h2 id="riskBreakdownTitle" class="risk-modal-title">Station Risk Breakdown</h2>
+        <div id="riskBreakdownSubtitle" class="risk-modal-subtitle">--</div>
+      </div>
+      <button class="risk-close" type="button" onclick="closeRiskBreakdownModal()">×</button>
+    </div>
+
+    <div class="risk-summary">
+      <div class="risk-summary-card">
+        <div id="riskTotalAQI" class="risk-summary-value">--</div>
+        <div class="risk-summary-label">CE-AQI</div>
+      </div>
+
+      <div class="risk-summary-card">
+        <div id="riskMainDriver" class="risk-summary-value" style="font-size:1rem;">--</div>
+        <div class="risk-summary-label">Main Driver</div>
+      </div>
+
+      <div class="risk-summary-card">
+        <div id="riskVariableCount" class="risk-summary-value">--</div>
+        <div class="risk-summary-label">Variables Used</div>
+      </div>
+    </div>
+
+    <div class="risk-scale">
+      <div>Pollutant</div>
+      <div class="risk-scale-ticks">
+        <span>0</span>
+        <span>50</span>
+        <span>100</span>
+        <span>150</span>
+        <span>200+</span>
+      </div>
+      <div>Sub-AQI</div>
+    </div>
+
+    <div id="riskBreakdownBars"></div>
+  </div>
+</div>
+
+<div class="dashboard-disclaimer">
+  Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
+</div>
+
+<script>
+  const API_PROXY = "/api/aq";
+  const STATION_TIMESERIES_HOURS = 18;
+
+  // HU-Beltsville / MDE Howard University reference monitor.
+  // AQS ID: 240330030. Used to replace the older DC comparative trend line.
+  const BELTSVILLE_REFERENCE = {
+    aqsidPlain: "240330030",
+    aqsidDashed: "24-033-0030",
+    name: "HU-Beltsville Reference Trend",
+    lat: 39.055277,
+    lon: -76.878333
+  };
+
+  const AIRNOW_CURRENT_LAYER_URL =
+    "https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/Air%20Now%20Current%20Monitor%20Data%20Public/FeatureServer/0";
+
+  const AIRNOW_24H_ITEM_IDS = [
+    "394b9bf591e14596bb57b9085b425f7d", // AirNow monitoring site data, last 24 hours
+    "6568bde341404076b13898381f383c43"  // AirNow ozone and PM, last 24 hours
   ];
-  for (const key of possibleKeys) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const t = normalizeTimestampMs(obj[key]);
-      if (isReasonableSensorTime(t)) return t;
+
+  let beltsvilleTrendCache = { data: [], fetchedAt: 0 };
+
+  const SENSORS = {
+    "52823": "EJAT.CV.6.52823",
+    "53677": "EJAT.CV.1.53677",
+    // Temporarily excluded at user request. Add back when ready.
+    // "54239": "EJAT.CV.6.54239",
+    "54293": "EJAT.CV.2.54293",
+    "57777": "EJAT.CV.1.57777",
+    "57783": "EJAT.CV.6.57783",
+    "57811": "EJAT.CV.4.57811",
+    "57841": "EJAT.CV.3.57841",
+    "203577": "EJAT.CV.2.203577",
+    "203601": "EJAT.CV.1.203601",
+    "207729": "EJAT.CV.1.207729",
+    "211993": "EJAT.CV.3.211993",
+    "156595": "EJAT.CV.156595",
+    "284362": "EJAT.PG.1.284362",
+    "160037": "EJAT.PG.1.160037",
+    "175563": "EJAT.PG.1.175563",
+    "178169": "EJAT.PG.1.178169",
+    "184191": "EJAT.PG.1.184191",
+    "197937": "EJAT.PG.1.197937",
+    "218227": "EJAT.PG.1.218227",
+    "218237": "EJAT.PG.1.218237",
+    "218273": "EJAT.PG.1.218273",
+    "57955": "EJAT.FH.1.57955",
+    "185085": "EJAT.FH.1.185085",
+    "203597": "EJAT.FH.1.203597",
+    "181253": "EJAT.CH.1.181253"
+  };
+
+  const SPODS = [
+    // Newly added QuantAQ device. The public QuantAQ page lists this as
+    // "MOD-00536".
+    // Coordinates are left as null so the code can fill them dynamically
+    // if your API proxy returns lat/lon. If it does not show on the map,
+    // replace null/null below with the exact deployed latitude and longitude.
+    { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: null, lon: null },
+    { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
+    { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
+    { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
+    { sn: "MOD-00748", name: "QuantAQ MOD-00748", lat: 38.969685, lon: -76.542290 },
+    { sn: "MOD-00749", name: "QuantAQ MOD-00749", lat: 39.055400, lon: -76.878800 }
+  ];
+
+  // Temporarily excluded because it appears to be stuck/high and was overwhelming nearby station CE-AQI values.
+  // To turn it back on later, add this line back into C12S:
+  // { compId: "D14781", name: "C-12 D14781", lat: null, lon: null },
+  const C12S = [
+    { compId: "D14645", name: "C-12 D14645", lat: null, lon: null },
+    { compId: "D17615", name: "C-12 D17615", lat: null, lon: null },
+    { compId: "E10588", name: "C-12 E10588", lat: null, lon: null },
+    { compId: "D14646", name: "C-12 D14646", lat: null, lon: null },
+    { compId: "B19939", name: "C-12 B19939", lat: null, lon: null }   
+  ];
+
+  let markerMap = {};
+  let paCoords = {};
+  let quantCache = {};
+  let c12Cache = {};
+  let userMarker = null;
+  let markerMeta = {};
+  let selectedStationId = null;
+  const stationBreakdownCache = {};
+  const BREAKDOWN_MAX_AQI = 200;
+
+  const map = L.map("map").setView([38.9283, -76.9158], 15);
+
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+  }).addTo(map);
+
+  L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    pane: 'overlayPane'
+  }).addTo(map);
+
+  const cluster = L.markerClusterGroup({
+    disableClusteringAtZoom: 16,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    maxClusterRadius: 55
+  });
+
+  map.addLayer(cluster);
+
+  const chart = new Chart(document.getElementById("airChart").getContext("2d"), {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: "Station CE-AQI",
+          data: [],
+          borderColor: "#4477ce",
+          tension: 0.1,
+          fill: true,
+          backgroundColor: "rgba(68, 119, 206, 0.1)",
+          spanGaps: true
+        },
+        {
+          label: "HU-Beltsville Reference Trend",
+          data: [],
+          borderColor: "rgba(255, 0, 0, 0.6)",
+          borderDash: [5, 5],
+          tension: 0.3,
+          fill: false,
+          pointRadius: 0,
+          spanGaps: true,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "nearest",
+        intersect: false
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: { unit: "hour" },
+          bounds: "ticks",
+          offset: false,
+          ticks: {
+            source: "auto"
+          }
+        },
+        y: { beginAtZero: true }
+      }
     }
+  });
+
+  const BP_PM25_24H = [
+    { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },
+    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500 }
+  ];
+
+  const BP_PM10_24H = [
+    { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+    { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 },
+    { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 },
+    { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200 },
+    { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300 },
+    { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500 }
+  ];
+
+  const BP_O3_8H = [
+    { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+    { cLow: 55, cHigh: 70, iLow: 51, iHigh: 100 },
+    { cLow: 71, cHigh: 85, iLow: 101, iHigh: 150 },
+    { cLow: 86, cHigh: 105, iLow: 151, iHigh: 200 },
+    { cLow: 106, cHigh: 200, iLow: 201, iHigh: 300 }
+  ];
+
+  const BP_CO_8H_PPM = [
+    { cLow: 0.0, cHigh: 4.4, iLow: 0, iHigh: 50 },
+    { cLow: 4.5, cHigh: 9.4, iLow: 51, iHigh: 100 },
+    { cLow: 9.5, cHigh: 12.4, iLow: 101, iHigh: 150 },
+    { cLow: 12.5, cHigh: 15.4, iLow: 151, iHigh: 200 },
+    { cLow: 15.5, cHigh: 30.4, iLow: 201, iHigh: 300 },
+    { cLow: 30.5, cHigh: 50.4, iLow: 301, iHigh: 500 }
+  ];
+
+  const BP_NO2_1H = [
+    { cLow: 0, cHigh: 53, iLow: 0, iHigh: 50 },
+    { cLow: 54, cHigh: 100, iLow: 51, iHigh: 100 },
+    { cLow: 101, cHigh: 360, iLow: 101, iHigh: 150 },
+    { cLow: 361, cHigh: 649, iLow: 151, iHigh: 200 },
+    { cLow: 650, cHigh: 1249, iLow: 201, iHigh: 300 },
+    { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
+  ];
+
+  function safeNum(x) {
+    const v = Number(x);
+    return Number.isFinite(v) ? v : null;
   }
-  return null;
-}
-function getTimestampFromArray(row) {
-  if (!Array.isArray(row)) return null;
-  const candidates = [];
-  for (let i=0; i < row.length; i++) {
-    const t = normalizeTimestampMs(row[i]);
-    if (isReasonableSensorTime(t)) {
-      candidates.push(t);
+
+  function activeNum(x) {
+    const v = safeNum(x);
+    return v !== null && v > 0 ? v : null;
+  }
+
+  function hasValidCoords(lat, lon) {
+    const la = Number(lat);
+    const lo = Number(lon);
+    return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
+  }
+
+  function normalizeTimestampMs(value) {
+    if (value === null || value === undefined || value === "") return null;
+
+    if (value instanceof Date) {
+      const ms = value.getTime();
+      return Number.isFinite(ms) ? ms : null;
     }
-  }
-  return candidates.length ? Math.max(...candidates) : null;
-}
-function getPurpleAirBoxTimestamp(row) {
-  if (!row) return null;
-  return Array.isArray(row) ? getTimestampFromArray(row) : getTimestampFromObject(row);
-}
-function getQuantAQTimestampMs(reading) {
-  return getTimestampFromObject(reading);
-}
-function getCoordsFromObject(obj, depth = 0) {
-  if (!obj || typeof obj !== "object" || depth > 4) return null;
-  const latKeys = ["lat", "latitude", "Latitude", "device_lat", "deviceLatitude", "site_lat"];
-  const lonKeys = ["lon", "lng", "long", "longitude", "Longitude", "device_lon", "deviceLongitude", "site_lon"];
-  let lat = null;
-  let lon = null;
-  for (const key of latKeys) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      lat = safeNum(obj[key]);
-      if (lat !== null) break;
+
+    if (typeof value === "number") {
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return value < 1e12 ? value * 1000 : value;
     }
-  }
-  for (const key of lonKeys) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      lon = safeNum(obj[key]);
-      if (lon !== null) break;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        return normalizeTimestampMs(numeric);
+      }
+
+      const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(trimmed);
+      const parsed = Date.parse(hasTimezone ? trimmed : `${trimmed}Z`);
+      return Number.isFinite(parsed) ? parsed : null;
     }
-  }
-  if (hasValidCoords(lat, lon)) {
-    return { lat, lon };
-  }
-  // Some APIs use GeoJSON style coordinates: [longitude, latitude].
-  if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
-    const coordLon = safeNum(obj.coordinates[0]);
-    const coordLat = safeNum(obj.coordinates[1]);
-    if (hasValidCoords(coordLat, coordLon)) {
-      return { lat: coordLat, lon: coordLon };
-    }
-  }
-  for (const value of Object.values(obj)) {
-    const found = getCoordsFromObject(value, depth + 1);
-    if (found) return found;
-  }
-  return null;
-}
-function getC12LatestTime(rows) {
-  if (!Array.isArray(rows)) return null;
-  const bcRow = rows.find(r => r.streamId === "880nm");
-  const bcTime = normalizeTimestampMs(bcRow?.time);
-  if (isReasonableSensorTime(bcTime)) return bcTime;
-  const allTimes = rows.map(r => normalizeTimestampMs(r?.time)).filter(isReasonableSensorTime);
-  return allTimes.length ? Math.max(...allTimes) : null;
-}
-function buildMarkerTooltip(value, latestTimeMs, baseLabel) {
-  const baseText = baseLabel ? `<br>Base: ${baseLabel}` : "";
-  return `CE-AQI: ${value}${baseText}<br>Latest detected: ${formatLatestTime(latestTimeMs)}`;
-}
-function arcgisLayerUrlFromItemUrl(url) {
-  if (!url) return null;
-  const clean = url.replace(/\/$/, "");
-  if (/\/FeatureServer\/\d+$/i.test(clean)) return clean;
-  if (/\/FeatureServer$/i.test(clean)) return `${clean}/0`;
-  return clean;
-}
-async function getArcGISItemLayerUrl(itemId) {
-  try {
-    const url = `https://www.arcgis.com/sharing/rest/content/items/${itemId}?f=json`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const item = await res.json();
-    return arcgisLayerUrlFromItemUrl(item?.url);
-  } catch (e) {
-    console.warn("Could not resolve AirNow item URL:", itemId, e);
+
     return null;
   }
-}
-function airnowFeatureTimeMs(attrs) {
-  if (!attrs) return null;
-  const possibleKeys = [
-    "ValidTime",
-    "UTC",
-    "DateObserved",
-    "ObservedTime",
-    "LocalTime",
-    "LocalTimeString",
-    "DateTime",
-    "time",
-    "timestamp"
-  ];
-  for (const key of possibleKeys) {
-    if (Object.prototype.hasOwnProperty.call(attrs, key)) {
-      const t = normalizeTimestampMs(attrs[key]);
-      if (isReasonableSensorTime(t)) return t;
+
+  function isReasonableSensorTime(ms) {
+    if (!Number.isFinite(Number(ms))) return false;
+    const t = Number(ms);
+    const jan2020 = Date.UTC(2020, 0, 1);
+    const oneDayAhead = Date.now() + (24 * 60 * 60 * 1000);
+    return t >= jan2020 && t <= oneDayAhead;
+  }
+
+  function freshestTime(...times) {
+    const valid = times
+      .map(normalizeTimestampMs)
+      .filter(isReasonableSensorTime);
+
+    return valid.length ? Math.max(...valid) : null;
+  }
+
+  function formatLatestTime(ms) {
+    const t = normalizeTimestampMs(ms);
+    if (!isReasonableSensorTime(t)) return "--";
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short"
+    }).format(new Date(t));
+  }
+
+  function setLatestTimeDisplay(ms) {
+    const formatted = formatLatestTime(ms);
+    const latestEl = document.getElementById("latest_time");
+    if (latestEl) latestEl.innerText = formatted;
+
+    const summaryEl = document.getElementById("summaryUpdated");
+    if (summaryEl) summaryEl.innerText = `Latest update: ${formatted}`;
+  }
+
+  function getTimestampFromObject(obj) {
+    if (!obj || typeof obj !== "object") return null;
+
+    const possibleKeys = [
+      "timestamp",
+      "time",
+      "last_seen",
+      "lastSeen",
+      "time_stamp",
+      "datetime",
+      "dateTime",
+      "created_at",
+      "observed_at",
+      "ts"
+    ];
+
+    for (const key of possibleKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const t = normalizeTimestampMs(obj[key]);
+        if (isReasonableSensorTime(t)) return t;
+      }
     }
+
+    return null;
   }
-  return null;
-}
-function airnowAQIFromAttrs(attrs) {
-  if (!attrs) return null;
-  const preferred = safeNum(attrs.OZONEPM_AQI ?? attrs.OZONEPM_AQI_SORT ?? attrs.AQI);
-  if (preferred !== null && preferred >= 0) return Math.round(preferred);
-  const candidates = [
-    safeNum(attrs.OZONE_AQI ?? attrs.OZONE_AQI_SORT),
-    safeNum(attrs.PM25_AQI ?? attrs.PM25_AQI_SORT),
-    safeNum(attrs.PM10_AQI ?? attrs.PM10_AQI_SORT),
-    safeNum(attrs.PM_AQI ?? attrs.PM_AQI_SORT)
-  ].filter(v => v !== null && v >= 0);
-  return candidates.length ? Math.round(Math.max(...candidates)) : null;
-}
-function featureLatLon(feature) {
-  const attrs = feature?.attributes || {};
-  const attrLat = safeNum(attrs.Latitude);
-  const attrLon = safeNum(attrs.Longitude);
-  if (hasValidCoords(attrLat, attrLon)) return { lat: attrLat, lon: attrLon };
-  const geom = feature?.geometry || {};
-  const geomLat = safeNum(geom.y);
-  const geomLon = safeNum(geom.x);
-  if (hasValidCoords(geomLat, geomLon)) return { lat: geomLat, lon: geomLon };
-  return null;
-}
-function isBeltsvilleFeature(feature) {
-  const attrs = feature?.attributes || {};
-  const aqsid = String(attrs.AQSID ?? attrs.AqsId ?? attrs.SiteID ?? "").trim();
-  const siteName = String(attrs.SiteName ?? attrs.MonitorName ?? attrs.NAME ?? "").toLowerCase();
-  if (aqsid === BELTSVILLE_REFERENCE.aqsidPlain || aqsid === BELTSVILLE_REFERENCE.aqsidDashed) return true;
-  if (siteName.includes("beltsville") || siteName.includes("howard")) return true;
-  const coords = featureLatLon(feature);
-  if (!coords) return false;
-  return haversineKm(coords.lat, coords.lon, BELTSVILLE_REFERENCE.lat, BELTSVILLE_REFERENCE.lon) <= 2;
-}
-async function queryAirNowLayer(layerUrl) {
-  if (!layerUrl) return [];
-  const lat = BELTSVILLE_REFERENCE.lat;
-  const lon = BELTSVILLE_REFERENCE.lon;
-  const buffer = 0.08;
-  const params = new URLSearchParams({
-    f: "json",
-    where: "1=1",
-    outFields: "*",
-    returnGeometry: "true",
-    outSR: "4326",
-    geometry: `${lon - buffer}, ${lat - buffer}, ${lon + buffer}, ${lat + buffer}`,
-    geometryType: "esriGeometryEnvelope",
-    inSR: "4326",
-    spatialRel: "esriSpatialRelIntersects"
-  });
-  try {
-    const res = await fetch(`${layerUrl}/query?${params.toString()}`);
-    if (!res.ok) return [];
-    const json = await res.json();
-    if (json?.error) {
-      console.warn("AirNow query error:", json.error);
-      return [];
+
+  function getTimestampFromArray(row) {
+    if (!Array.isArray(row)) return null;
+
+    const candidates = [];
+
+    for (let i = 0; i < row.length; i++) {
+      const t = normalizeTimestampMs(row[i]);
+      if (isReasonableSensorTime(t)) {
+        candidates.push(t);
+      }
     }
-    return Array.isArray(json?.features) ? json.features : [];
-  } catch (e) {
-    console.warn("AirNow query failed:", e);
-    return [];
+
+    return candidates.length ? Math.max(...candidates) : null;
   }
-}
-function featuresToReferenceSeries(features) {
-  const rows = features
-    .filter(isBeltsvilleFeature)
-    .map(feature => {
-      const attrs = feature.attributes || {};
-      return {
-        x: airnowFeatureTimeMs(attrs),
-        y: airnowAQIFromAttrs(attrs)
-      };
-    })
-    .filter(p => p.x !== null && p.y !== null)
-    .sort((a, b) => a.x - b.x);
-  // Remove duplicate timestamps by keeping the highest value at that hour.
-  const byTime = new Map();
-  for (const p of rows) {
-    const existing = byTime.get(p.x);
-    if (!existing || p.y > existing.y) byTime.set(p.x, p);
+
+  function getPurpleAirBoxTimestamp(row) {
+    if (!row) return null;
+    return Array.isArray(row) ? getTimestampFromArray(row) : getTimestampFromObject(row);
   }
-  return Array.from(byTime.values()).sort((a,b)=>a.x-b.x);
-}
-async function fetchBeltsvilleReferenceTrend() {
-  const now = Date.now();
-  // AirNow updates hourly, so avoid refetching every time a user clicks a marker.
-  if (beltsvilleTrendCache.data.length && now - beltsvilleTrendCache.fetchedAt < 15*60*1000) {
-    return beltsvilleTrendCache.data;
+
+  function getQuantAQTimestampMs(reading) {
+    return getTimestampFromObject(reading);
   }
-  const layerUrls = [];
-  for (const itemId of AIRNOW_24H_ITEM_IDS) {
-    const layerUrl = await getArcGISItemLayerUrl(itemId);
-    if (layerUrl) layerUrls.push(layerUrl);
-  }
-  // Fallback: current AirNow monitor layer. This may only return the latest point,
-  // but it keeps the dashboard from breaking if the 24-hour item URL changes.
-  layerUrls.push(AIRNOW_CURRENT_LAYER_URL);
-  for (const layerUrl of layerUrls) {
-    const features = await queryAirNowLayer(layerUrl);
-    const series = featuresToReferenceSeries(features);
-    if (series.length > 0) {
-      beltsvilleTrendCache = { data: series, fetchedAt: now };
-      return series;
+
+  function getCoordsFromObject(obj, depth = 0) {
+    if (!obj || typeof obj !== "object" || depth > 4) return null;
+
+    const latKeys = ["lat", "latitude", "Latitude", "device_lat", "deviceLatitude", "site_lat"];
+    const lonKeys = ["lon", "lng", "long", "longitude", "Longitude", "device_lon", "deviceLongitude", "site_lon"];
+
+    let lat = null;
+    let lon = null;
+
+    for (const key of latKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        lat = safeNum(obj[key]);
+        if (lat !== null) break;
+      }
     }
-  }
-  beltsvilleTrendCache = { data: [], fetchedAt: now };
-  return [];
-}
-const STATION_TIMESERIES_WINDOW_MS = STATION_TIMESERIES_HOURS * 60 * 60 * 1000;
-function stationSeriesWindowEndMs() {
-  return Date.now();
-}
-function stationSeriesCutoffMs(endTimeMs = Date.now()) {
-  const end = normalizeTimestampMs(endTimeMs) || Date.now();
-  return end - STATION_TIMESERIES_WINDOW_MS;
-}
-function getChartDataExtent(fallbackEndMs = Date.now()) {
-  const fallbackEnd = normalizeTimestampMs(fallbackEndMs) || Date.now();
-  const points = chart.data.datasets
-    .flatMap(ds => Array.isArray(ds?.data)? ds.data : [])
-    .map(p => normalizeTimestampMs(p?.x))
-    .filter(isReasonableSensorTime);
-  if (!points.length) {
-    return {
-      min: stationSeriesCutoffMs(fallbackEnd),
-      max: fallbackEnd
-    };
-  }
-  let min = Math.min(...points);
-  let max = Math.max(...points);
-  if (min === max) {
-    min -= 30*60*1000;
-    max += 30*60*1000;
-  }
-  return { min, max };
-}
-function setChartTimeWindow(endTimeMs = Date.now()) {
-  const extent = getChartDataExtent(endTimeMs);
-  chart.options.scales.x.min = extent.min;
-  chart.options.scales.x.max = extent.max;
-}
-function filterToStationWindow(series, endTimeMs = Date.now()) {
-  const end = normalizeTimestampMs(endTimeMs) || Date.now();
-  const cutoff = stationSeriesCutoffMs(end);
-  return (Array.isArray(series) ? series : [])
-    .filter(p => p && p.x !== null && p.y !== null && Number.isFinite(Number(p.y)))
-    .filter(p => p.x >= cutoff && p.x <= end)
-    .sort((a, b) => a.x - b.x);
-}
-async function loadBeltsvilleReferenceTrend(endTimeMs = Date.now()) {
-  chart.data.datasets[1].label = BELTSVILLE_REFERENCE.name;
-  const series = await fetchBeltsvilleReferenceTrend();
-  chart.data.datasets[1].data = filterToStationWindow(series, endTimeMs);
-}
-function applyStationSeriesWindow(series, endTimeMs = Date.now()) {
-  const cleanSeries = filterToStationWindow(series, endTimeMs);
-  chart.data.datasets[0].data = cleanSeries;
-  setChartTimeWindow(endTimeMs);
-  return cleanSeries.length ? cleanSeries[cleanSeries.length - 1].x : null;
-}
-function c12CEAQIFromBCValue(bc, compId = "C12") {
-  const pollutants = [];
-  addC12Pollutants(pollutants, bc, compId);
-  const result = calcCEAQI(pollutants, {
-    preferredBaseStartsWith: "BC non-cancer"
-  });
-  return result.ceaqi || null;
-}
-function getRowsFromPayload(payload, depth = 0) {
-  if (!payload || depth > 3) return [];
-  if (Array.isArray(payload)) return payload;
-  if (typeof payload !== "object") return [];
-  const directKeys = ["data", "rows", "readings", "samples", "values", "items", "series", "results"];
-  for (const key of directKeys) {
-    if (Array.isArray(payload[key])) return payload[key];
-    if (payload[key] && typeof payload[key] === "object") {
-      const nested = getRowsFromPayload(payload[key], depth + 1);
-      if (nested.length) return nested;
+
+    for (const key of lonKeys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        lon = safeNum(obj[key]);
+        if (lon !== null) break;
+      }
     }
+
+    if (hasValidCoords(lat, lon)) {
+      return { lat, lon };
+    }
+
+    // Some APIs use GeoJSON style coordinates: [longitude, latitude].
+    if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
+      const coordLon = safeNum(obj.coordinates[0]);
+      const coordLat = safeNum(obj.coordinates[1]);
+      if (hasValidCoords(coordLat, coordLon)) {
+        return { lat: coordLat, lon: coordLon };
+      }
+    }
+
+    for (const value of Object.values(obj)) {
+      const found = getCoordsFromObject(value, depth + 1);
+      if (found) return found;
+    }
+
+    return null;
   }
-  for (const value of Object.values(payload)) {
-    const nested = getRowsFromPayload(value, depth + 1);
-    if (nested.length) return nested;
+
+  function getC12LatestTime(rows) {
+    if (!Array.isArray(rows)) return null;
+
+    const bcRow = rows.find(r => r.streamId === "880nm");
+    const bcTime = normalizeTimestampMs(bcRow?.time);
+    if (isReasonableSensorTime(bcTime)) return bcTime;
+
+    const allTimes = rows.map(r => normalizeTimestampMs(r?.time)).filter(isReasonableSensorTime);
+    return allTimes.length ? Math.max(...allTimes) : null;
   }
-  return [];
-}
-function parseC12HistoryPoint(row, compId) {
-  if (!row) return null;
-  if (Array.isArray(row)) {
-    const time = normalizeTimestampMs(row[0]);
-    const bc = activeNum(row[1]);
-    const ceaqi = c12CEAQIFromBCValue(bc, compId);
-    return time !== null && ceaqi !== null ? {x: time, y: ceaqi} : null;
+
+  function buildMarkerTooltip(value, latestTimeMs, baseLabel) {
+    const baseText = baseLabel ? `<br>Base: ${baseLabel}` : "";
+    return `CE-AQI: ${value}${baseText}<br>Latest detected: ${formatLatestTime(latestTimeMs)}`;
   }
-  if (typeof row === "object") {
-    const streamId = String(row.streamId ?? row.stream_id ?? row.id ?? row.name ?? "").toLowerCase();
-    if (streamId && !streamId.includes("880") && !streamId.includes("black") && !streamId.includes("bc")) {
+
+  function arcgisLayerUrlFromItemUrl(url) {
+    if (!url) return null;
+    const clean = url.replace(/\/$/, "");
+    if (/\/FeatureServer\/\d+$/i.test(clean)) return clean;
+    if (/\/FeatureServer$/i.test(clean)) return `${clean}/0`;
+    return clean;
+  }
+
+  async function getArcGISItemLayerUrl(itemId) {
+    try {
+      const url = `https://www.arcgis.com/sharing/rest/content/items/${itemId}?f=json`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const item = await res.json();
+      return arcgisLayerUrlFromItemUrl(item?.url);
+    } catch (e) {
+      console.warn("Could not resolve AirNow item URL:", itemId, e);
       return null;
     }
-    const time = normalizeTimestampMs(row.time ?? row.timestamp ?? row.ts ?? row.datetime ?? row.dateTime);
-    const bc = activeNum(row.data ?? row.value ?? row.v ?? row.reading ?? row.measurement ?? row.bc);
-    const ceaqi = c12CEAQIFromBCValue(bc, compId);
-    return time !== null && ceaqi !== null ? {x: time, y: ceaqi} : null;
   }
-  return null;
-}
-async function fetchC12HistorySeries(compId, hours = STATION_TIMESERIES_HOURS) {
-  const endMs = Date.now();
-  const startMs = endMs - (hours * 60 * 60 * 1000);
-  const startSec = Math.floor(startMs / 1000);
-  const endSec = Math.floor(endMs / 1000);
-  // The current dashboard already uses grove_last. These extra action names let the
-  // same HTML work if the API proxy exposes C12/GroveStreams history under one of them.
-  const requests = [
-    { action: "grove_history", compId, streamId: "880nm", start: startSec, end: endSec },
-    { action: "grove_history", compId, streamId: "880nm", start: startMs, end: endMs },
-    { action: "grove_stream_history", compId, streamId: "880nm", start: startSec, end: endSec },
-    { action: "c12_history", compId, streamId: "880nm", start: startSec, end: endSec }
-  ];
-  for (const params of requests) {
-    const payload = await proxyGet(params);
-    const rows = getRowsFromPayload(payload);
-    const series = rows
-      .map(row => parseC12HistoryPoint(row, compId))
-      .filter(Boolean)
-      .filter(p => p.x >= startMs && p.x <= endMs)
-      .sort((a, b) => a.x - b.x);
-    if (series.length > 0) return series;
-  }
-  console.warn(`No C12 history returned for ${compId}. A true C12 line requires the /api/aq proxy to support a GroveStreams history action such as grove_history or c12_history.`);
-  return [];
-}
-async function proxyGet(params) {
-  try {
-    const url = API_PROXY + "?" + new URLSearchParams(params).toString();
-    const res = await fetch(url);
-    return res.ok ? await res.json() : null;
-  } catch (e) {
-    console.error("API request failed:", e);
+
+  function airnowFeatureTimeMs(attrs) {
+    if (!attrs) return null;
+
+    const possibleKeys = [
+      "ValidTime",
+      "UTC",
+      "DateObserved",
+      "ObservedTime",
+      "LocalTime",
+      "LocalTimeString",
+      "DateTime",
+      "time",
+      "timestamp"
+    ];
+
+    for (const key of possibleKeys) {
+      if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+        const t = normalizeTimestampMs(attrs[key]);
+        if (isReasonableSensorTime(t)) return t;
+      }
+    }
+
     return null;
   }
-}
-function getAQIColor(aqi) {
-  const v = Number(aqi);
-  if (!Number.isFinite(v)) return "#bbb";
-  if (v <= 50) return "#00e400";
-  if (v <= 100) return "#ffff00";
-  if (v <= 150) return "#ff7e00";
-  if (v <= 200) return "#ff0000";
-  if (v <= 300) return "#8f3f97";
-  return "#7e0023";
-}
-function aqiFromBreakpoints(C, table) {
-  if (C === null || !Number.isFinite(Number(C))) return null;
-  const c = Number(C);
-  for (const bp of table) {
-    if (c >= bp.cLow && c <= bp.cHigh) {
-      return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
-    }
+
+  function airnowAQIFromAttrs(attrs) {
+    if (!attrs) return null;
+
+    const preferred = safeNum(attrs.OZONEPM_AQI ?? attrs.OZONEPM_AQI_SORT ?? attrs.AQI);
+    if (preferred !== null && preferred >= 0) return Math.round(preferred);
+
+    const candidates = [
+      safeNum(attrs.OZONE_AQI ?? attrs.OZONE_AQI_SORT),
+      safeNum(attrs.PM25_AQI ?? attrs.PM25_AQI_SORT),
+      safeNum(attrs.PM10_AQI ?? attrs.PM10_AQI_SORT),
+      safeNum(attrs.PM_AQI ?? attrs.PM_AQI_SORT)
+    ].filter(v => v !== null && v >= 0);
+
+    return candidates.length ? Math.round(Math.max(...candidates)) : null;
   }
-  return null;
-}
-function aqiFromBC(bcNgM3) {
-  const bc = activeNum(bcNgM3);
-  if (bc === null) return null;
-  return Math.round((bc / 600) * 100);
-}
-function aqiFromDPM(bcNgM3) {
-  const bc = activeNum(bcNgM3);
-  if (bc === null) return null;
-  const dpm = bc * 1.25;
-  return Math.round((dpm / 330) * 100);
-}
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-function nearestQuantAQ(lat, lon) {
-  if (!hasValidCoords(lat, lon)) return null;
-  let best = null;
-  let bestDist = Infinity;
-  for (const s of SPODS) {
-    if (!hasValidCoords(s.lat, s.lon)) continue;
-    const d = haversineKm(lat, lon, s.lat, s.lon);
-    if (d < bestDist) {
-      bestDist = d;
-      best = s;
-    }
+
+  function featureLatLon(feature) {
+    const attrs = feature?.attributes || {};
+    const attrLat = safeNum(attrs.Latitude);
+    const attrLon = safeNum(attrs.Longitude);
+    if (hasValidCoords(attrLat, attrLon)) return { lat: attrLat, lon: attrLon };
+
+    const geom = feature?.geometry || {};
+    const geomLat = safeNum(geom.y);
+    const geomLon = safeNum(geom.x);
+    if (hasValidCoords(geomLat, geomLon)) return { lat: geomLat, lon: geomLon };
+
+    return null;
   }
-  return best;
-}
-function nearestC12(lat, lon) {
-  if (!hasValidCoords(lat, lon)) return null;
-  let best = null;
-  let bestDist = Infinity;
-  for (const c of C12S) {
-    if (!hasValidCoords(c.lat, c.lon)) continue;
-    const d = haversineKm(lat, lon, c.lat, c.lon);
-    if (d < bestDist) {
-      bestDist = d;
-      best = c;
-    }
+
+  function isBeltsvilleFeature(feature) {
+    const attrs = feature?.attributes || {};
+    const aqsid = String(attrs.AQSID ?? attrs.AqsId ?? attrs.SiteID ?? "").trim();
+    const siteName = String(attrs.SiteName ?? attrs.MonitorName ?? attrs.NAME ?? "").toLowerCase();
+
+    if (aqsid === BELTSVILLE_REFERENCE.aqsidPlain || aqsid === BELTSVILLE_REFERENCE.aqsidDashed) return true;
+    if (siteName.includes("beltsville") || siteName.includes("howard")) return true;
+
+    const coords = featureLatLon(feature);
+    if (!coords) return false;
+
+    return haversineKm(coords.lat, coords.lon, BELTSVILLE_REFERENCE.lat, BELTSVILLE_REFERENCE.lon) <= 2;
   }
-  return best;
-}
-function addKnownAQI(pollutants, label, aqi, options = {}) {
-  const v = safeNum(aqi);
-  if (v === null || v <= 0) return;
-  pollutants.push({
-    label,
-    aqi: Math.round(v),
-    // Own station pollutants can be the CE-AQI base.
-    // Borrowed pollutants from nearby sensors are included, but do not become the base by default.
-    canBeBase: options.canBeBase !== false,
-    isSupport: options.isSupport === true
-  });
-}
-function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
-  if (!qd) return;
-  const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
-  const o3 = activeNum(qd.o3);
-  const coPpb = activeNum(qd.co);
-  const no2 = activeNum(qd.no2);
-  const pm10 = activeNum(qd.pm10);
-  const meta = {
-    canBeBase: options.canBeBase !== false,
-    isSupport: options.isSupport === true
-  };
-  if (includePM25) {
-    addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H), meta);
-  }
-  addKnownAQI(pollutants, `O3 (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H), meta);
-  addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
-  addKnownAQI(pollutants, `NO2 (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
-  addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
-}
-function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
-  const bcValue = activeNum(bc);
-  if (bcValue === null) return;
-  const meta = {
-    canBeBase: options.canBeBase !== false,
-    isSupport: options.isSupport === true
-  };
-  addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue), meta);
-  addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue), meta);
-}
-function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
-  const pollutants = [...ownPollutants];
-  if (!hasValidCoords(lat, lon)) {
-    return pollutants;
-  }
-  // Nearby support sensors should help explain cumulative exposure, but they should not
-  // make every surrounding station inherit the exact same CE-AQI base value.
-  // Set supportCanBeBase to true only if you intentionally want the closest borrowed sensor
-  // to control the selected station's final color.
-  const supportMeta = {
-    canBeBase: options.supportCanBeBase === true,
-    isSupport: true
-  };
-  const nearestQ = nearestQuantAQ(lat, lon);
-  if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
-    addQuantAQPollutants(
-      pollutants,
-      quantCache[nearestQ.sn],
-      `nearby ${nearestQ.sn}`,
-      options.includeNearestQuantPM25 === true,
-      supportMeta
-    );
-  }
-  const nearestC = nearestC12(lat, lon);
-  if (nearestC && nearestC.compId !== options.skipC12) {
-    addC12Pollutants(
-      pollutants,
-      c12Cache[nearestC.compId]?.bc,
-      `nearby ${nearestC.compId}`,
-      supportMeta
-    );
-  }
-  return pollutants;
-}
-function calcCEAQI(pollutants, options = {}) {
-  const valid = pollutants
-    .map(p => ({
-      ...p,
-      aqi: Math.round(Number(p.aqi))
-    }))
-    .filter(p => Number.isFinite(p.aqi) && p.aqi > 0);
-  if (valid.length === 0) {
-    return {
-      ceaqi: 0,
-      base: 0,
-      baseLabel: "No data",
-      adders: [],
-      valid: [],
-      contributions: []
-    };
-  }
-  // Station anchored CE-AQI:
-  // The base is the highest valid pollutant measured by the selected station type.
-  // Nearby support sensors are still included and can add to the CE-AQI, but they
-  // do not become the base. This prevents one stuck or very high nearby C12 reading
-  // from making every surrounding PurpleAir or QuantAQ marker show the same value.
-  const baseCandidates = valid.filter(p => p.canBeBase !== false);
-  const candidates = baseCandidates.length ? baseCandidates : valid;
-  const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
-  const baseIndex = valid.indexOf(baseItem);
-  const base = baseItem.aqi;
-  const baseLabel = baseItem.label;
-  const contributions = valid.map((p, index) => {
-    const isBase = index === baseIndex;
-    let adderPct = 0;
-    if (!isBase) {
-      if (p.aqi >= 120) {
-        adderPct = 0.03;
-      } else if (p.aqi >= 100) {
-        adderPct = 0.02;
-      } else if (p.aqi >= 80) {
-        adderPct = 0.01;
+
+  async function queryAirNowLayer(layerUrl) {
+    if (!layerUrl) return [];
+
+    const lat = BELTSVILLE_REFERENCE.lat;
+    const lon = BELTSVILLE_REFERENCE.lon;
+    const buffer = 0.08;
+
+    const params = new URLSearchParams({
+      f: "json",
+      where: "1=1",
+      outFields: "*",
+      returnGeometry: "true",
+      outSR: "4326",
+      geometry: `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`,
+      geometryType: "esriGeometryEnvelope",
+      inSR: "4326",
+      spatialRel: "esriSpatialRelIntersects"
+    });
+
+    try {
+      const res = await fetch(`${layerUrl}/query?${params.toString()}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      if (json?.error) {
+        console.warn("AirNow query error:", json.error);
+        return [];
       }
-    }
-    const adderVal = Math.round(base * adderPct);
-    return {
-      ...p,
-      isBase,
-      adderPct: adderPct * 100,
-      adderVal
-    };
-  });
-  const adders = contributions.filter(p => p.adderVal > 0);
-  const totalAdders = adders.reduce((sum, p) => sum + p.adderVal, 0);
-  const ceaqi = base + totalAdders;
-  return {
-    ceaqi,
-    base,
-    baseLabel,
-    adders,
-    valid,
-    contributions
-  };
-}
-function renderCEAQIBreakdown(result) {
-  const panel = document.getElementById("ceaqi-breakdown");
-  const rowsEl = document.getElementById("ceaqi-rows");
-  if (!result || result.ceaqi === 0 || !result.contributions.length) {
-    panel.style.display = "none";
-    rowsEl.innerHTML = "";
-    return;
-  }
-  panel.style.display = "block";
-  rowsEl.innerHTML = "";
-  for (const p of result.contributions) {
-    const row = document.createElement("div");
-    if (p.isBase) {
-      row.className = "ceaqi-row base-row";
-    } else if (p.adderVal > 0) {
-      row.className = "ceaqi-row adder-row";
-    } else {
-      row.className = "ceaqi-row included-row";
-    }
-    let rightText = `${p.aqi}`;
-    if (p.isBase) {
-      rightText += " base";
-    } else if (p.adderVal > 0) {
-      rightText += ` +${p.adderVal}`;
-    } else {
-      rightText += " included";
-    }
-    row.innerHTML = `<span>${p.label}</span><span>${rightText}</span>`;
-    rowsEl.appendChild(row);
-  }
-  const totalRow = document.createElement("div");
-  totalRow.className = "ceaqi-row base-row";
-  totalRow.style.borderTop = "1px solid #eee";
-  totalRow.style.marginTop = "4px";
-  totalRow.style.paddingTop = "4px";
-  totalRow.innerHTML = `<span>CE-AQI Total</span><span>${result.ceaqi}</span>`;
-  rowsEl.appendChild(totalRow);
-}
-function getStationTypeLabel(id) {
-  if (!id) return "--";
-  if (String(id).startsWith("MOD-")) return "QuantAQ";
-  if (String(id).startsWith("C12-")) return "C-12";
-  return "PurpleAir";
-}
-function getStationMarkerClass(id) {
-  if (!id) return "pa";
-  if (String(id).startsWith("MOD-")) return "mod";
-  if (String(id).startsWith("C12-")) return "c12";
-  return "pa";
-}
-function createStationIcon(id, ceaqi) {
-  const markerClass = getStationMarkerClass(id);
-  const color = getAQIColor(ceaqi);
-  return L.divIcon({
-    className: "aq-marker-icon",
-    html: `<div class="aq-marker ${markerClass}" style="--marker-color:${color}"></div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -12],
-    tooltipAnchor: [0, -12]
-  });
-}
-function getAQICategory(aqi) {
-  const value = Number(aqi);
-  if (!Number.isFinite(value) || value <= 0) {
-    return {
-      className: "",
-      label: "No data",
-      guidance: "No current risk category is available for this station yet."
-    };
-  }
-  if (value <= 50) {
-    return {
-      className: "good",
-      label: "Good",
-      guidance: "Air quality is currently good at this station."
-    };
-  }
-  if (value <= 100) {
-    return {
-      className: "moderate",
-      label: "Moderate",
-      guidance: "Air quality is acceptable, though unusually sensitive people may want to keep an eye on conditions."
-    };
-  }
-  if (value <= 150) {
-    return {
-      className: "sensitive",
-      label: "Unhealthy for Sensitive Groups",
-      guidance: "Sensitive groups may want to reduce prolonged or heavy outdoor activity near this station."
-    };
-  }
-  if (value <= 200) {
-    return {
-      className: "unhealthy",
-      label: "Unhealthy",
-      guidance: "Air quality is elevated. Consider reducing prolonged outdoor activity."
-    };
-  }
-  if (value <= 300) {
-    return {
-      className: "very-unhealthy",
-      label: "Very Unhealthy",
-      guidance: "Air quality is very elevated. Outdoor activity should be limited, especially for sensitive groups."
-    };
-  }
-  return {
-    className: "hazardous",
-    label: "Hazardous",
-    guidance: "Air quality is extremely elevated. Avoid outdoor activity if possible."
-  };
-}
-function setElementText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.innerText = value;
-}
-function setStatusClass(id, category) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.className = `status-pill ${category.className || ""}`.trim();
-  el.innerText = category.label;
-}
-function setShowcaseClass(category) {
-  const el = document.getElementById("aqiShowcase");
-  if (!el) return;
-  el.className = `aqi-showcase ${category.className || ""}`.trim();
-}
-function applyAQINumberStyle(value) {
-  const el = document.getElementById("statAQI");
-  if (!el) return;
-  el.style.color = getAQIColor(value);
-  el.style.webkitTextStroke = "2px #000";
-  el.style.paintOrder = "stroke fill";
-  el.style.textShadow = "0 2px 4px rgba(0,0,0,0.2)";
-}
-function updateSelectedStationVisuals(id, result) {
-  const value = Number(result?.ceaqi || 0);
-  const category = getAQICategory(value);
-  const typeLabel = getStationTypeLabel(id);
-  const driver = result?.baseLabel ? formatPollutantLabel(result.baseLabel) : "--";
-  setElementText("stationTypeText", `${typeLabel} station`);
-  setElementText("mapStationType", typeLabel);
-  setElementText("riskDescription", category.guidance);
-  setElementText("panelDriver", `Main driver: ${driver}`);
-  setStatusClass("panelCategory", category);
-  setShowcaseClass(category);
-}
-function updateReadingSummary() {
-  const value = document.getElementById("val_param")?.innerText || "--";
-  const label = document.getElementById("label_param")?.innerText || "Concentration";
-  setElementText("summaryConcentration", value);
-  setElementText("summaryConcentrationLabel", label);
-}
-function cacheBreakdownResult(id, result) {
-  if (!id || !result) return;
-  stationBreakdownCache[id] = result;
-}
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;"
-  }[ch]));
-}
-function formatPollutantLabel(label) {
-  return String(label ?? "")
-    .replaceAll("PM2.5", "PM2.5")
-    .replaceAll("PM10", "PM10")
-    .replaceAll("NO2", "NO2")
-    .replaceAll("O3", "O3");
-}
-function getStationDisplayName(id) {
-  if (id && SENSORS[id]) return SENSORS[id];
-  if (id && id.startsWith("MOD-")) {
-    const spod = SPODS.find(s => s.sn === id);
-    if (spod?.name) return spod.name;
-  }
-  if (id && id.startsWith("C12-")) {
-    const compId = id.replace("C12-", "");
-    const c12 = C12S.find(c => c.compId === compId);
-    if (c12?.name) return c12.name;
-  }
-  return id || "Selected Station";
-}
-function getRiskBand(aqi) {
-  const value = Number(aqi);
-  if (value <= 50) return { className: "good", label: "Good" };
-  if (value <= 100) return { className: "moderate", label: "Moderate" };
-  if (value <= 150) return { className: "sensitive", label: "Unhealthy for Sensitive Groups" };
-  if (value <= 200) return { className: "unhealthy", label: "Unhealthy" };
-  return { className: "very-unhealthy", label: "Very Unhealthy" };
-}
-function renderRiskBreakdownBars(result) {
-  const barsEl = document.getElementById("riskBreakdownBars");
-  if (!barsEl) return;
-  if (!result || !Array.isArray(result.contributions) || result.contributions.length === 0) {
-    barsEl.innerHTML = '<div style="color:#666; font-weight:700;">No valid pollutant breakdown is available for this station.</div>';
-    return;
-  }
-  const rows = [...result.contributions]
-    .filter(p => Number.isFinite(Number(p.aqi)) && Number(p.aqi) > 0)
-    .sort((a, b) => Number(b.aqi) - Number(a.aqi));
-  barsEl.innerHTML = "";
-  for (const p of rows) {
-    const aqi = Math.round(Number(p.aqi));
-    const band = getRiskBand(aqi);
-    const width = Math.min(100, Math.max(2, (aqi / BREAKDOWN_MAX_AQI) * 100));
-    const driverText = p.isBase ? " main driver" : "";
-    const adderText = p.adderVal > 0 ? `, CE-AQI adder +${p.adderVal}` : "";
-    const supportText = p.isSupport ? " (nearby support sensor)" : "";
-    const row = document.createElement("div");
-    row.className = `risk-bar-row ${band.className}`;
-    row.innerHTML = `
-      <div class="risk-pollutant">${escapeHTML(formatPollutantLabel(p.label))}</div>
-      <div>
-        <div class="risk-bar-track">
-          <div class="risk-bar-fill ${band.className}" style="width:${width}%;"></div>
-        </div>
-        <div class="risk-bar-caption">
-          ${escapeHTML(band.label + driverText + adderText + supportText)}
-        </div>
-      </div>
-      <div class="risk-score">${aqi}</div>`;
-    barsEl.appendChild(row);
-  }
-}
-async function selectStationAndOpenBreakdown(id) {
-  selectedStationId = id;
-  const sel = document.getElementById("devSel");
-  if (sel) sel.value = id;
-  await handleDropdownChange(id, true);
-  openRiskBreakdownModal(id);
-}
-function openRiskBreakdownModal(id = selectedStationId) {
-  const activeId = id || document.getElementById("devSel")?.value;
-  const result = stationBreakdownCache[activeId];
-  document.getElementById("riskBreakdownSubtitle").innerText = getStationDisplayName(activeId);
-  document.getElementById("riskTotalAQI").innerText = result?.ceaqi ?? "--";
-  document.getElementById("riskMainDriver").innerText = result?.baseLabel ? formatPollutantLabel(result.baseLabel) : "-";
-  document.getElementById("riskVariableCount").innerText = result?.contributions?.length ?? "-";
-  renderRiskBreakdownBars(result);
-  const modal = document.getElementById("riskBreakdownModal");
-  modal.classList.remove("hidden");
-  modal.setAttribute("aria-hidden", "false");
-}
-function closeRiskBreakdownModal() {
-  const modal = document.getElementById("riskBreakdownModal");
-  modal.classList.add("hidden");
-  modal.setAttribute("aria-hidden", "true");
-}
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    closeRiskBreakdownModal();
-  }
-});
-document.addEventListener("click", event => {
-  if (event.target?.id === "riskBreakdownModal") {
-    closeRiskBreakdownModal();
-  }
-});
-function displayCEAQIResult(result) {
-  const value = result?.ceaqi || 0;
-  const activeId = selectedStationId || document.getElementById("devSel")?.value || null;
-  if (activeId) {
-    cacheBreakdownResult(activeId, result);
-  }
-  document.getElementById("statAQI").innerText = value || "--";
-  document.getElementById("statAQI").style.color = getAQIColor(value);
-  updateSelectedStationVisuals(activeId, result);
-  updateReadingSummary();
-  renderCEAQIBreakdown(result);
-}
-function updateMarkerValue(id, ceaqi, latestTimeMs = null, baseLabel = null) {
-  const marker = markerMap[id];
-  if (!marker) return;
-  const value = Number.isFinite(Number(ceaqi)) ? Math.round(Number(ceaqi)) : 0;
-  const oldMeta = markerMeta[id] || {};
-  markerMeta[id] = {
-    ceaqi: value,
-    latestTimeMs: latestTimeMs ?? oldMeta.latestTimeMs ?? null,
-    baseLabel: baseLabel ?? oldMeta.baseLabel ?? null
-  };
-  marker.setIcon(createStationIcon(id, value));
-  marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
-    permanent: false,
-    direction: "top",
-    className: "leaflet-tooltip-own",
-    sticky: true,
-    opacity: 1
-  });
-}
-function createMarker(id, lat, lon, val, latestTimeMs = null, baseLabel = null) {
-  if (!hasValidCoords(lat, lon)) return;
-  const value = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
-  const marker = L.marker([Number(lat), Number(lon)], {
-    icon: createStationIcon(id, value),
-    title: getStationDisplayName(id)
-  });
-  markerMeta[id] = {
-    ceaqi: value,
-    latestTimeMs,
-    baseLabel
-  };
-  marker.bindTooltip(buildMarkerTooltip(value, latestTimeMs, baseLabel), {
-    permanent: false,
-    direction: "top",
-    className: "leaflet-tooltip-own",
-    sticky: true,
-    opacity: 1
-  });
-  const safeIdArg = JSON.stringify(id);
-  const popupTitle = escapeHTML(getStationDisplayName(id));
-  const sensorType = escapeHTML(getStationTypeLabel(id));
-  marker.bindPopup(`
-    <div style="min-width:205px;">
-      <div style="font-weight:900; color:#1a305e; margin-bottom:4px;">${popupTitle}</div>
-      <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${sensorType} station</div>
-      <div style="font-size:0.82rem; color:#334155; margin-bottom:8px;">
-        CE-AQI: <strong>${value || "--"}</strong>
-      </div>
-      <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
-        View breakdown chart
-      </button>
-    </div>`);
-  marker.on("mouseover", function () {
-    this.openTooltip();
-  });
-  marker.on("mouseout", function () {
-    this.closeTooltip();
-  });
-  marker.on("click", () => {
-    const sel = document.getElementById("devSel");
-    if (sel) sel.value = id;
-    selectedStationId = id;
-    handleDropdownChange(id, true);
-    marker.openPopup();
-  });
-  cluster.addLayer(marker);
-  markerMap[id] = marker;
-}
-function zoomToStation(id, zoomLevel = 16) {
-  const marker = markerMap[id];
-  if (!marker) return;
-  cluster.zoomToShowLayer(marker, () => {
-    map.flyTo(marker.getLatLng(), zoomLevel);
-    marker.openTooltip();
-  });
-}
-async function handleDropdownChange(id, userTriggered = false) {
-  if (!markerMap[id]) return;
-  selectedStationId = id;
-  if (userTriggered) {
-    zoomToStation(id);
-  }
-  await updateDisplay(id);
-}
-async function geocodeAddress(address) {
-  const cleanAddress = address.trim();
-  const searchText = /cheverly|maryland|\bmd\b/i.test(cleanAddress)
-    ? cleanAddress
-    : `${cleanAddress}, Cheverly, MD`;
-  const params = new URLSearchParams({
-    format: "jsonv2",
-    q: searchText,
-    limit: "1",
-    addressdetails: "1",
-    email: "apuschni@umd.edu",
-    viewbox: "-76.99,38.98,-76.84,38.86",
-    bounded: "0"
-  });
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      signal: controller.signal
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || data.length === 0) return null;
-    return L.latLng(Number(data[0].lat), Number(data[0].lon));
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-function findClosestStationId(center) {
-  let minDistance = Infinity;
-  let closestId = null;
-  Object.keys(markerMap).forEach(id => {
-    const marker = markerMap[id];
-    if (!marker) return;
-    const dist = center.distanceTo(marker.getLatLng());
-    if (dist < minDistance) {
-      minDistance = dist;
-      closestId = id;
-    }
-  });
-  return closestId;
-}
-async function runLocationSearch() {
-  const input = document.getElementById("addrInput");
-  const btn = document.getElementById("locateBtn");
-  const addr = input.value.trim();
-  if (!addr) {
-    alert("Please enter an address.");
-    return;
-  }
-  const originalText = btn.innerText;
-  btn.innerText = "Searching...";
-  btn.disabled = true;
-  btn.style.opacity = "0.6";
-  try {
-    const center = await geocodeAddress(addr);
-    if (!center) {
-      alert("Location not found. Try adding Cheverly, MD or using a simpler address.");
-      return;
-    }
-    if (userMarker) {
-      map.removeLayer(userMarker);
-    }
-    userMarker = L.marker(center)
-      .addTo(map)
-      .bindPopup(`<b>Search location:</b><br>${addr}`)
-      .openPopup();
-    const closestId = findClosestStationId(center);
-    if (closestId) {
-      document.getElementById("devSel").value = closestId;
-      await handleDropdownChange(closestId, true);
-    } else {
-      map.flyTo(center, 16);
-      alert("Address found, but no station markers are available yet.");
-    }
-  } catch (err) {
-    console.error("Location search error:", err);
-    alert("The location search failed. Try a simpler address.");
-  } finally {
-    btn.innerText = originalText;
-    btn.disabled = false;
-    btn.style.opacity = "1";
-  }
-}
-document.getElementById("locateBtn").addEventListener("click", runLocationSearch);
-document.getElementById("addrInput").addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    runLocationSearch();
-  }
-});
-function getStationCoords(id) {
-  if (id.startsWith("C12-")) {
-    const compId = id.replace("C12-", "");
-    const c12 = C12S.find(x => x.compId === compId);
-    if (c12 && hasValidCoords(c12.lat, c12.lon)) {
-      return { lat: c12.lat, lon: c12.lon };
+      return Array.isArray(json?.features) ? json.features : [];
+    } catch (e) {
+      console.warn("AirNow query failed:", e);
+      return [];
     }
   }
-  if (id.startsWith("MOD-")) {
-    const spod = SPODS.find(s => s.sn === id);
-    if (spod && hasValidCoords(spod.lat, spod.lon)) {
-      return { lat: spod.lat, lon: spod.lon };
-    }
-  }
-  if (paCoords[id] && hasValidCoords(paCoords[id].lat, paCoords[id].lon)) {
-    return { lat: paCoords[id].lat, lon: paCoords[id].lon };
-  }
-  return { lat: null, lon: null };
-}
-async function updateDisplay(id) {
-  selectedStationId = id;
-  setElementText("summaryType", getStationTypeLabel(id));
-  setElementText("stationTypeText", `${getStationTypeLabel(id)} station`);
-  setElementText("mapStationType", getStationTypeLabel(id));
-  const windowEndMs = stationSeriesWindowEndMs();
-  const nowSec = Math.floor(windowEndMs / 1000);
-  const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
-  await loadBeltsvilleReferenceTrend(windowEndMs);
-  setChartTimeWindow(windowEndMs);
-  let { lat: stationLat, lon: stationLon } = getStationCoords(id);
-  
-  if (!id.startsWith("C12-") && !id.startsWith("MOD-")) {
-    const pa = await proxyGet({ action: "purpleair_box" });
-    const paDataArr = Array.isArray(pa?.data)? pa.data : (pa?.data?.data || []);
-    const liveStation = paDataArr.find(r => String(r[0]) === id);
-    let pm25Live = paCoords[id]?.pm25 ?? null;
-    let latestTimeMs = paCoords[id]?.latestTimeMs ?? null;
-    if (liveStation) {
-      pm25Live = safeNum(liveStation[3]);
-      latestTimeMs = freshestTime(latestTimeMs, getPurpleAirBoxTimestamp(liveStation));
-      const liveLat = safeNum(liveStation[1]);
-      const liveLon = safeNum(liveStation[2]);
-      if (hasValidCoords(liveLat, liveLon)) {
-        paCoords[id] = { lat: liveLat, lon: liveLon, pm25: pm25Live, latestTimeMs };
-        stationLat = liveLat;
-        stationLon = liveLon;
-      }
-    }
-    document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
-    document.getElementById("val_param").innerText = pm25Live !== null ? `${pm25Live} µg/m³` : "-";
-    document.getElementById("label_param").innerText = "PM2.5 Concentration";
-    const json = await proxyGet({ action: "purpleair_history", id, start: seriesStartSec });
-    if (json?.data && json.data.length > 0) {
-      const paSeries = json.data
-        .filter(r => {
-          const val = safeNum(r[1]);
-          return val !== null && val > 0 && val < 250;
-        })
-        .map(r => ({ x: normalizeTimestampMs(r[0]), y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
-        .filter(p => p.x !== null && p.y !== null)
-        .sort((a,b)=>a.x-b.x);
-      const latestFromSeries = applyStationSeriesWindow(paSeries, windowEndMs);
-      latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
-    } else {
-      chart.data.datasets[0].data = [];
-      setChartTimeWindow(windowEndMs);
-    }
-    const ownPollutants = [];
-    addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25Live, BP_PM25_24H));
-    const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
-      includeNearestQuantPM25: false
-    });
-    const result = calcCEAQI(pollutants, {
-      preferredBaseStartsWith: "PM2.5 (PurpleAir)"
-    });
-    displayCEAQIResult(result);
-    setLatestTimeDisplay(latestTimeMs);
-    updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
-  } else if (id.startsWith("MOD-")) {
-    const today = new Date().toISOString().split("T")[0];
-    const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
-    const dataRoot = resA?.resolved_sn ? resA.data : resA;
-    const allData = dataRoot?.data || [];
-    const last = allData.length ? allData[allData.length - 1] : quantCache[id];
-    let latestTimeMs = getQuantAQTimestampMs(last);
-    if (last) {
-      quantCache[id] = last;
-    }
-    const spod = SPODS.find(s => s.sn === id);
-    document.getElementById("statName").innerText = spod ? spod.name : id;
-    const pm25Q = activeNum(last?.pm25 ?? last?.pm2_5);
-    document.getElementById("val_param").innerText = pm25Q !== null ? `${pm25Q} µg/m³` : "-";
-    document.getElementById("label_param").innerText = "PM2.5 Concentration";
-    const series = allData
-      .map(r => {
-        const timestamp = r.timestamp ? new Date(r.timestamp + (r.timestamp.includes("Z") ? "" : "Z")).getTime() : null;
-        const value = activeNum(r.pm25 ?? r.pm2_5);
+
+  function featuresToReferenceSeries(features) {
+    const rows = features
+      .filter(isBeltsvilleFeature)
+      .map(feature => {
+        const attrs = feature.attributes || {};
         return {
-          x: timestamp,
-          y: aqiFromBreakpoints(value, BP_PM25_24H)
+          x: airnowFeatureTimeMs(attrs),
+          y: airnowAQIFromAttrs(attrs)
         };
       })
       .filter(p => p.x !== null && p.y !== null)
-      .sort((a,b)=>a.x-b.x);
-    if (series.length > 0) {
-      const latestFromSeries = applyStationSeriesWindow(series, windowEndMs);
-      latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
-    } else {
-      chart.data.datasets[0].data = [];
-      setChartTimeWindow(windowEndMs);
+      .sort((a, b) => a.x - b.x);
+
+    // Remove duplicate timestamps by keeping the highest value at that hour.
+    const byTime = new Map();
+    for (const p of rows) {
+      const existing = byTime.get(p.x);
+      if (!existing || p.y > existing.y) byTime.set(p.x, p);
     }
-    const ownPollutants = [];
-    addQuantAQPollutants(ownPollutants, last, id, true);
-    const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
-      skipQuantAQ: id,
-      includeNearestQuantPM25: false
-    });
-    const result = calcCEAQI(pollutants, {
-      preferredBaseStartsWith: `PM2.5 (${id})`
-    });
-    displayCEAQIResult(result);
-    setLatestTimeDisplay(latestTimeMs);
-    updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
-  } else if (id.startsWith("C12-")) {
-    const compId = id.replace("C12-", "");
-    const res = await proxyGet({ action: "grove_last", compId });
-    const rows = Array.isArray(res) ? res : (res?.data || []);
-    const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
-    const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
-    const bcRow = rows.find(r => r.streamId === "880nm");
-    const bc = activeNum(bcRow?.data);
-    let latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
-    const c12Obj = C12S.find(x => x.compId === compId);
-    if (c12Obj && hasValidCoords(lat, lon)) {
-      c12Obj.lat = lat;
-      c12Obj.lon = lon;
-      stationLat = lat;
-      stationLon = lon;
-    }
-    c12Cache[compId] = {
-      ...(c12Cache[compId] || {}),
-      bc,
-      lat: stationLat,
-      lon: stationLon,
-      latestTimeMs
-    };
-    document.getElementById("statName").innerText = c12Obj ? c12Obj.name : id;
-    document.getElementById("val_param").innerText = bc !== null ? `${bc} ng/m³` : "--";
-    document.getElementById("label_param").innerText = "Black Carbon Concentration";
-    const c12Series = await fetchC12HistorySeries(compId, STATION_TIMESERIES_HOURS);
-    if (c12Series.length > 0) {
-      const latestFromSeries = applyStationSeriesWindow(c12Series, windowEndMs);
-      latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
-    } else if (latestTimeMs !== null && bc !== null) {
-      const singlePoint = c12CEAQIFromBCValue(bc, compId);
-      chart.data.datasets[0].data = singlePoint !== null && latestTimeMs >= stationSeriesCutoffMs(windowEndMs)
-        ? [{ x: latestTimeMs, y: singlePoint }]
-        : [];
-      setChartTimeWindow(windowEndMs);
-    } else {
-      chart.data.datasets[0].data = [];
-      setChartTimeWindow(windowEndMs);
-    }
-    const ownPollutants = [];
-    addC12Pollutants(ownPollutants, bc, compId);
-    const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
-      skipC12: compId,
-      includeNearestQuantPM25: true
-    });
-    const result = calcCEAQI(pollutants, {
-      preferredBaseStartsWith: `BC non-cancer (${compId})`
-    });
-    displayCEAQIResult(result);
-    setLatestTimeDisplay(latestTimeMs);
-    updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
+
+    return Array.from(byTime.values()).sort((a, b) => a.x - b.x);
   }
-}
+
+  async function fetchBeltsvilleReferenceTrend() {
+    const now = Date.now();
+
+    // AirNow updates hourly, so avoid refetching every time a user clicks a marker.
+    if (beltsvilleTrendCache.data.length && now - beltsvilleTrendCache.fetchedAt < 15 * 60 * 1000) {
+      return beltsvilleTrendCache.data;
+    }
+
+    const layerUrls = [];
+
+    for (const itemId of AIRNOW_24H_ITEM_IDS) {
+      const layerUrl = await getArcGISItemLayerUrl(itemId);
+      if (layerUrl) layerUrls.push(layerUrl);
+    }
+
+    // Fallback: current AirNow monitor layer. This may only return the latest point,
+    // but it keeps the dashboard from breaking if the 24-hour item URL changes.
+    layerUrls.push(AIRNOW_CURRENT_LAYER_URL);
+
+    for (const layerUrl of layerUrls) {
+      const features = await queryAirNowLayer(layerUrl);
+      const series = featuresToReferenceSeries(features);
+
+      if (series.length > 0) {
+        beltsvilleTrendCache = { data: series, fetchedAt: now };
+        return series;
+      }
+    }
+
+    beltsvilleTrendCache = { data: [], fetchedAt: now };
+    return [];
+  }
+
+  const STATION_TIMESERIES_WINDOW_MS = STATION_TIMESERIES_HOURS * 60 * 60 * 1000;
+
+  function stationSeriesWindowEndMs() {
+    return Date.now();
+  }
+
+  function stationSeriesCutoffMs(endTimeMs = Date.now()) {
+    const end = normalizeTimestampMs(endTimeMs) || Date.now();
+    return end - STATION_TIMESERIES_WINDOW_MS;
+  }
+
+  function getChartDataExtent(fallbackEndMs = Date.now()) {
+    const fallbackEnd = normalizeTimestampMs(fallbackEndMs) || Date.now();
+    const points = chart.data.datasets
+      .flatMap(ds => Array.isArray(ds?.data) ? ds.data : [])
+      .map(p => normalizeTimestampMs(p?.x))
+      .filter(isReasonableSensorTime);
+
+    if (!points.length) {
+      return {
+        min: stationSeriesCutoffMs(fallbackEnd),
+        max: fallbackEnd
+      };
+    }
+
+    let min = Math.min(...points);
+    let max = Math.max(...points);
+
+    if (min === max) {
+      min -= 30 * 60 * 1000;
+      max += 30 * 60 * 1000;
+    }
+
+    return { min, max };
+  }
+
+  function setChartTimeWindow(endTimeMs = Date.now()) {
+    const extent = getChartDataExtent(endTimeMs);
+    chart.options.scales.x.min = extent.min;
+    chart.options.scales.x.max = extent.max;
+  }
+
+  function filterToStationWindow(series, endTimeMs = Date.now()) {
+    const end = normalizeTimestampMs(endTimeMs) || Date.now();
+    const cutoff = stationSeriesCutoffMs(end);
+
+    return (Array.isArray(series) ? series : [])
+      .filter(p => p && p.x !== null && p.y !== null && Number.isFinite(Number(p.y)))
+      .filter(p => p.x >= cutoff && p.x <= end)
+      .sort((a, b) => a.x - b.x);
+  }
+
+  async function loadBeltsvilleReferenceTrend(endTimeMs = Date.now()) {
+    chart.data.datasets[1].label = BELTSVILLE_REFERENCE.name;
+
+    const series = await fetchBeltsvilleReferenceTrend();
+    chart.data.datasets[1].data = filterToStationWindow(series, endTimeMs);
+  }
+
+  function applyStationSeriesWindow(series, endTimeMs = Date.now()) {
+    const cleanSeries = filterToStationWindow(series, endTimeMs);
+    chart.data.datasets[0].data = cleanSeries;
+    setChartTimeWindow(endTimeMs);
+    return cleanSeries.length ? cleanSeries[cleanSeries.length - 1].x : null;
+  }
+
+  function c12CEAQIFromBCValue(bc, compId = "C12") {
+    const pollutants = [];
+    addC12Pollutants(pollutants, bc, compId);
+    const result = calcCEAQI(pollutants, {
+      preferredBaseStartsWith: "BC non-cancer"
+    });
+    return result.ceaqi || null;
+  }
+
+  function getRowsFromPayload(payload, depth = 0) {
+    if (!payload || depth > 3) return [];
+    if (Array.isArray(payload)) return payload;
+    if (typeof payload !== "object") return [];
+
+    const directKeys = ["data", "rows", "readings", "samples", "values", "items", "series", "results"];
+    for (const key of directKeys) {
+      if (Array.isArray(payload[key])) return payload[key];
+      if (payload[key] && typeof payload[key] === "object") {
+        const nested = getRowsFromPayload(payload[key], depth + 1);
+        if (nested.length) return nested;
+      }
+    }
+
+    for (const value of Object.values(payload)) {
+      const nested = getRowsFromPayload(value, depth + 1);
+      if (nested.length) return nested;
+    }
+
+    return [];
+  }
+
+  function parseC12HistoryPoint(row, compId) {
+    if (!row) return null;
+
+    if (Array.isArray(row)) {
+      const time = normalizeTimestampMs(row[0]);
+      const bc = activeNum(row[1]);
+      const ceaqi = c12CEAQIFromBCValue(bc, compId);
+      return time !== null && ceaqi !== null ? { x: time, y: ceaqi } : null;
+    }
+
+    if (typeof row === "object") {
+      const streamId = String(row.streamId ?? row.stream_id ?? row.id ?? row.name ?? "").toLowerCase();
+      if (streamId && !streamId.includes("880") && !streamId.includes("black") && !streamId.includes("bc")) {
+        return null;
+      }
+
+      const time = normalizeTimestampMs(row.time ?? row.timestamp ?? row.ts ?? row.datetime ?? row.dateTime);
+      const bc = activeNum(row.data ?? row.value ?? row.v ?? row.reading ?? row.measurement ?? row.bc);
+      const ceaqi = c12CEAQIFromBCValue(bc, compId);
+      return time !== null && ceaqi !== null ? { x: time, y: ceaqi } : null;
+    }
+
+    return null;
+  }
+
+  async function fetchC12HistorySeries(compId, hours = STATION_TIMESERIES_HOURS) {
+    const endMs = Date.now();
+    const startMs = endMs - (hours * 60 * 60 * 1000);
+    const startSec = Math.floor(startMs / 1000);
+    const endSec = Math.floor(endMs / 1000);
+
+    // The current dashboard already uses grove_last. These extra action names let the
+    // same HTML work if the API proxy exposes C12/GroveStreams history under one of them.
+    const requests = [
+      { action: "grove_history", compId, streamId: "880nm", start: startSec, end: endSec },
+      { action: "grove_history", compId, streamId: "880nm", start: startMs, end: endMs },
+      { action: "grove_stream_history", compId, streamId: "880nm", start: startSec, end: endSec },
+      { action: "c12_history", compId, streamId: "880nm", start: startSec, end: endSec }
+    ];
+
+    for (const params of requests) {
+      const payload = await proxyGet(params);
+      const rows = getRowsFromPayload(payload);
+      const series = rows
+        .map(row => parseC12HistoryPoint(row, compId))
+        .filter(Boolean)
+        .filter(p => p.x >= startMs && p.x <= endMs)
+        .sort((a, b) => a.x - b.x);
+
+      if (series.length > 0) return series;
+    }
+
+    console.warn(`No C12 history returned for ${compId}. A true C12 line requires the /api/aq proxy to support a GroveStreams history action such as grove_history or c12_history.`);
+    return [];
+  }
+
+  async function proxyGet(params) {
+    try {
+      const url = API_PROXY + "?" + new URLSearchParams(params).toString();
+      const res = await fetch(url);
+      return res.ok ? await res.json() : null;
+    } catch (e) {
+      console.error("API request failed:", e);
+      return null;
+    }
+  }
+
+  function getAQIColor(aqi) {
+    const v = Number(aqi);
+    if (!Number.isFinite(v)) return "#bbb";
+    if (v <= 50) return "#00e400";
+    if (v <= 100) return "#ffff00";
+    if (v <= 150) return "#ff7e00";
+    if (v <= 200) return "#ff0000";
+    if (v <= 300) return "#8f3f97";
+    return "#7e0023";
+  }
+
+  function aqiFromBreakpoints(C, table) {
+    if (C === null || !Number.isFinite(Number(C))) return null;
+    const c = Number(C);
+
+    for (const bp of table) {
+      if (c >= bp.cLow && c <= bp.cHigh) {
+        return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+      }
+    }
+
+    return null;
+  }
+
+  function aqiFromBC(bcNgM3) {
+    const bc = activeNum(bcNgM3);
+    if (bc === null) return null;
+    return Math.round((bc / 600) * 100);
+  }
+
+  function aqiFromDPM(bcNgM3) {
+    const bc = activeNum(bcNgM3);
+    if (bc === null) return null;
+    const dpm = bc * 1.25;
+    return Math.round((dpm / 330) * 100);
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function nearestQuantAQ(lat, lon) {
+    if (!hasValidCoords(lat, lon)) return null;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const s of SPODS) {
+      if (!hasValidCoords(s.lat, s.lon)) continue;
+      const d = haversineKm(lat, lon, s.lat, s.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = s;
+      }
+    }
+
+    return best;
+  }
+
+  function nearestC12(lat, lon) {
+    if (!hasValidCoords(lat, lon)) return null;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const c of C12S) {
+      if (!hasValidCoords(c.lat, c.lon)) continue;
+      const d = haversineKm(lat, lon, c.lat, c.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+
+    return best;
+  }
+
+  function addKnownAQI(pollutants, label, aqi, options = {}) {
+    const v = safeNum(aqi);
+    if (v === null || v <= 0) return;
+
+    pollutants.push({
+      label,
+      aqi: Math.round(v),
+      // Own station pollutants can be the CE-AQI base.
+      // Borrowed pollutants from nearby sensors are included, but do not become the base by default.
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
+    });
+  }
+
+  function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
+    if (!qd) return;
+
+    const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
+    const o3 = activeNum(qd.o3);
+    const coPpb = activeNum(qd.co);
+    const no2 = activeNum(qd.no2);
+    const pm10 = activeNum(qd.pm10);
+    const meta = {
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
+    };
+
+    if (includePM25) {
+      addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H), meta);
+    }
+
+    addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H), meta);
+    addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
+    addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
+    addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
+  }
+
+  function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
+    const bcValue = activeNum(bc);
+    if (bcValue === null) return;
+
+    const meta = {
+      canBeBase: options.canBeBase !== false,
+      isSupport: options.isSupport === true
+    };
+
+    addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue), meta);
+    addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue), meta);
+  }
+
+  function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
+    const pollutants = [...ownPollutants];
+
+    if (!hasValidCoords(lat, lon)) {
+      return pollutants;
+    }
+
+    // Nearby support sensors should help explain cumulative exposure, but they should not
+    // make every surrounding station inherit the exact same CE-AQI base value.
+    // Set supportCanBeBase to true only if you intentionally want the closest borrowed sensor
+    // to control the selected station's final color.
+    const supportMeta = {
+      canBeBase: options.supportCanBeBase === true,
+      isSupport: true
+    };
+
+    const nearestQ = nearestQuantAQ(lat, lon);
+    if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
+      addQuantAQPollutants(
+        pollutants,
+        quantCache[nearestQ.sn],
+        `nearby ${nearestQ.sn}`,
+        options.includeNearestQuantPM25 === true,
+        supportMeta
+      );
+    }
+
+    const nearestC = nearestC12(lat, lon);
+    if (nearestC && nearestC.compId !== options.skipC12) {
+      addC12Pollutants(
+        pollutants,
+        c12Cache[nearestC.compId]?.bc,
+        `nearby ${nearestC.compId}`,
+        supportMeta
+      );
+    }
+
+    return pollutants;
+  }
+
+  function calcCEAQI(pollutants, options = {}) {
+    const valid = pollutants
+      .map(p => ({
+        ...p,
+        aqi: Math.round(Number(p.aqi))
+      }))
+      .filter(p => Number.isFinite(p.aqi) && p.aqi > 0);
+
+    if (valid.length === 0) {
+      return {
+        ceaqi: 0,
+        base: 0,
+        baseLabel: "No data",
+        adders: [],
+        valid: [],
+        contributions: []
+      };
+    }
+
+    // Station anchored CE-AQI:
+    // The base is the highest valid pollutant measured by the selected station type.
+    // Nearby support sensors are still included and can add to the CE-AQI, but they
+    // do not become the base. This prevents one stuck or very high nearby C12 reading
+    // from making every surrounding PurpleAir or QuantAQ marker show the same value.
+    const baseCandidates = valid.filter(p => p.canBeBase !== false);
+    const candidates = baseCandidates.length ? baseCandidates : valid;
+    const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
+    const baseIndex = valid.indexOf(baseItem);
+    const base = baseItem.aqi;
+    const baseLabel = baseItem.label;
+
+    const contributions = valid.map((p, index) => {
+      const isBase = index === baseIndex;
+      let adderPct = 0;
+
+      if (!isBase) {
+        if (p.aqi >= 120) {
+          adderPct = 0.03;
+        } else if (p.aqi >= 100) {
+          adderPct = 0.02;
+        } else if (p.aqi >= 80) {
+          adderPct = 0.01;
+        }
+      }
+
+      const adderVal = Math.round(base * adderPct);
+
+      return {
+        ...p,
+        isBase,
+        adderPct: adderPct * 100,
+        adderVal
+      };
+    });
+
+    const adders = contributions.filter(p => p.adderVal > 0);
+    const totalAdders = adders.reduce((sum, p) => sum + p.adderVal, 0);
+    const ceaqi = base + totalAdders;
+
+    return {
+      ceaqi,
+      base,
+      baseLabel,
+      adders,
+      valid,
+      contributions
+    };
+  }
+
+  function renderCEAQIBreakdown(result) {
+    const panel = document.getElementById("ceaqi-breakdown");
+    const rowsEl = document.getElementById("ceaqi-rows");
+
+    if (!result || result.ceaqi === 0 || !result.contributions.length) {
+      panel.style.display = "none";
+      rowsEl.innerHTML = "";
+      return;
+    }
+
+    panel.style.display = "block";
+    rowsEl.innerHTML = "";
+
+    for (const p of result.contributions) {
+      const row = document.createElement("div");
+
+      if (p.isBase) {
+        row.className = "ceaqi-row base-row";
+      } else if (p.adderVal > 0) {
+        row.className = "ceaqi-row adder-row";
+      } else {
+        row.className = "ceaqi-row included-row";
+      }
+
+      let rightText = `${p.aqi}`;
+
+      if (p.isBase) {
+        rightText += " base";
+      } else if (p.adderVal > 0) {
+        rightText += ` +${p.adderVal}`;
+      } else {
+        rightText += " included";
+      }
+
+      row.innerHTML = `<span>${p.label}</span><span>${rightText}</span>`;
+      rowsEl.appendChild(row);
+    }
+
+    const totalRow = document.createElement("div");
+    totalRow.className = "ceaqi-row base-row";
+    totalRow.style.borderTop = "1px solid #eee";
+    totalRow.style.marginTop = "4px";
+    totalRow.style.paddingTop = "4px";
+    totalRow.innerHTML = `<span>CE-AQI Total</span><span>${result.ceaqi}</span>`;
+    rowsEl.appendChild(totalRow);
+  }
+
+
+  function getStationTypeLabel(id) {
+    if (!id) return "--";
+    if (String(id).startsWith("MOD-")) return "QuantAQ";
+    if (String(id).startsWith("C12-")) return "C-12";
+    return "PurpleAir";
+  }
+
+  function getStationMarkerClass(id) {
+    if (!id) return "pa";
+    if (String(id).startsWith("MOD-")) return "mod";
+    if (String(id).startsWith("C12-")) return "c12";
+    return "pa";
+  }
+
+  function createStationIcon(id, ceaqi) {
+    const markerClass = getStationMarkerClass(id);
+    const color = getAQIColor(ceaqi);
+
+    return L.divIcon({
+      className: "aq-marker-icon",
+      html: `<div class="aq-marker ${markerClass}" style="--marker-color:${color}"></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -12],
+      tooltipAnchor: [0, -12]
+    });
+  }
+
+  function getAQICategory(aqi) {
+    const value = Number(aqi);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return {
+        className: "",
+        label: "No data",
+        guidance: "No current risk category is available for this station yet."
+      };
+    }
+
+    if (value <= 50) {
+      return {
+        className: "good",
+        label: "Good",
+        guidance: "Air quality is currently good at this station."
+      };
+    }
+
+    if (value <= 100) {
+      return {
+        className: "moderate",
+        label: "Moderate",
+        guidance: "Air quality is acceptable, though unusually sensitive people may want to keep an eye on conditions."
+      };
+    }
+
+    if (value <= 150) {
+      return {
+        className: "sensitive",
+        label: "Unhealthy for Sensitive Groups",
+        guidance: "Sensitive groups may want to reduce prolonged or heavy outdoor activity near this station."
+      };
+    }
+
+    if (value <= 200) {
+      return {
+        className: "unhealthy",
+        label: "Unhealthy",
+        guidance: "Air quality is elevated. Consider reducing prolonged outdoor activity."
+      };
+    }
+
+    if (value <= 300) {
+      return {
+        className: "very-unhealthy",
+        label: "Very Unhealthy",
+        guidance: "Air quality is very elevated. Outdoor activity should be limited, especially for sensitive groups."
+      };
+    }
+
+    return {
+      className: "hazardous",
+      label: "Hazardous",
+      guidance: "Air quality is extremely elevated. Avoid outdoor activity if possible."
+    };
+  }
+
+  function setElementText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+  }
+
+  function setStatusClass(id, category) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `status-pill ${category.className || ""}`.trim();
+    el.innerText = category.label;
+  }
+
+  function setShowcaseClass(category) {
+    const el = document.getElementById("aqiShowcase");
+    if (!el) return;
+    el.className = `aqi-showcase ${category.className || ""}`.trim();
+  }
+
+  function applyAQINumberStyle(value) {
+    const el = document.getElementById("statAQI");
+    if (!el) return;
+
+    el.style.color = getAQIColor(value);
+    el.style.webkitTextStroke = "2px #000";
+    el.style.paintOrder = "stroke fill";
+    el.style.textShadow = "0 2px 4px rgba(0,0,0,0.2)";
+  }
+
+  function updateSelectedStationVisuals(id, result) {
+    const value = Number(result?.ceaqi || 0);
+    const category = getAQICategory(value);
+    const typeLabel = getStationTypeLabel(id);
+    const driver = result?.baseLabel ? formatPollutantLabel(result.baseLabel) : "--";
+
+    setElementText("stationTypeText", `${typeLabel} station`);
+    setElementText("mapStationType", typeLabel);
+    setElementText("riskDescription", category.guidance);
+    setElementText("panelDriver", `Main driver: ${driver}`);
+
+    setStatusClass("panelCategory", category);
+    setShowcaseClass(category);
+  }
+
+  function updateReadingSummary() {
+    const value = document.getElementById("val_param")?.innerText || "--";
+    const label = document.getElementById("label_param")?.innerText || "Concentration";
+    setElementText("summaryConcentration", value);
+    setElementText("summaryConcentrationLabel", label);
+  }
+
+  function cacheBreakdownResult(id, result) {
+    if (!id || !result) return;
+    stationBreakdownCache[id] = result;
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[ch]));
+  }
+
+  function formatPollutantLabel(label) {
+    return String(label ?? "")
+      .replaceAll("PM2.5", "PM₂.₅")
+      .replaceAll("PM10", "PM₁₀")
+      .replaceAll("NO2", "NO₂")
+      .replaceAll("O3", "O₃");
+  }
+
+  function getStationDisplayName(id) {
+    if (id && SENSORS[id]) return SENSORS[id];
+
+    if (id && id.startsWith("MOD-")) {
+      const spod = SPODS.find(s => s.sn === id);
+      if (spod?.name) return spod.name;
+    }
+
+    if (id && id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const c12 = C12S.find(c => c.compId === compId);
+      if (c12?.name) return c12.name;
+    }
+
+    return id || "Selected Station";
+  }
+
+  function getRiskBand(aqi) {
+    const value = Number(aqi);
+
+    if (value <= 50) {
+      return { className: "good", label: "Good" };
+    }
+
+    if (value <= 100) {
+      return { className: "moderate", label: "Moderate" };
+    }
+
+    if (value <= 150) {
+      return { className: "sensitive", label: "Unhealthy for Sensitive Groups" };
+    }
+
+    if (value <= 200) {
+      return { className: "unhealthy", label: "Unhealthy" };
+    }
+
+    return { className: "very-unhealthy", label: "Very Unhealthy" };
+  }
+
+  function renderRiskBreakdownBars(result) {
+    const barsEl = document.getElementById("riskBreakdownBars");
+    if (!barsEl) return;
+
+    if (!result || !Array.isArray(result.contributions) || result.contributions.length === 0) {
+      barsEl.innerHTML = `<div style="color:#666; font-weight:700;">No valid pollutant breakdown is available for this station.</div>`;
+      return;
+    }
+
+    const rows = [...result.contributions]
+      .filter(p => Number.isFinite(Number(p.aqi)) && Number(p.aqi) > 0)
+      .sort((a, b) => Number(b.aqi) - Number(a.aqi));
+
+    barsEl.innerHTML = "";
+
+    for (const p of rows) {
+      const aqi = Math.round(Number(p.aqi));
+      const band = getRiskBand(aqi);
+      const width = Math.min(100, Math.max(2, (aqi / BREAKDOWN_MAX_AQI) * 100));
+      const driverText = p.isBase ? " · main driver" : "";
+      const adderText = p.adderVal > 0 ? ` · CE-AQI adder +${p.adderVal}` : "";
+      const supportText = p.isSupport ? " · nearby support sensor" : "";
+
+      const row = document.createElement("div");
+      row.className = `risk-bar-row ${band.className}`;
+
+      row.innerHTML = `
+        <div class="risk-pollutant">${escapeHTML(formatPollutantLabel(p.label))}</div>
+
+        <div>
+          <div class="risk-bar-track">
+            <div class="risk-bar-fill ${band.className}" style="width:${width}%;"></div>
+          </div>
+          <div class="risk-bar-caption">
+            ${escapeHTML(band.label + driverText + adderText + supportText)}
+          </div>
+        </div>
+
+        <div class="risk-score">${aqi}</div>
+      `;
+
+      barsEl.appendChild(row);
+    }
+  }
+
+  async function selectStationAndOpenBreakdown(id) {
+    selectedStationId = id;
+
+    const sel = document.getElementById("devSel");
+    if (sel) sel.value = id;
+
+    await handleDropdownChange(id, true);
+    openRiskBreakdownModal(id);
+  }
+
+  function openRiskBreakdownModal(id = selectedStationId) {
+    const activeId = id || document.getElementById("devSel")?.value;
+    const result = stationBreakdownCache[activeId];
+
+    document.getElementById("riskBreakdownSubtitle").innerText = getStationDisplayName(activeId);
+    document.getElementById("riskTotalAQI").innerText = result?.ceaqi ?? "--";
+    document.getElementById("riskMainDriver").innerText = result?.baseLabel
+      ? formatPollutantLabel(result.baseLabel)
+      : "--";
+    document.getElementById("riskVariableCount").innerText = result?.contributions?.length ?? "--";
+
+    renderRiskBreakdownBars(result);
+
+    const modal = document.getElementById("riskBreakdownModal");
+    modal.classList.remove("hidden");
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeRiskBreakdownModal() {
+    const modal = document.getElementById("riskBreakdownModal");
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeRiskBreakdownModal();
+    }
+  });
+
+  document.addEventListener("click", event => {
+    if (event.target?.id === "riskBreakdownModal") {
+      closeRiskBreakdownModal();
+    }
+  });
+
+  function displayCEAQIResult(result) {
+    const value = result?.ceaqi || 0;
+    const activeId = selectedStationId || document.getElementById("devSel")?.value || null;
+
+    if (activeId) {
+      cacheBreakdownResult(activeId, result);
+    }
+
+    document.getElementById("statAQI").innerText = value || "--";
+    document.getElementById("statAQI").style.color = getAQIColor(value);
+
+    updateSelectedStationVisuals(activeId, result);
+    updateReadingSummary();
+    renderCEAQIBreakdown(result);
+  }
+
+  function updateMarkerValue(id, ceaqi, latestTimeMs = null, baseLabel = null) {
+    const marker = markerMap[id];
+    if (!marker) return;
+
+    const value = Number.isFinite(Number(ceaqi)) ? Math.round(Number(ceaqi)) : 0;
+    const oldMeta = markerMeta[id] || {};
+
+    markerMeta[id] = {
+      ceaqi: value,
+      latestTimeMs: latestTimeMs ?? oldMeta.latestTimeMs ?? null,
+      baseLabel: baseLabel ?? oldMeta.baseLabel ?? null
+    };
+
+    marker.setIcon(createStationIcon(id, value));
+    marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
+      permanent: false,
+      direction: "top",
+      className: "leaflet-tooltip-own",
+      sticky: true,
+      opacity: 1
+    });
+  }
+
+  function createMarker(id, lat, lon, val, latestTimeMs = null, baseLabel = null) {
+    if (!hasValidCoords(lat, lon)) return;
+
+    const value = Number.isFinite(Number(val)) ? Math.round(Number(val)) : 0;
+
+    const marker = L.marker([Number(lat), Number(lon)], {
+      icon: createStationIcon(id, value),
+      title: getStationDisplayName(id)
+    });
+
+    markerMeta[id] = {
+      ceaqi: value,
+      latestTimeMs,
+      baseLabel
+    };
+
+    marker.bindTooltip(buildMarkerTooltip(value, latestTimeMs, baseLabel), {
+      permanent: false,
+      direction: "top",
+      className: "leaflet-tooltip-own",
+      sticky: true,
+      opacity: 1
+    });
+
+    const safeIdArg = JSON.stringify(id);
+    const popupTitle = escapeHTML(getStationDisplayName(id));
+    const sensorType = escapeHTML(getStationTypeLabel(id));
+
+    marker.bindPopup(`
+      <div style="min-width:205px;">
+        <div style="font-weight:900; color:#1a305e; margin-bottom:4px;">${popupTitle}</div>
+        <div style="font-size:0.78rem; color:#667085; margin-bottom:8px;">${sensorType} station</div>
+        <div style="font-size:0.82rem; color:#334155; margin-bottom:8px;">
+          CE-AQI: <strong>${value || "--"}</strong>
+        </div>
+        <button class="popup-breakdown-btn" type="button" onclick='selectStationAndOpenBreakdown(${safeIdArg})'>
+          View breakdown chart
+        </button>
+      </div>
+    `);
+
+    marker.on("mouseover", function () {
+      this.openTooltip();
+    });
+
+    marker.on("mouseout", function () {
+      this.closeTooltip();
+    });
+
+    marker.on("click", () => {
+      const sel = document.getElementById("devSel");
+      if (sel) sel.value = id;
+
+      selectedStationId = id;
+      handleDropdownChange(id, true);
+      marker.openPopup();
+    });
+
+    cluster.addLayer(marker);
+    markerMap[id] = marker;
+  }
+
+  function zoomToStation(id, zoomLevel = 16) {
+    const marker = markerMap[id];
+    if (!marker) return;
+
+    cluster.zoomToShowLayer(marker, () => {
+      map.flyTo(marker.getLatLng(), zoomLevel);
+      marker.openTooltip();
+    });
+  }
+
+  async function handleDropdownChange(id, userTriggered = false) {
+    if (!markerMap[id]) return;
+
+    selectedStationId = id;
+
+    if (userTriggered) {
+      zoomToStation(id);
+    }
+
+    await updateDisplay(id);
+  }
+
+  async function geocodeAddress(address) {
+    const cleanAddress = address.trim();
+
+    const searchText = /cheverly|maryland|\bmd\b/i.test(cleanAddress)
+      ? cleanAddress
+      : `${cleanAddress}, Cheverly, MD`;
+
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      q: searchText,
+      limit: "1",
+      addressdetails: "1",
+      email: "apuschni@umd.edu",
+      viewbox: "-76.99,38.98,-76.84,38.86",
+      bounded: "0"
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        signal: controller.signal
+      });
+
+      if (!res.ok) return null;
+      const data = await res.json();
+
+      if (!data || data.length === 0) return null;
+
+      return L.latLng(Number(data[0].lat), Number(data[0].lon));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  function findClosestStationId(center) {
+    let minDistance = Infinity;
+    let closestId = null;
+
+    Object.keys(markerMap).forEach(id => {
+      const marker = markerMap[id];
+      if (!marker) return;
+
+      const dist = center.distanceTo(marker.getLatLng());
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestId = id;
+      }
+    });
+
+    return closestId;
+  }
+
+  async function runLocationSearch() {
+    const input = document.getElementById("addrInput");
+    const btn = document.getElementById("locateBtn");
+    const addr = input.value.trim();
+
+    if (!addr) {
+      alert("Please enter an address.");
+      return;
+    }
+
+    const originalText = btn.innerText;
+    btn.innerText = "Searching...";
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+
+    try {
+      const center = await geocodeAddress(addr);
+
+      if (!center) {
+        alert("Location not found. Try adding Cheverly, MD or using a simpler address.");
+        return;
+      }
+
+      if (userMarker) {
+        map.removeLayer(userMarker);
+      }
+
+      userMarker = L.marker(center)
+        .addTo(map)
+        .bindPopup(`<b>Search location:</b><br>${addr}`)
+        .openPopup();
+
+      const closestId = findClosestStationId(center);
+
+      if (closestId) {
+        document.getElementById("devSel").value = closestId;
+        await handleDropdownChange(closestId, true);
+      } else {
+        map.flyTo(center, 16);
+        alert("Address found, but no station markers are available yet.");
+      }
+    } catch (err) {
+      console.error("Location search error:", err);
+      alert("The location search failed. Try a simpler address.");
+    } finally {
+      btn.innerText = originalText;
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    }
+  }
+
+  document.getElementById("locateBtn").addEventListener("click", runLocationSearch);
+
+  document.getElementById("addrInput").addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      runLocationSearch();
+    }
+  });
+
+  function getStationCoords(id) {
+    if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const c12 = C12S.find(x => x.compId === compId);
+      if (c12 && hasValidCoords(c12.lat, c12.lon)) {
+        return { lat: c12.lat, lon: c12.lon };
+      }
+    }
+
+    if (id.startsWith("MOD-")) {
+      const spod = SPODS.find(s => s.sn === id);
+      if (spod && hasValidCoords(spod.lat, spod.lon)) {
+        return { lat: spod.lat, lon: spod.lon };
+      }
+    }
+
+    if (paCoords[id] && hasValidCoords(paCoords[id].lat, paCoords[id].lon)) {
+      return { lat: paCoords[id].lat, lon: paCoords[id].lon };
+    }
+
+    return { lat: null, lon: null };
+  }
+
+  async function updateDisplay(id) {
+    selectedStationId = id;
+    setElementText("summaryType", getStationTypeLabel(id));
+    setElementText("stationTypeText", `${getStationTypeLabel(id)} station`);
+    setElementText("mapStationType", getStationTypeLabel(id));
+
+    const windowEndMs = stationSeriesWindowEndMs();
+    const nowSec = Math.floor(windowEndMs / 1000);
+    const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
+
+    await loadBeltsvilleReferenceTrend(windowEndMs);
+    setChartTimeWindow(windowEndMs);
+
+    let { lat: stationLat, lon: stationLon } = getStationCoords(id);
+
+    if (!id.startsWith("C12-") && !id.startsWith("MOD-")) {
+      const pa = await proxyGet({ action: "purpleair_box" });
+      const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+      const liveStation = paDataArr.find(r => String(r[0]) === id);
+
+      let pm25Live = paCoords[id]?.pm25 ?? null;
+      let latestTimeMs = paCoords[id]?.latestTimeMs ?? null;
+
+      if (liveStation) {
+        pm25Live = safeNum(liveStation[3]);
+        latestTimeMs = freshestTime(latestTimeMs, getPurpleAirBoxTimestamp(liveStation));
+
+        const liveLat = safeNum(liveStation[1]);
+        const liveLon = safeNum(liveStation[2]);
+
+        if (hasValidCoords(liveLat, liveLon)) {
+          paCoords[id] = { lat: liveLat, lon: liveLon, pm25: pm25Live, latestTimeMs };
+          stationLat = liveLat;
+          stationLon = liveLon;
+        }
+      }
+
+      document.getElementById("statName").innerText = SENSORS[id] || "PurpleAir Station";
+      document.getElementById("val_param").innerText = pm25Live !== null ? `${pm25Live} µg/m³` : "--";
+      document.getElementById("label_param").innerText = "PM2.5 Concentration";
+
+      const json = await proxyGet({ action: "purpleair_history", id, start: seriesStartSec });
+      if (json?.data && json.data.length > 0) {
+        const paSeries = json.data
+          .filter(r => {
+            const val = safeNum(r[1]);
+            return val !== null && val > 0 && val < 250;
+          })
+          .map(r => ({ x: normalizeTimestampMs(r[0]), y: aqiFromBreakpoints(safeNum(r[1]), BP_PM25_24H) || 0 }))
+          .filter(p => p.x !== null && p.y !== null)
+          .sort((a, b) => a.x - b.x);
+
+        const latestFromSeries = applyStationSeriesWindow(paSeries, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
+      } else {
+        chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
+      }
+
+      const ownPollutants = [];
+      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25Live, BP_PM25_24H));
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        includeNearestQuantPM25: false
+      });
+
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
+      });
+      displayCEAQIResult(result);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
+    } else if (id.startsWith("MOD-")) {
+      const today = new Date().toISOString().split("T")[0];
+      const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
+      const dataRoot = resA?.resolved_sn ? resA.data : resA;
+      const allData = dataRoot?.data || [];
+      const last = allData.length ? allData[allData.length - 1] : quantCache[id];
+
+      let latestTimeMs = getQuantAQTimestampMs(last);
+
+      if (last) {
+        quantCache[id] = last;
+      }
+
+      const spod = SPODS.find(s => s.sn === id);
+      document.getElementById("statName").innerText = spod ? spod.name : id;
+
+      const pm25Q = activeNum(last?.pm25 ?? last?.pm2_5);
+      document.getElementById("val_param").innerText = pm25Q !== null ? `${pm25Q} µg/m³` : "--";
+      document.getElementById("label_param").innerText = "PM2.5 Concentration";
+
+      const series = allData
+        .map(r => {
+          const timestamp = r.timestamp ? new Date(r.timestamp + (r.timestamp.includes("Z") ? "" : "Z")).getTime() : null;
+          const value = activeNum(r.pm25 ?? r.pm2_5);
+          return {
+            x: timestamp,
+            y: aqiFromBreakpoints(value, BP_PM25_24H)
+          };
+        })
+        .filter(p => p.x !== null && p.y !== null)
+        .sort((a, b) => a.x - b.x);
+
+      if (series.length > 0) {
+        const latestFromSeries = applyStationSeriesWindow(series, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
+      } else {
+        chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
+      }
+
+      const ownPollutants = [];
+      addQuantAQPollutants(ownPollutants, last, id, true);
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        skipQuantAQ: id,
+        includeNearestQuantPM25: false
+      });
+
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: `PM2.5 (${id})`
+      });
+      displayCEAQIResult(result);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
+    } else if (id.startsWith("C12-")) {
+      const compId = id.replace("C12-", "");
+      const res = await proxyGet({ action: "grove_last", compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bc = activeNum(bcRow?.data);
+      let latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
+
+      const c12Obj = C12S.find(x => x.compId === compId);
+      if (c12Obj && hasValidCoords(lat, lon)) {
+        c12Obj.lat = lat;
+        c12Obj.lon = lon;
+        stationLat = lat;
+        stationLon = lon;
+      }
+
+      c12Cache[compId] = {
+        ...(c12Cache[compId] || {}),
+        bc,
+        lat: stationLat,
+        lon: stationLon,
+        latestTimeMs
+      };
+
+      document.getElementById("statName").innerText = c12Obj ? c12Obj.name : id;
+      document.getElementById("val_param").innerText = bc !== null ? `${bc} ng/m³` : "--";
+      document.getElementById("label_param").innerText = "Black Carbon Concentration";
+
+      const c12Series = await fetchC12HistorySeries(compId, STATION_TIMESERIES_HOURS);
+      if (c12Series.length > 0) {
+        const latestFromSeries = applyStationSeriesWindow(c12Series, windowEndMs);
+        latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
+      } else if (latestTimeMs !== null && bc !== null) {
+        const singlePoint = c12CEAQIFromBCValue(bc, compId);
+        chart.data.datasets[0].data = singlePoint !== null && latestTimeMs >= stationSeriesCutoffMs(windowEndMs)
+          ? [{ x: latestTimeMs, y: singlePoint }]
+          : [];
+        setChartTimeWindow(windowEndMs);
+      } else {
+        chart.data.datasets[0].data = [];
+        setChartTimeWindow(windowEndMs);
+      }
+
+      const ownPollutants = [];
+      addC12Pollutants(ownPollutants, bc, compId);
+
+      const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
+        skipC12: compId,
+        includeNearestQuantPM25: true
+      });
+
+      const result = calcCEAQI(pollutants, {
+        preferredBaseStartsWith: "BC non-cancer"
+      });
+      displayCEAQIResult(result);
+      setLatestTimeDisplay(latestTimeMs);
+      updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
+    }
+
+    chart.update();
+  }
+
+  async function init() {
+    const sel = document.getElementById("devSel");
+    const today = new Date().toISOString().split("T")[0];
+
+    sel.innerHTML = "";
+    cluster.clearLayers();
+    markerMap = {};
+    markerMeta = {};
+    Object.keys(stationBreakdownCache).forEach(key => delete stationBreakdownCache[key]);
+
+    const pa = await proxyGet({ action: "purpleair_box" });
+    const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
+
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      const lat = safeNum(r[1]);
+      const lon = safeNum(r[2]);
+      const pm25 = activeNum(r[3]);
+      const latestTimeMs = getPurpleAirBoxTimestamp(r);
+
+      if (SENSORS[id] && hasValidCoords(lat, lon)) {
+        paCoords[id] = { lat, lon, pm25, latestTimeMs };
+      }
+    }
+
+    for (const s of SPODS) {
+      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
+      const dataRoot = res?.resolved_sn ? res.data : res;
+      const allQ = dataRoot?.data || [];
+      quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+
+      // Use coordinates from the API response if available. This is mainly for
+      // MOD-00536, where the public device page confirms the sensor but does
+      // not expose exact lat/lon in the visible page text.
+      const coords = getCoordsFromObject(res) || getCoordsFromObject(dataRoot) || getCoordsFromObject(quantCache[s.sn]);
+      if (coords) {
+        s.lat = coords.lat;
+        s.lon = coords.lon;
+      }
+    }
+
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    for (const c of C12S) {
+      const res = await proxyGet({ action: "grove_last", compId: c.compId });
+      const rows = Array.isArray(res) ? res : (res?.data || []);
+
+      const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
+      const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
+      const bcRow = rows.find(r => r.streamId === "880nm");
+      const bcTime = normalizeTimestampMs(bcRow?.time);
+      const latestTimeMs = getC12LatestTime(rows);
+      const bcFresh = bcTime !== null && (now - bcTime) < THREE_HOURS_MS;
+      const bc = bcFresh ? activeNum(bcRow?.data) : null;
+
+      if (!bcFresh && bcRow) {
+        console.log(`C12 ${c.compId}: stale reading skipped`);
+      }
+
+      c12Cache[c.compId] = { bc, lat, lon, latestTimeMs };
+
+      if (hasValidCoords(lat, lon)) {
+        c.lat = lat;
+        c.lon = lon;
+      }
+    }
+
+    paDataArr.sort((a, b) => {
+      const idA = String(a[0]);
+      const idB = String(b[0]);
+      if (idA === "203601") return -1;
+      if (idB === "203601") return 1;
+      if (idA === "181253") return 1;
+      if (idB === "181253") return -1;
+      return (SENSORS[idA] || "").localeCompare(SENSORS[idB] || "");
+    });
+
+    for (const r of paDataArr) {
+      const id = String(r[0]);
+      if (!SENSORS[id]) continue;
+
+      const lat = safeNum(r[1]);
+      const lon = safeNum(r[2]);
+      const pm25 = activeNum(r[3]);
+
+      if (!hasValidCoords(lat, lon)) continue;
+
+      const ownPollutants = [];
+      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25, BP_PM25_24H));
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(lat, lon, ownPollutants, {
+        includeNearestQuantPM25: false
+      }), {
+        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
+      });
+
+      createMarker(id, lat, lon, result.ceaqi, paCoords[id]?.latestTimeMs ?? null, result.baseLabel);
+      sel.add(new Option(SENSORS[id], id));
+    }
+
+    for (const s of SPODS) {
+      if (!hasValidCoords(s.lat, s.lon)) continue;
+
+      const ownPollutants = [];
+      addQuantAQPollutants(ownPollutants, quantCache[s.sn], s.sn, true);
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
+        skipQuantAQ: s.sn,
+        includeNearestQuantPM25: false
+      }), {
+        preferredBaseStartsWith: `PM2.5 (${s.sn})`
+      });
+
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi, getQuantAQTimestampMs(quantCache[s.sn]), result.baseLabel);
+      sel.add(new Option(s.name, s.sn));
+    }
+
+    for (const c of C12S) {
+      const cd = c12Cache[c.compId];
+      if (!cd || !hasValidCoords(cd.lat, cd.lon)) continue;
+
+      const ownPollutants = [];
+      addC12Pollutants(ownPollutants, cd.bc, c.compId);
+
+      const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
+        skipC12: c.compId,
+        includeNearestQuantPM25: true
+      }), {
+        preferredBaseStartsWith: "BC non-cancer"
+      });
+
+      createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi, cd.latestTimeMs ?? null, result.baseLabel);
+      sel.add(new Option(c.name, `C12-${c.compId}`));
+    }
+
+    if (cluster.getLayers().length > 0) {
+      map.fitBounds(cluster.getBounds(), {
+        padding: [30, 30],
+        maxZoom: 13
+      });
+    }
+
+    if (sel.options.length) {
+      const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value;
+      sel.value = defaultId;
+      selectedStationId = defaultId;
+      handleDropdownChange(defaultId, false);
+    }
+  }
+
+  init();
 </script>
 </body>
 </html>
+
