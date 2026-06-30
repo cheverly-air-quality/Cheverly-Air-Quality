@@ -2148,12 +2148,12 @@
       return pollutants;
     }
 
-    // Nearby support sensors should help explain cumulative exposure, but they should not
-    // make every surrounding station inherit the exact same CE-AQI base value.
-    // Set supportCanBeBase to true only if you intentionally want the closest borrowed sensor
-    // to control the selected station's final color.
+    // Packet-based CE-AQI:
+    // If a QuantAQ or C-12 value is borrowed from the closest nearby sensor, it is still
+    // part of the pollutant set for this site and can be the CE-AQI base if it is the
+    // highest pollutant-specific AQI.
     const supportMeta = {
-      canBeBase: options.supportCanBeBase === true,
+      canBeBase: true,
       isSupport: true
     };
 
@@ -2200,14 +2200,11 @@
       };
     }
 
-    // Station anchored CE-AQI:
-    // The base is the highest valid pollutant measured by the selected station type.
-    // Nearby support sensors are still included and can add to the CE-AQI, but they
-    // do not become the base. This prevents one stuck or very high nearby C12 reading
-    // from making every surrounding PurpleAir or QuantAQ marker show the same value.
-    const baseCandidates = valid.filter(p => p.canBeBase !== false);
-    const candidates = baseCandidates.length ? baseCandidates : valid;
-    const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
+    // Packet-based CE-AQI:
+    // Step 4 says the Base Value is the highest AQI from the pollutant-specific AQIs.
+    // This means the highest pollutant can control the CE-AQI, including a closest
+    // QuantAQ or C-12 pollutant used for that site.
+    const baseItem = valid.reduce((max, p) => p.aqi > max.aqi ? p : max, valid[0]);
     const baseIndex = valid.indexOf(baseItem);
     const base = baseItem.aqi;
     const baseLabel = baseItem.label;
@@ -2216,6 +2213,8 @@
       const isBase = index === baseIndex;
       let adderPct = 0;
 
+      // Step 5 says not to add an adder for the pollutant that became the Base Value.
+      // All other pollutant-specific AQIs can add 1%, 2%, or 3% of the Base Value.
       if (!isBase) {
         if (p.aqi >= 120) {
           adderPct = 0.03;
