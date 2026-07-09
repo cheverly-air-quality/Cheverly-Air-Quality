@@ -29,7 +29,6 @@ export default async function handler(req, res) {
       return { ok: r.ok, status: r.status, data };
     };
 
-    // PurpleAir can work either via header or query param depending on endpoint/account
     const purpleairFetch = async (baseUrl) => {
       let out = await fetchJson(baseUrl, { headers: { "X-API-Key": PURPLEAIR_KEY } });
       if (out.ok) return out;
@@ -39,9 +38,6 @@ export default async function handler(req, res) {
       return await fetchJson(url2);
     };
 
-    // ------------------------
-    // PurpleAir: map marker box query
-    // ------------------------
     if (action === "purpleair_box") {
       if (!PURPLEAIR_KEY) return res.status(500).json({ error: "missing_PURPLEAIR_API_KEY" });
 
@@ -63,9 +59,6 @@ export default async function handler(req, res) {
       return res.status(200).json(out.data);
     }
 
-    // ------------------------
-    // PurpleAir: history for a station
-    // ------------------------
     if (action === "purpleair_history") {
       if (!PURPLEAIR_KEY) return res.status(500).json({ error: "missing_PURPLEAIR_API_KEY" });
 
@@ -90,9 +83,6 @@ export default async function handler(req, res) {
       return res.status(200).json(out.data);
     }
 
-    // ------------------------
-    // QuantAQ helpers
-    // ------------------------
     const quantAuthHeaders = () => {
       const auth = Buffer.from(`${QUANTAQ_KEY}:`).toString("base64");
       return {
@@ -130,11 +120,9 @@ export default async function handler(req, res) {
       const date = req.query.date;
       if (!snInput || !date) return res.status(400).json({ error: "missing_sn_or_date" });
 
-      // 1) Try exactly as provided
       let out = await quantDataByDate(snInput, date);
       if (out.ok) return res.status(200).json(out.data);
 
-      // 2) If it's a 404, try resolve serial by listing devices
       if (out.status === 404) {
         const devs = await getQuantDevices();
 
@@ -178,7 +166,6 @@ export default async function handler(req, res) {
         return res.status(404).json({
           error: "quantaq_sn_not_found_for_key",
           provided_sn: snInput,
-          hint: "Your QuantAQ key does not see a device with that serial. Use one of the returned sns in your SPODS list.",
           sample_sns: sample,
           total_visible_devices: list.length
         });
@@ -191,9 +178,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ------------------------
-    // GroveStreams (C-12): last values
-    // ------------------------
     if (action === "grove_last") {
       if (!GROVE_KEY) return res.status(500).json({ error: "missing_GROVESTREAMS_API_KEY" });
 
@@ -215,8 +199,52 @@ export default async function handler(req, res) {
         });
       }
 
-      // Grove returns an array like [{data, streamId, time}, ...]
       return res.status(200).json(out.data);
+    }
+
+    if (action === "c12_history") {
+      if (!process.env.DATABASE_URL) {
+        return res.status(500).json({ error: "missing_DATABASE_URL" });
+      }
+
+      const compId = req.query.compId;
+      const hours = Number(req.query.hours || 18);
+
+      if (!compId) {
+        return res.status(400).json({ error: "missing_compId" });
+      }
+
+      const safeHours = Number.isFinite(hours) && hours > 0 ? hours : 18;
+
+      try {
+        const result = await pool.query(
+          `
+          SELECT
+            time_stamp AS time,
+            bc_880nm AS bc,
+            latitude,
+            longitude,
+            device_id
+          FROM c12_master
+          WHERE device_id = $1
+            AND time_stamp >= NOW() - ($2::text || ' hours')::interval
+            AND bc_880nm IS NOT NULL
+          ORDER BY time_stamp ASC
+          `,
+          [compId, safeHours]
+        );
+
+        return res.status(200).json({
+          device_id: compId,
+          hours: safeHours,
+          data: result.rows
+        });
+      } catch (err) {
+        return res.status(500).json({
+          error: "c12_history_failed",
+          detail: String(err)
+        });
+      }
     }
 
     return res.status(404).json({ error: "unknown_action", action });
