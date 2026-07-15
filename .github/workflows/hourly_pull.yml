@@ -32,3 +32,4 @@ jobs:
           python pa_live_pull.py
           python quantaq_pull.py
           python c12_pull.py
+
