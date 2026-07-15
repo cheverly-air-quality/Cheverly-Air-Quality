@@ -1,0 +1,38 @@
+name: QuantAQ Historical Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "First date to backfill, YYYY-MM-DD"
+        required: true
+        type: string
+      end_date:
+        description: "Last date to backfill, YYYY-MM-DD. Maximum 31 days per run."
+        required: true
+        type: string
+
+jobs:
+  backfill-quantaq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run QuantAQ Backfill
+        env:
+          QUANTAQ_API_KEY: ${{ secrets.QUANTAQ_API_KEY }}
+          DB_URL: ${{ secrets.DB_URL }}
+          BACKFILL_START_DATE: ${{ inputs.start_date }}
+          BACKFILL_END_DATE: ${{ inputs.end_date }}
+        run: python quantaq_backfill.py
