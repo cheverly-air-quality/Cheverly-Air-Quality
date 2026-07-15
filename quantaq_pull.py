@@ -1,102 +1,229 @@
+import os
+from datetime import datetime, timezone
+
+import pandas as pd
 import requests
-import json
-from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect
 
-# Configuration
-API_KEY = "QC2TTD7QPKL1GXSTHDXAXOC3"  # Your provided key
-BASE_URL = "https://api.quantaq.com/v1"
+load_dotenv()
 
-def get_quantaq_data(sn, date_str=None):
-    """
-    Fetches PM2.5 data for a specific QuantAQ sensor.
-    If no date is provided, it defaults to the last 24 hours.
-    """
-    if not date_str:
-        # Default to last 24 hours if no date provided
-        start_time = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
-    else:
-        # Expecting date_str in 'YYYY-MM-DD'
-        start_time = f"{date_str}T00:00:00Z"
+QUANTAQ_API_KEY = os.getenv("QUANTAQ_API_KEY")
+DB_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL")
 
-    # The specific endpoint for device data
-    endpoint = f"{BASE_URL}/devices/{sn}/data/"
-    
-    params = {
-        "start": start_time,
-        "limit": 1000,
-        "sort": "timestamp,asc"
+SENSORS = [
+    "MOD-00536",
+    "MOD-00745",
+    "MOD-00746",
+    "MOD-00747",
+    "MOD-00748",
+    "MOD-00749",
+]
+
+BASE_URL = "https://api.quant-aq.com/v1"
+TABLE_NAME = "quantaq_master"
+
+if DB_URL and DB_URL.startswith("postgres://"):
+    DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+elif DB_URL and DB_URL.startswith("postgresql://"):
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+
+def first_value(record, *keys):
+    for key in keys:
+        if key in record and record[key] is not None:
+            return record[key]
+    return None
+
+
+def to_float(value):
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_timestamp(value):
+    if value is None:
+        return datetime.now(timezone.utc)
+
+    parsed = pd.to_datetime(value, utc=True, errors="coerce")
+    if pd.isna(parsed):
+        return datetime.now(timezone.utc)
+
+    return parsed.to_pydatetime()
+
+
+def fetch_device_data(sensor_sn):
+    headers = {
+        "Accept": "application/json",
+        "Authorization": requests.auth._basic_auth_str(QUANTAQ_API_KEY, ""),
     }
 
-    try:
-        # QuantAQ uses the API Key as the username in Basic Auth with an empty password
-        response = requests.get(
-            endpoint, 
-            auth=(API_KEY, ""), 
-            params=params, 
-            timeout=10
+    dates = pd.date_range(
+        end=pd.Timestamp.now(tz="UTC").normalize(),
+        periods=2,
+        freq="D",
+    )
+
+    collected = []
+
+    for date in dates:
+        date_text = date.strftime("%Y-%m-%d")
+        url = f"{BASE_URL}/devices/{sensor_sn}/data-by-date/{date_text}/"
+        response = requests.get(url, headers=headers, timeout=30)
+
+        if response.status_code == 404:
+            print(f"No QuantAQ data for {sensor_sn} on {date_text}")
+            continue
+
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload.get("data", payload)
+
+        if isinstance(rows, list):
+            collected.extend(row for row in rows if isinstance(row, dict))
+
+    return collected
+
+
+def normalize_record(sensor_sn, record):
+    return {
+        "time_stamp": parse_timestamp(
+            first_value(
+                record,
+                "timestamp",
+                "time",
+                "datetime",
+                "date_time",
+                "observed_at",
+            )
+        ),
+        "sensor_sn": sensor_sn,
+        "pm25": to_float(first_value(record, "pm25", "pm2_5", "pm2.5")),
+        "pm10": to_float(first_value(record, "pm10", "pm10_0", "pm10.0")),
+        "o3": to_float(first_value(record, "o3", "ozone")),
+        "co": to_float(first_value(record, "co", "carbon_monoxide")),
+        "no2": to_float(first_value(record, "no2", "nitrogen_dioxide")),
+        "lat": to_float(first_value(record, "lat", "latitude")),
+        "lon": to_float(first_value(record, "lon", "lng", "longitude")),
+    }
+
+
+def write_records(engine, records):
+    if not records:
+        return 0
+
+    inspector = inspect(engine)
+
+    if not inspector.has_table(TABLE_NAME):
+        raise RuntimeError(
+            f"Table '{TABLE_NAME}' does not exist."
         )
-        
-        if response.status_code == 200:
-            raw_data = response.json()
-            processed_list = []
-            
-            # The data is nested inside a 'data' key in the response JSON
-            for entry in raw_data.get("data", []):
-                # Critical fix: QuantAQ oscillates between 'pm25' and 'pm2_5'
-                # This ensures we grab whichever one is populated
-                pm25_val = entry.get("pm25") if entry.get("pm25") is not None else entry.get("pm2_5")
-                
-                processed_list.append({
-                    "timestamp": entry.get("timestamp"),
-                    "pm25": pm25_val,
-                    "sn": sn
-                })
-            
-            return {"status": "success", "data": processed_list}
-        else:
-            print(f"Error: Received status code {response.status_code}")
-            return {"status": "error", "message": response.text}
 
-    except Exception as e:
-        print(f"Connection failed: {e}")
-        return {"status": "error", "message": str(e)}
+    existing_columns = {
+        column["name"] for column in inspector.get_columns(TABLE_NAME)
+    }
 
-def compute_aqi(pm25):
-    """
-    Helper function to calculate AQI from PM2.5 concentration.
-    Matches the linear interpolation used in your dashboard.
-    """
-    if pm25 is None: return None
-    
-    # EPA PM2.5 Breakpoints
-    if pm25 <= 12.0:
-        return round(((50 - 0) / (12.0 - 0.0)) * (pm25 - 0.0) + 0)
-    elif pm25 <= 35.4:
-        return round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51)
-    elif pm25 <= 55.4:
-        return round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101)
-    elif pm25 <= 150.4:
-        return round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151)
-    else:
-        # Capping at 301+ for hazardous values
-        return 301
+    dataframe = pd.DataFrame(records)
+    writable_columns = [
+        column for column in dataframe.columns if column in existing_columns
+    ]
+
+    required_columns = {"time_stamp", "sensor_sn"}
+    missing_required = required_columns - set(writable_columns)
+
+    if missing_required:
+        raise RuntimeError(
+            "quantaq_master is missing required columns: "
+            + ", ".join(sorted(missing_required))
+        )
+
+    dataframe = dataframe[writable_columns]
+
+    measurement_columns = [
+        column
+        for column in ["pm25", "pm10", "o3", "co", "no2"]
+        if column in dataframe.columns
+    ]
+
+    if measurement_columns:
+        dataframe = dataframe.dropna(
+            subset=measurement_columns,
+            how="all",
+        )
+
+    if dataframe.empty:
+        return 0
+
+    dataframe = dataframe.drop_duplicates(
+        subset=["sensor_sn", "time_stamp"],
+        keep="last",
+    )
+
+    with engine.begin() as connection:
+        dataframe.to_sql(
+            TABLE_NAME,
+            connection,
+            if_exists="append",
+            index=False,
+            method="multi",
+        )
+
+    return len(dataframe)
+
+
+def pull_and_push():
+    if not QUANTAQ_API_KEY:
+        raise RuntimeError("Missing QUANTAQ_API_KEY")
+
+    if not DB_URL:
+        raise RuntimeError("Missing DB_URL or DATABASE_URL")
+
+    engine = create_engine(
+        DB_URL,
+        pool_pre_ping=True,
+        connect_args={"sslmode": "require"},
+    )
+
+    all_records = []
+
+    for sensor_sn in SENSORS:
+        try:
+            raw_rows = fetch_device_data(sensor_sn)
+
+            if not raw_rows:
+                print(f"No recent rows returned for {sensor_sn}")
+                continue
+
+            normalized = [
+                normalize_record(sensor_sn, record)
+                for record in raw_rows
+            ]
+
+            valid_count = sum(
+                any(
+                    row.get(key) is not None
+                    for key in ("pm25", "pm10", "o3", "co", "no2")
+                )
+                for row in normalized
+            )
+
+            print(
+                f"{sensor_sn}: fetched {len(raw_rows)} rows, "
+                f"{valid_count} contain pollutant data"
+            )
+
+            all_records.extend(normalized)
+
+        except requests.RequestException as error:
+            print(f"QuantAQ request failed for {sensor_sn}: {error}")
+        except Exception as error:
+            print(f"Processing failed for {sensor_sn}: {error}")
+
+    inserted = write_records(engine, all_records)
+    print(f"Database updated: inserted {inserted} QuantAQ rows")
+
 
 if __name__ == "__main__":
-    # Testing with one of your QuantAQ serial numbers
-    test_sn = "MOD-00745"
-    print(f"--- Fetching data for {test_sn} ---")
-    
-    result = get_quantaq_data(test_sn)
-    
-    if result["status"] == "success":
-        data_points = result["data"]
-        print(f"Retrieved {len(data_points)} data points.")
-        
-        if data_points:
-            latest = data_points[-1]
-            aqi = compute_aqi(latest['pm25'])
-            print(f"Latest Timestamp: {latest['timestamp']}")
-            print(f"Latest PM2.5: {latest['pm25']} µg/m³")
-            print(f"Calculated AQI: {aqi}")
-    else:
-        print(f"Failed to fetch: {result['message']}")
+    pull_and_push()
