@@ -717,9 +717,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // --------------------------------------------------
-    // C-12 database: available long-term average
-    // --------------------------------------------------
+   // --------------------------------------------------
+// C-12 database: available long-term average
+// --------------------------------------------------
 
     if (action === "c12_average") {
       if (!process.env.DATABASE_URL) {
@@ -727,47 +727,47 @@ export default async function handler(req, res) {
           error: "missing_DATABASE_URL"
         });
       }
-
+    
       const componentId = req.query.compId;
-
+    
       if (!componentId) {
         return res.status(400).json({
           error: "missing_compId"
         });
       }
-
+    
       try {
         const result = await pool.query(
           `
           WITH device_data AS (
             SELECT
               time_stamp,
-              bc_880nm,
+              NULLIF(bc_880nm, '')::double precision AS bc,
               device_id
             FROM c12_master
             WHERE device_id = $1
               AND bc_880nm IS NOT NULL
+              AND bc_880nm <> ''
           ),
-
+    
           latest AS (
             SELECT MAX(time_stamp) AS latest_time
             FROM device_data
           )
-
+    
           SELECT
             $1::text AS device_id,
-
-            AVG(d.bc_880nm) AS bc_available_average,
-
-            AVG(d.bc_880nm) * 1.25
-              AS dpm_available_average,
-
+    
+            AVG(d.bc) AS bc_available_average,
+    
+            AVG(d.bc) * 1.25 AS dpm_available_average,
+    
             MIN(d.time_stamp) AS earliest_record,
-
+    
             MAX(d.time_stamp) AS latest_record,
-
+    
             COUNT(*) AS stored_rows
-
+    
           FROM device_data d
           CROSS JOIN latest l
           WHERE d.time_stamp >
@@ -776,7 +776,7 @@ export default async function handler(req, res) {
           `,
           [componentId]
         );
-
+    
         return res.status(200).json({
           device_id: componentId,
           data: result.rows[0] || null
@@ -788,15 +788,3 @@ export default async function handler(req, res) {
         });
       }
     }
-
-    return res.status(404).json({
-      error: "unknown_action",
-      action
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: "server_error",
-      detail: String(error)
-    });
-  }
-}
