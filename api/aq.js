@@ -20,7 +20,9 @@ export default async function handler(req, res) {
     const GROVE_KEY = process.env.GROVESTREAMS_API_KEY;
 
     if (!action) {
-      return res.status(400).json({ error: "missing_action" });
+      return res.status(400).json({
+        error: "missing_action"
+      });
     }
 
     const fetchJson = async (url, options = {}) => {
@@ -32,7 +34,7 @@ export default async function handler(req, res) {
       try {
         data = JSON.parse(text);
       } catch {
-        // Keep the original response text when it is not JSON.
+        // Keep plain text when the response is not JSON.
       }
 
       return {
@@ -42,7 +44,10 @@ export default async function handler(req, res) {
       };
     };
 
-    // PurpleAir can use either an API-key header or query parameter.
+    // --------------------------------------------------
+    // PurpleAir helper
+    // --------------------------------------------------
+
     const purpleairFetch = async (baseUrl) => {
       let output = await fetchJson(baseUrl, {
         headers: {
@@ -55,15 +60,18 @@ export default async function handler(req, res) {
       }
 
       const joinCharacter = baseUrl.includes("?") ? "&" : "?";
+
       const fallbackUrl =
-        `${baseUrl}${joinCharacter}api_key=${encodeURIComponent(PURPLEAIR_KEY)}`;
+        `${baseUrl}${joinCharacter}` +
+        `api_key=${encodeURIComponent(PURPLEAIR_KEY)}`;
 
       return await fetchJson(fallbackUrl);
     };
 
     // --------------------------------------------------
-    // PurpleAir: current readings for the map
+    // PurpleAir: current map readings
     // --------------------------------------------------
+
     if (action === "purpleair_box") {
       if (!PURPLEAIR_KEY) {
         return res.status(500).json({
@@ -92,6 +100,7 @@ export default async function handler(req, res) {
     // --------------------------------------------------
     // PurpleAir: station history
     // --------------------------------------------------
+
     if (action === "purpleair_history") {
       if (!PURPLEAIR_KEY) {
         return res.status(500).json({
@@ -109,8 +118,11 @@ export default async function handler(req, res) {
       }
 
       const url =
-        `https://api.purpleair.com/v1/sensors/${encodeURIComponent(id)}/history` +
-        `?fields=pm2.5_atm&average=60&start_timestamp=${encodeURIComponent(start)}`;
+        `https://api.purpleair.com/v1/sensors/` +
+        `${encodeURIComponent(id)}/history` +
+        `?fields=pm2.5_atm` +
+        `&average=60` +
+        `&start_timestamp=${encodeURIComponent(start)}`;
 
       const output = await purpleairFetch(url);
 
@@ -128,6 +140,7 @@ export default async function handler(req, res) {
     // --------------------------------------------------
     // QuantAQ helper functions
     // --------------------------------------------------
+
     const quantAuthHeaders = () => {
       const auth = Buffer.from(`${QUANTAQ_KEY}:`).toString("base64");
 
@@ -144,7 +157,8 @@ export default async function handler(req, res) {
 
     const getQuantDevices = async () => {
       const url =
-        "https://api.quant-aq.com/v1/devices?per_page=200&page=1";
+        "https://api.quant-aq.com/v1/devices" +
+        "?per_page=200&page=1";
 
       return await fetchJson(url, {
         headers: quantAuthHeaders()
@@ -163,8 +177,9 @@ export default async function handler(req, res) {
     };
 
     // --------------------------------------------------
-    // QuantAQ: list visible devices
+    // QuantAQ: list devices visible to API key
     // --------------------------------------------------
+
     if (action === "quantaq_devices") {
       if (!QUANTAQ_KEY) {
         return res.status(500).json({
@@ -178,8 +193,9 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // QuantAQ: live data for a specific date
+    // QuantAQ: live API data by date
     // --------------------------------------------------
+
     if (action === "quantaq_by_date") {
       if (!QUANTAQ_KEY) {
         return res.status(500).json({
@@ -196,14 +212,15 @@ export default async function handler(req, res) {
         });
       }
 
-      // First try the serial number exactly as provided.
-      let output = await quantDataByDate(serialNumberInput, date);
+      let output = await quantDataByDate(
+        serialNumberInput,
+        date
+      );
 
       if (output.ok) {
         return res.status(200).json(output.data);
       }
 
-      // If QuantAQ returns 404, try matching against the device list.
       if (output.status === 404) {
         const devicesOutput = await getQuantDevices();
 
@@ -220,14 +237,19 @@ export default async function handler(req, res) {
           });
         }
 
-        const devices = Array.isArray(devicesOutput.data?.data)
+        const devices = Array.isArray(
+          devicesOutput.data?.data
+        )
           ? devicesOutput.data.data
           : [];
 
-        const target = normalizeSerialNumber(serialNumberInput);
+        const target = normalizeSerialNumber(
+          serialNumberInput
+        );
 
         let match = devices.find(
-          (device) => normalizeSerialNumber(device?.sn) === target
+          (device) =>
+            normalizeSerialNumber(device?.sn) === target
         );
 
         if (!match) {
@@ -236,15 +258,21 @@ export default async function handler(req, res) {
               .replace(/0+/g, "0")
               .replace(/0([1-9])/g, "$1");
 
-          const looseTarget = looselyNormalize(serialNumberInput);
+          const looseTarget =
+            looselyNormalize(serialNumberInput);
 
           match = devices.find(
-            (device) => looselyNormalize(device?.sn) === looseTarget
+            (device) =>
+              looselyNormalize(device?.sn) ===
+              looseTarget
           );
         }
 
         if (match?.sn) {
-          const retry = await quantDataByDate(match.sn, date);
+          const retry = await quantDataByDate(
+            match.sn,
+            date
+          );
 
           if (retry.ok) {
             return res.status(200).json({
@@ -283,6 +311,7 @@ export default async function handler(req, res) {
     // --------------------------------------------------
     // QuantAQ database: latest stored reading
     // --------------------------------------------------
+
     if (action === "quantaq_latest") {
       if (!process.env.DATABASE_URL) {
         return res.status(500).json({
@@ -306,10 +335,18 @@ export default async function handler(req, res) {
             sensor_sn AS sn,
             pm25,
             pm10,
-            lat,
-            lon
+            o3,
+            co,
+            no2
           FROM quantaq_master
           WHERE sensor_sn = $1
+            AND (
+              pm25 IS NOT NULL
+              OR pm10 IS NOT NULL
+              OR o3 IS NOT NULL
+              OR co IS NOT NULL
+              OR no2 IS NOT NULL
+            )
           ORDER BY time_stamp DESC
           LIMIT 1
           `,
@@ -331,6 +368,7 @@ export default async function handler(req, res) {
     // --------------------------------------------------
     // QuantAQ database: stored history
     // --------------------------------------------------
+
     if (action === "quantaq_history") {
       if (!process.env.DATABASE_URL) {
         return res.status(500).json({
@@ -339,7 +377,9 @@ export default async function handler(req, res) {
       }
 
       const serialNumber = req.query.sn;
-      const requestedHours = Number(req.query.hours || 18);
+      const requestedHours = Number(
+        req.query.hours || 24
+      );
 
       if (!serialNumber) {
         return res.status(400).json({
@@ -348,9 +388,10 @@ export default async function handler(req, res) {
       }
 
       const safeHours =
-        Number.isFinite(requestedHours) && requestedHours > 0
+        Number.isFinite(requestedHours) &&
+        requestedHours > 0
           ? Math.min(requestedHours, 8760)
-          : 18;
+          : 24;
 
       try {
         const result = await pool.query(
@@ -360,11 +401,20 @@ export default async function handler(req, res) {
             sensor_sn AS sn,
             pm25,
             pm10,
-            lat,
-            lon
+            o3,
+            co,
+            no2
           FROM quantaq_master
           WHERE sensor_sn = $1
-            AND time_stamp >= NOW() - ($2::text || ' hours')::interval
+            AND time_stamp >=
+              NOW() - ($2::text || ' hours')::interval
+            AND (
+              pm25 IS NOT NULL
+              OR pm10 IS NOT NULL
+              OR o3 IS NOT NULL
+              OR co IS NOT NULL
+              OR no2 IS NOT NULL
+            )
           ORDER BY time_stamp ASC
           `,
           [serialNumber, safeHours]
@@ -384,8 +434,84 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // GroveStreams/C-12: latest readings
+    // QuantAQ database: rolling CE-AQI inputs
     // --------------------------------------------------
+
+    if (action === "quantaq_averages") {
+      if (!process.env.DATABASE_URL) {
+        return res.status(500).json({
+          error: "missing_DATABASE_URL"
+        });
+      }
+
+      const serialNumber = req.query.sn;
+
+      if (!serialNumber) {
+        return res.status(400).json({
+          error: "missing_sn"
+        });
+      }
+
+      try {
+        const result = await pool.query(
+          `
+          SELECT
+            $1::text AS sn,
+
+            AVG(pm25) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '24 hours'
+            ) AS pm25_24h,
+
+            AVG(pm10) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '24 hours'
+            ) AS pm10_24h,
+
+            AVG(o3) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '8 hours'
+            ) AS o3_8h,
+
+            AVG(co) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '1 hour'
+            ) AS co_1h,
+
+            AVG(co) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '8 hours'
+            ) AS co_8h,
+
+            AVG(no2) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '1 hour'
+            ) AS no2_1h,
+
+            AVG(no2) FILTER (
+              WHERE time_stamp >= NOW() - INTERVAL '1 year'
+            ) AS no2_available_average,
+
+            MIN(time_stamp) AS earliest_record,
+            MAX(time_stamp) AS latest_record,
+            COUNT(*) AS stored_rows
+
+          FROM quantaq_master
+          WHERE sensor_sn = $1
+          `,
+          [serialNumber]
+        );
+
+        return res.status(200).json({
+          sn: serialNumber,
+          data: result.rows[0] || null
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: "quantaq_averages_failed",
+          detail: String(error)
+        });
+      }
+    }
+
+    // --------------------------------------------------
+    // GroveStreams / C-12: latest readings
+    // --------------------------------------------------
+
     if (action === "grove_last") {
       if (!GROVE_KEY) {
         return res.status(500).json({
@@ -403,8 +529,10 @@ export default async function handler(req, res) {
 
       const url =
         `https://grovestreams.com/api/comp/` +
-        `${encodeURIComponent(componentId)}/last_value` +
-        `?retStreamId&api_key=${encodeURIComponent(GROVE_KEY)}`;
+        `${encodeURIComponent(componentId)}` +
+        `/last_value` +
+        `?retStreamId` +
+        `&api_key=${encodeURIComponent(GROVE_KEY)}`;
 
       const output = await fetchJson(url);
 
@@ -420,8 +548,9 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // C-12 database: stored Black Carbon history
+    // C-12 database: Black Carbon history
     // --------------------------------------------------
+
     if (action === "c12_history") {
       if (!process.env.DATABASE_URL) {
         return res.status(500).json({
@@ -430,7 +559,9 @@ export default async function handler(req, res) {
       }
 
       const componentId = req.query.compId;
-      const requestedHours = Number(req.query.hours || 18);
+      const requestedHours = Number(
+        req.query.hours || 18
+      );
 
       if (!componentId) {
         return res.status(400).json({
@@ -439,7 +570,8 @@ export default async function handler(req, res) {
       }
 
       const safeHours =
-        Number.isFinite(requestedHours) && requestedHours > 0
+        Number.isFinite(requestedHours) &&
+        requestedHours > 0
           ? Math.min(requestedHours, 8760)
           : 18;
 
@@ -454,7 +586,8 @@ export default async function handler(req, res) {
             device_id
           FROM c12_master
           WHERE device_id = $1
-            AND time_stamp >= NOW() - ($2::text || ' hours')::interval
+            AND time_stamp >=
+              NOW() - ($2::text || ' hours')::interval
             AND bc_880nm IS NOT NULL
           ORDER BY time_stamp ASC
           `,
@@ -469,6 +602,57 @@ export default async function handler(req, res) {
       } catch (error) {
         return res.status(500).json({
           error: "c12_history_failed",
+          detail: String(error)
+        });
+      }
+    }
+
+    // --------------------------------------------------
+    // C-12 database: available long-term average
+    // --------------------------------------------------
+
+    if (action === "c12_average") {
+      if (!process.env.DATABASE_URL) {
+        return res.status(500).json({
+          error: "missing_DATABASE_URL"
+        });
+      }
+
+      const componentId = req.query.compId;
+
+      if (!componentId) {
+        return res.status(400).json({
+          error: "missing_compId"
+        });
+      }
+
+      try {
+        const result = await pool.query(
+          `
+          SELECT
+            device_id,
+            AVG(bc_880nm) AS bc_available_average,
+            AVG(bc_880nm) * 1.25
+              AS dpm_available_average,
+            MIN(time_stamp) AS earliest_record,
+            MAX(time_stamp) AS latest_record,
+            COUNT(*) AS stored_rows
+          FROM c12_master
+          WHERE device_id = $1
+            AND bc_880nm IS NOT NULL
+            AND time_stamp >= NOW() - INTERVAL '1 year'
+          GROUP BY device_id
+          `,
+          [componentId]
+        );
+
+        return res.status(200).json({
+          device_id: componentId,
+          data: result.rows[0] || null
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: "c12_average_failed",
           detail: String(error)
         });
       }
