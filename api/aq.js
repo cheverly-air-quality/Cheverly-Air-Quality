@@ -1,5 +1,7 @@
 import pg from "pg";
 
+const { Pool } = pg;
+
 const pool =
   globalThis.cheverlyDbPool ||
   new Pool({
