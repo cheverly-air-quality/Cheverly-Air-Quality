@@ -1351,6 +1351,7 @@
   let markerMap = {};
   let paCoords = {};
   let quantCache = {};
+  let quantAveragesCache = {};
   let c12Cache = {};
   let userMarker = null;
   let markerMeta = {};
@@ -2108,11 +2109,13 @@
   function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
     if (!qd) return;
 
-    const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
-    const o3 = activeNum(qd.o3);
-    const coPpb = activeNum(qd.co);
-    const no2 = activeNum(qd.no2);
-    const pm10 = activeNum(qd.pm10);
+    // Prefer the database-calculated rolling values. Raw/latest values remain
+    // supported as a fallback while the database workflow is being validated.
+    const pm25 = activeNum(qd.pm25_24h ?? qd.pm25 ?? qd.pm2_5);
+    const pm10 = activeNum(qd.pm10_24h ?? qd.pm10);
+    const o3 = activeNum(qd.o3_highest_8h ?? qd.o3_8h ?? qd.o3);
+    const coPpb = activeNum(qd.co_highest_8h ?? qd.co_8h ?? qd.co);
+    const no2 = activeNum(qd.no2_highest_1h ?? qd.no2_1h ?? qd.no2);
     const meta = {
       canBeBase: options.canBeBase !== false,
       isSupport: options.isSupport === true
@@ -2126,6 +2129,28 @@
     addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
     addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
     addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
+  }
+
+  function addPrimaryPM25ForLocation(pollutants, lat, lon, purpleAirPM25 = null) {
+    const nearestQ = nearestQuantAQ(lat, lon);
+    const quantData = nearestQ ? (quantAveragesCache[nearestQ.sn] || quantCache[nearestQ.sn]) : null;
+    const quantPM25 = activeNum(quantData?.pm25_24h ?? quantData?.pm25 ?? quantData?.pm2_5);
+
+    if (nearestQ && quantPM25 !== null) {
+      addKnownAQI(
+        pollutants,
+        `PM2.5 (nearby ${nearestQ.sn})`,
+        aqiFromBreakpoints(quantPM25, BP_PM25_24H),
+        { canBeBase: true, isSupport: true }
+      );
+      return;
+    }
+
+    addKnownAQI(
+      pollutants,
+      "PM2.5 (PurpleAir fallback)",
+      aqiFromBreakpoints(purpleAirPM25, BP_PM25_24H)
+    );
   }
 
   function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
@@ -2161,7 +2186,7 @@
     if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
       addQuantAQPollutants(
         pollutants,
-        quantCache[nearestQ.sn],
+        quantAveragesCache[nearestQ.sn] || quantCache[nearestQ.sn],
         `nearby ${nearestQ.sn}`,
         options.includeNearestQuantPM25 === true,
         supportMeta
@@ -2905,48 +2930,49 @@
       }
 
       const ownPollutants = [];
-      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25Live, BP_PM25_24H));
+      addPrimaryPM25ForLocation(ownPollutants, stationLat, stationLon, pm25Live);
 
       const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
         includeNearestQuantPM25: false
       });
 
-      const result = calcCEAQI(pollutants, {
-        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
-      });
+      const result = calcCEAQI(pollutants);
       displayCEAQIResult(result);
       setLatestTimeDisplay(latestTimeMs);
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("MOD-")) {
-      const today = new Date().toISOString().split("T")[0];
-      const resA = await proxyGet({ action: "quantaq_by_date", sn: id, date: today });
-      const dataRoot = resA?.resolved_sn ? resA.data : resA;
-      const allData = dataRoot?.data || [];
-      const last = allData.length ? allData[allData.length - 1] : quantCache[id];
+      const [latestResponse, historyResponse, averagesResponse] = await Promise.all([
+        proxyGet({ action: "quantaq_latest", sn: id }),
+        proxyGet({ action: "quantaq_history", sn: id, hours: STATION_TIMESERIES_HOURS }),
+        proxyGet({ action: "quantaq_averages", sn: id })
+      ]);
 
-      let latestTimeMs = getQuantAQTimestampMs(last);
+      const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
+      const historyRows = Array.isArray(historyResponse?.data) ? historyResponse.data : [];
+      const latest = latestRows[0] || quantCache[id] || null;
+      const averages = averagesResponse?.data || quantAveragesCache[id] || null;
 
-      if (last) {
-        quantCache[id] = last;
-      }
+      if (latest) quantCache[id] = latest;
+      if (averages) quantAveragesCache[id] = averages;
+
+      let latestTimeMs = getQuantAQTimestampMs(latest) ?? normalizeTimestampMs(averages?.latest_record);
 
       const spod = SPODS.find(s => s.sn === id);
       document.getElementById("statName").innerText = spod ? spod.name : id;
 
-      const pm25Q = activeNum(last?.pm25 ?? last?.pm2_5);
-      document.getElementById("val_param").innerText = pm25Q !== null ? `${pm25Q} µg/m³` : "--";
-      document.getElementById("label_param").innerText = "PM2.5 Concentration";
+      const pm25Latest = activeNum(latest?.pm25 ?? latest?.pm2_5);
+      const pm25Average = activeNum(averages?.pm25_24h);
+      document.getElementById("val_param").innerText = pm25Latest !== null ? `${pm25Latest} µg/m³` : "--";
+      document.getElementById("label_param").innerText = pm25Average !== null
+        ? `PM2.5 Concentration (24h avg: ${pm25Average.toFixed(1)} µg/m³)`
+        : "PM2.5 Concentration";
 
-      const series = allData
-        .map(r => {
-          const timestamp = r.timestamp ? new Date(r.timestamp + (r.timestamp.includes("Z") ? "" : "Z")).getTime() : null;
-          const value = activeNum(r.pm25 ?? r.pm2_5);
-          return {
-            x: timestamp,
-            y: aqiFromBreakpoints(value, BP_PM25_24H)
-          };
-        })
-        .filter(p => p.x !== null && p.y !== null)
+      const series = historyRows
+        .map(row => ({
+          x: normalizeTimestampMs(row.timestamp),
+          y: aqiFromBreakpoints(activeNum(row.pm25), BP_PM25_24H)
+        }))
+        .filter(point => point.x !== null && point.y !== null)
         .sort((a, b) => a.x - b.x);
 
       if (series.length > 0) {
@@ -2958,16 +2984,14 @@
       }
 
       const ownPollutants = [];
-      addQuantAQPollutants(ownPollutants, last, id, true);
+      addQuantAQPollutants(ownPollutants, averages || latest, id, true);
 
       const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
         skipQuantAQ: id,
         includeNearestQuantPM25: false
       });
 
-      const result = calcCEAQI(pollutants, {
-        preferredBaseStartsWith: `PM2.5 (${id})`
-      });
+      const result = calcCEAQI(pollutants);
       displayCEAQIResult(result);
       setLatestTimeDisplay(latestTimeMs);
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
@@ -3062,19 +3086,14 @@
     }
 
     for (const s of SPODS) {
-      const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
-      const dataRoot = res?.resolved_sn ? res.data : res;
-      const allQ = dataRoot?.data || [];
-      quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+      const [latestResponse, averagesResponse] = await Promise.all([
+        proxyGet({ action: "quantaq_latest", sn: s.sn }),
+        proxyGet({ action: "quantaq_averages", sn: s.sn })
+      ]);
 
-      // Use coordinates from the API response if available. This is mainly for
-      // MOD-00536, where the public device page confirms the sensor but does
-      // not expose exact lat/lon in the visible page text.
-      const coords = getCoordsFromObject(res) || getCoordsFromObject(dataRoot) || getCoordsFromObject(quantCache[s.sn]);
-      if (coords) {
-        s.lat = coords.lat;
-        s.lon = coords.lon;
-      }
+      const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
+      quantCache[s.sn] = latestRows[0] || null;
+      quantAveragesCache[s.sn] = averagesResponse?.data || null;
     }
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
@@ -3125,13 +3144,11 @@
       if (!hasValidCoords(lat, lon)) continue;
 
       const ownPollutants = [];
-      addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(pm25, BP_PM25_24H));
+      addPrimaryPM25ForLocation(ownPollutants, lat, lon, pm25);
 
       const result = calcCEAQI(buildCompletePollutantsForLocation(lat, lon, ownPollutants, {
         includeNearestQuantPM25: false
-      }), {
-        preferredBaseStartsWith: "PM2.5 (PurpleAir)"
-      });
+      }));
 
       createMarker(id, lat, lon, result.ceaqi, paCoords[id]?.latestTimeMs ?? null, result.baseLabel);
       sel.add(new Option(SENSORS[id], id));
@@ -3141,7 +3158,7 @@
       if (!hasValidCoords(s.lat, s.lon)) continue;
 
       const ownPollutants = [];
-      addQuantAQPollutants(ownPollutants, quantCache[s.sn], s.sn, true);
+      addQuantAQPollutants(ownPollutants, quantAveragesCache[s.sn] || quantCache[s.sn], s.sn, true);
 
       const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
         skipQuantAQ: s.sn,
