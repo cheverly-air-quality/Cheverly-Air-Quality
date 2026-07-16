@@ -2246,15 +2246,53 @@
     return [];
   }
 
-  async function proxyGet(params) {
-    try {
-      const url = API_PROXY + "?" + new URLSearchParams(params).toString();
-      const res = await fetch(url);
-      return res.ok ? await res.json() : null;
-    } catch (e) {
-      console.error("API request failed:", e);
-      return null;
+  async function proxyGet(params, attempts = 3) {
+    const url = API_PROXY + "?" + new URLSearchParams(params).toString();
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          return await res.json();
+        }
+
+        console.warn(`API request failed (${res.status}) on attempt ${attempt}:`, url);
+      } catch (e) {
+        console.warn(`API request attempt ${attempt} failed:`, e);
+      }
+
+      if (attempt < attempts) {
+        await new Promise(resolve => setTimeout(resolve, 450 * attempt));
+      }
     }
+
+    return null;
+  }
+
+  async function ensureQuantAQCache(sn) {
+    if (!sn) return null;
+
+    if (quantAveragesCache[sn] || quantCache[sn]) {
+      return quantAveragesCache[sn] || quantCache[sn];
+    }
+
+    const [latestResponse, averagesResponse] = await Promise.all([
+      proxyGet({ action: "quantaq_latest", sn }),
+      proxyGet({ action: "quantaq_averages", sn })
+    ]);
+
+    const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
+    const latest = latestRows[0] || null;
+    const averages = averagesResponse?.data || null;
+
+    if (latest) quantCache[sn] = latest;
+    if (averages) quantAveragesCache[sn] = averages;
+
+    return averages || latest || null;
   }
 
   function getAQIColor(aqi) {
@@ -2889,6 +2927,7 @@
     };
 
     marker.options.ceaqiValue = value;
+    marker.options.alt = `${getStationDisplayName(id)}, CE-AQI ${value || "unavailable"}`;
     marker.setIcon(createStationIcon(id, value));
     cluster.refreshClusters(marker);
     marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
@@ -3182,6 +3221,11 @@
         setChartTimeWindow(windowEndMs);
       }
 
+      const nearestQForPurpleAir = nearestQuantAQ(stationLat, stationLon);
+      if (nearestQForPurpleAir) {
+        await ensureQuantAQCache(nearestQForPurpleAir.sn);
+      }
+
       const ownPollutants = [];
       addPrimaryPM25ForLocation(ownPollutants, stationLat, stationLon, pm25Live);
 
@@ -3256,8 +3300,15 @@
       const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
       const bcRow = rows.find(r => r.streamId === "880nm");
-      const bc = activeNum(bcRow?.data);
+      const bcTime = normalizeTimestampMs(bcRow?.time);
+      const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+      const bcFresh = bcTime !== null && (Date.now() - bcTime) < THREE_HOURS_MS;
+      const bc = bcFresh ? activeNum(bcRow?.data) : null;
       let latestTimeMs = getC12LatestTime(rows) ?? c12Cache[compId]?.latestTimeMs ?? null;
+
+      if (!bcFresh && bcRow) {
+        console.log(`C12 ${compId}: stale reading skipped during station refresh`);
+      }
 
       const c12Obj = C12S.find(x => x.compId === compId);
       if (c12Obj && hasValidCoords(lat, lon)) {
@@ -3292,6 +3343,11 @@
       } else {
         chart.data.datasets[0].data = [];
         setChartTimeWindow(windowEndMs);
+      }
+
+      const nearestQForC12 = nearestQuantAQ(stationLat, stationLon);
+      if (nearestQForC12) {
+        await ensureQuantAQCache(nearestQForC12.sn);
       }
 
       const ownPollutants = [];
@@ -3441,6 +3497,10 @@
       createMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi, cd.latestTimeMs ?? null, result.baseLabel);
       sel.add(new Option(c.name, `C12-${c.compId}`));
     }
+
+    // Force Leaflet to rebuild every cluster icon from the completed marker values.
+    // Without this, a cluster can retain the color it received while children were still loading.
+    cluster.refreshClusters();
 
     if (cluster.getLayers().length > 0) {
       map.fitBounds(cluster.getBounds(), {
