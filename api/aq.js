@@ -194,6 +194,7 @@ export default async function handler(req, res) {
 
     // --------------------------------------------------
     // QuantAQ: live API data by date
+    // Kept as a fallback while database routes are tested.
     // --------------------------------------------------
 
     if (action === "quantaq_by_date") {
@@ -243,9 +244,8 @@ export default async function handler(req, res) {
           ? devicesOutput.data.data
           : [];
 
-        const target = normalizeSerialNumber(
-          serialNumberInput
-        );
+        const target =
+          normalizeSerialNumber(serialNumberInput);
 
         let match = devices.find(
           (device) =>
@@ -455,43 +455,142 @@ export default async function handler(req, res) {
       try {
         const result = await pool.query(
           `
+          WITH sensor_data AS (
+            SELECT
+              time_stamp,
+              pm25,
+              pm10,
+              o3,
+              co,
+              no2
+            FROM quantaq_master
+            WHERE sensor_sn = $1
+          ),
+
+          latest AS (
+            SELECT MAX(time_stamp) AS latest_time
+            FROM sensor_data
+          ),
+
+          recent_24h AS (
+            SELECT s.*
+            FROM sensor_data s
+            CROSS JOIN latest l
+            WHERE s.time_stamp >
+                  l.latest_time - INTERVAL '24 hours'
+              AND s.time_stamp <= l.latest_time
+          ),
+
+          rolling_values AS (
+            SELECT
+              current_row.time_stamp,
+
+              (
+                SELECT AVG(window_row.o3)
+                FROM sensor_data window_row
+                WHERE window_row.time_stamp >
+                      current_row.time_stamp -
+                      INTERVAL '8 hours'
+                  AND window_row.time_stamp <=
+                      current_row.time_stamp
+                  AND window_row.o3 IS NOT NULL
+              ) AS o3_8h_average,
+
+              (
+                SELECT AVG(window_row.co)
+                FROM sensor_data window_row
+                WHERE window_row.time_stamp >
+                      current_row.time_stamp -
+                      INTERVAL '1 hour'
+                  AND window_row.time_stamp <=
+                      current_row.time_stamp
+                  AND window_row.co IS NOT NULL
+              ) AS co_1h_average,
+
+              (
+                SELECT AVG(window_row.co)
+                FROM sensor_data window_row
+                WHERE window_row.time_stamp >
+                      current_row.time_stamp -
+                      INTERVAL '8 hours'
+                  AND window_row.time_stamp <=
+                      current_row.time_stamp
+                  AND window_row.co IS NOT NULL
+              ) AS co_8h_average,
+
+              (
+                SELECT AVG(window_row.no2)
+                FROM sensor_data window_row
+                WHERE window_row.time_stamp >
+                      current_row.time_stamp -
+                      INTERVAL '1 hour'
+                  AND window_row.time_stamp <=
+                      current_row.time_stamp
+                  AND window_row.no2 IS NOT NULL
+              ) AS no2_1h_average
+
+            FROM recent_24h current_row
+          )
+
           SELECT
             $1::text AS sn,
 
-            AVG(pm25) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '24 hours'
+            (
+              SELECT AVG(pm25)
+              FROM recent_24h
+              WHERE pm25 IS NOT NULL
             ) AS pm25_24h,
 
-            AVG(pm10) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '24 hours'
+            (
+              SELECT AVG(pm10)
+              FROM recent_24h
+              WHERE pm10 IS NOT NULL
             ) AS pm10_24h,
 
-            AVG(o3) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '8 hours'
-            ) AS o3_8h,
+            (
+              SELECT MAX(o3_8h_average)
+              FROM rolling_values
+            ) AS o3_highest_8h,
 
-            AVG(co) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '1 hour'
-            ) AS co_1h,
+            (
+              SELECT MAX(co_1h_average)
+              FROM rolling_values
+            ) AS co_highest_1h,
 
-            AVG(co) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '8 hours'
-            ) AS co_8h,
+            (
+              SELECT MAX(co_8h_average)
+              FROM rolling_values
+            ) AS co_highest_8h,
 
-            AVG(no2) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '1 hour'
-            ) AS no2_1h,
+            (
+              SELECT MAX(no2_1h_average)
+              FROM rolling_values
+            ) AS no2_highest_1h,
 
-            AVG(no2) FILTER (
-              WHERE time_stamp >= NOW() - INTERVAL '1 year'
-            ) AS no2_available_average,
+            (
+              SELECT AVG(s.no2)
+              FROM sensor_data s
+              CROSS JOIN latest l
+              WHERE s.time_stamp >
+                    l.latest_time - INTERVAL '1 year'
+                AND s.time_stamp <= l.latest_time
+                AND s.no2 IS NOT NULL
+            ) AS no2_annual_available_average,
 
-            MIN(time_stamp) AS earliest_record,
-            MAX(time_stamp) AS latest_record,
-            COUNT(*) AS stored_rows
+            (
+              SELECT MIN(time_stamp)
+              FROM sensor_data
+            ) AS earliest_record,
 
-          FROM quantaq_master
-          WHERE sensor_sn = $1
+            (
+              SELECT latest_time
+              FROM latest
+            ) AS latest_record,
+
+            (
+              SELECT COUNT(*)
+              FROM sensor_data
+            ) AS stored_rows
           `,
           [serialNumber]
         );
@@ -629,19 +728,40 @@ export default async function handler(req, res) {
       try {
         const result = await pool.query(
           `
+          WITH device_data AS (
+            SELECT
+              time_stamp,
+              bc_880nm,
+              device_id
+            FROM c12_master
+            WHERE device_id = $1
+              AND bc_880nm IS NOT NULL
+          ),
+
+          latest AS (
+            SELECT MAX(time_stamp) AS latest_time
+            FROM device_data
+          )
+
           SELECT
-            device_id,
-            AVG(bc_880nm) AS bc_available_average,
-            AVG(bc_880nm) * 1.25
+            $1::text AS device_id,
+
+            AVG(d.bc_880nm) AS bc_available_average,
+
+            AVG(d.bc_880nm) * 1.25
               AS dpm_available_average,
-            MIN(time_stamp) AS earliest_record,
-            MAX(time_stamp) AS latest_record,
+
+            MIN(d.time_stamp) AS earliest_record,
+
+            MAX(d.time_stamp) AS latest_record,
+
             COUNT(*) AS stored_rows
-          FROM c12_master
-          WHERE device_id = $1
-            AND bc_880nm IS NOT NULL
-            AND time_stamp >= NOW() - INTERVAL '1 year'
-          GROUP BY device_id
+
+          FROM device_data d
+          CROSS JOIN latest l
+          WHERE d.time_stamp >
+                l.latest_time - INTERVAL '1 year'
+            AND d.time_stamp <= l.latest_time
           `,
           [componentId]
         );
