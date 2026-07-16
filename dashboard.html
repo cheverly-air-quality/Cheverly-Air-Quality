@@ -2342,40 +2342,81 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  function quantAQHasUsableData(sensor) {
+    if (!sensor) return false;
+    const data = quantAveragesCache[sensor.sn] || quantCache[sensor.sn];
+    if (!data) return false;
+
+    return [
+      data.pm25_24h ?? data.pm25 ?? data.pm2_5,
+      data.pm10_24h ?? data.pm10,
+      data.o3_highest_8h ?? data.o3_8h ?? data.o3,
+      data.co_highest_8h ?? data.co_8h ?? data.co,
+      data.no2_highest_1h ?? data.no2_1h ?? data.no2
+    ].some(value => activeNum(value) !== null);
+  }
+
+  function c12HasUsableData(sensor) {
+    if (!sensor) return false;
+    const data = c12Cache[sensor.compId];
+    return activeNum(data?.bcAverage ?? data?.bc) !== null;
+  }
+
   function nearestQuantAQ(lat, lon) {
-    if (!hasValidCoords(lat, lon)) return null;
+    const candidates = SPODS.filter(quantAQHasUsableData);
+    if (candidates.length === 0) return null;
 
-    let best = null;
-    let bestDist = Infinity;
+    // Prefer the geographically closest sensor whenever both locations are known.
+    if (hasValidCoords(lat, lon)) {
+      let best = null;
+      let bestDist = Infinity;
 
-    for (const s of SPODS) {
-      if (!hasValidCoords(s.lat, s.lon)) continue;
-      const d = haversineKm(lat, lon, s.lat, s.lon);
-      if (d < bestDist) {
-        bestDist = d;
-        best = s;
+      for (const sensor of candidates) {
+        if (!hasValidCoords(sensor.lat, sensor.lon)) continue;
+        const distance = haversineKm(lat, lon, sensor.lat, sensor.lon);
+        if (distance < bestDist) {
+          bestDist = distance;
+          best = sensor;
+        }
       }
+
+      if (best) return best;
     }
 
-    return best;
+    // A station should still receive the QuantAQ pollutant packet even when
+    // one sensor's coordinates are temporarily unavailable.
+    return candidates[0];
   }
 
   function nearestC12(lat, lon) {
-    if (!hasValidCoords(lat, lon)) return null;
+    const candidates = C12S.filter(c12HasUsableData);
+    if (candidates.length === 0) return null;
 
-    let best = null;
-    let bestDist = Infinity;
+    // Prefer the geographically closest C-12 whenever coordinates are known.
+    if (hasValidCoords(lat, lon)) {
+      let best = null;
+      let bestDist = Infinity;
 
-    for (const c of C12S) {
-      if (!hasValidCoords(c.lat, c.lon)) continue;
-      const d = haversineKm(lat, lon, c.lat, c.lon);
-      if (d < bestDist) {
-        bestDist = d;
-        best = c;
+      for (const sensor of candidates) {
+        const cached = c12Cache[sensor.compId] || {};
+        const sensorLat = hasValidCoords(sensor.lat, sensor.lon) ? sensor.lat : cached.lat;
+        const sensorLon = hasValidCoords(sensor.lat, sensor.lon) ? sensor.lon : cached.lon;
+
+        if (!hasValidCoords(sensorLat, sensorLon)) continue;
+
+        const distance = haversineKm(lat, lon, sensorLat, sensorLon);
+        if (distance < bestDist) {
+          bestDist = distance;
+          best = sensor;
+        }
       }
+
+      if (best) return best;
     }
 
-    return best;
+    // Do not drop BC and DPM just because a C-12 coordinate is unavailable.
+    // Use the first C-12 with a valid stored average/live reading as a fallback.
+    return candidates[0];
   }
 
   function addKnownAQI(pollutants, label, aqi, options = {}) {
@@ -2455,14 +2496,11 @@
   function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
     const pollutants = [...ownPollutants];
 
-    if (!hasValidCoords(lat, lon)) {
-      return pollutants;
-    }
-
-    // Packet-based CE-AQI:
-    // If a QuantAQ or C-12 value is borrowed from the closest nearby sensor, it is still
-    // part of the pollutant set for this site and can be the CE-AQI base if it is the
-    // highest pollutant-specific AQI.
+    // Universal pollutant packet:
+    // Every displayed station receives all available CE-AQI pollutant variables.
+    // Missing variables come from the closest usable QuantAQ or C-12 sensor. If a
+    // sensor temporarily lacks coordinates, the first usable network sensor is used
+    // rather than dropping those variables from the station breakdown.
     const supportMeta = {
       canBeBase: true,
       isSupport: true
@@ -2481,9 +2519,12 @@
 
     const nearestC = nearestC12(lat, lon);
     if (nearestC && nearestC.compId !== options.skipC12) {
+      const c12Data = c12Cache[nearestC.compId] || {};
+      const bcForCEAQI = activeNum(c12Data.bcAverage ?? c12Data.bc);
+
       addC12Pollutants(
         pollutants,
-        c12Cache[nearestC.compId]?.bc,
+        bcForCEAQI,
         `nearby ${nearestC.compId}`,
         supportMeta
       );
@@ -3294,8 +3335,12 @@
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("C12-")) {
       const compId = id.replace("C12-", "");
-      const res = await proxyGet({ action: "grove_last", compId });
+      const [res, averageResponse] = await Promise.all([
+        proxyGet({ action: "grove_last", compId }),
+        proxyGet({ action: "c12_average", compId })
+      ]);
       const rows = Array.isArray(res) ? res : (res?.data || []);
+      const bcAverage = activeNum(averageResponse?.data?.bc_available_average);
 
       const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
@@ -3321,6 +3366,7 @@
       c12Cache[compId] = {
         ...(c12Cache[compId] || {}),
         bc,
+        bcAverage: bcAverage ?? c12Cache[compId]?.bcAverage ?? null,
         lat: stationLat,
         lon: stationLon,
         latestTimeMs
@@ -3351,7 +3397,8 @@
       }
 
       const ownPollutants = [];
-      addC12Pollutants(ownPollutants, bc, compId);
+      const bcForCEAQI = activeNum(bcAverage ?? c12Cache[compId]?.bcAverage ?? bc);
+      addC12Pollutants(ownPollutants, bcForCEAQI, compId);
 
       const pollutants = buildCompletePollutantsForLocation(stationLat, stationLon, ownPollutants, {
         skipC12: compId,
@@ -3409,8 +3456,13 @@
     const now = Date.now();
 
     await Promise.all(C12S.map(async (c) => {
-      const res = await proxyGet({ action: "grove_last", compId: c.compId });
+      const [res, averageResponse] = await Promise.all([
+        proxyGet({ action: "grove_last", compId: c.compId }),
+        proxyGet({ action: "c12_average", compId: c.compId })
+      ]);
+
       const rows = Array.isArray(res) ? res : (res?.data || []);
+      const bcAverage = activeNum(averageResponse?.data?.bc_available_average);
 
       const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
       const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
@@ -3424,7 +3476,13 @@
         console.log(`C12 ${c.compId}: stale reading skipped`);
       }
 
-      c12Cache[c.compId] = { bc, lat, lon, latestTimeMs };
+      c12Cache[c.compId] = {
+        bc,
+        bcAverage,
+        lat,
+        lon,
+        latestTimeMs
+      };
 
       if (hasValidCoords(lat, lon)) {
         c.lat = lat;
@@ -3485,7 +3543,7 @@
       if (!cd || !hasValidCoords(cd.lat, cd.lon)) continue;
 
       const ownPollutants = [];
-      addC12Pollutants(ownPollutants, cd.bc, c.compId);
+      addC12Pollutants(ownPollutants, activeNum(cd.bcAverage ?? cd.bc), c.compId);
 
       const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
         skipC12: c.compId,
