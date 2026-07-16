@@ -1,0 +1,38 @@
+name: C-12 Historical Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "First Eastern date, YYYY-MM-DD"
+        required: true
+        type: string
+      end_date:
+        description: "Last Eastern date, YYYY-MM-DD (maximum 31 days)"
+        required: true
+        type: string
+
+jobs:
+  backfill-c12:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run C-12 Backfill
+        env:
+          GROVESTREAMS_API_KEY: ${{ secrets.GROVESTREAMS_API_KEY }}
+          DB_URL: ${{ secrets.DB_URL }}
+          BACKFILL_START_DATE: ${{ inputs.start_date }}
+          BACKFILL_END_DATE: ${{ inputs.end_date }}
+        run: python c12_backfill.py
