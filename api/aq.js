@@ -788,3 +788,15 @@ export default async function handler(req, res) {
         });
       }
     }
+
+    return res.status(404).json({
+      error: "unknown_action",
+      action
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "server_error",
+      detail: String(error)
+    });
+  }
+}
