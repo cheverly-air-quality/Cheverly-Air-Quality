@@ -11,13 +11,12 @@ from sqlalchemy import create_engine, text
 
 load_dotenv()
 
-GROVESTREAMS_API_KEY = os.getenv("GROVESTREAMS_API_KEY")
 DB_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL")
 START_DATE = os.getenv("BACKFILL_START_DATE")
 END_DATE = os.getenv("BACKFILL_END_DATE")
 
 DEVICES = ["D14781", "D14645", "D17615", "E10588", "D14646"]
-BASE_URL = "https://grovestreams.com/api"
+API_URL = "https://cheverly-air-quality.vercel.app/api/aq"
 STREAM_ID = "880nm"
 EASTERN = ZoneInfo("America/New_York")
 
@@ -51,42 +50,39 @@ def to_float(value):
 
 
 def local_day_to_utc_ms(day):
-    """
-    Interpret the requested date as an Eastern calendar day and convert its
-    boundaries to UTC epoch milliseconds for GroveStreams.
-    This handles EST/EDT correctly, rather than always subtracting four hours.
-    """
     local_start = datetime(day.year, day.month, day.day, tzinfo=EASTERN)
     local_end = local_start + timedelta(days=1)
 
-    utc_start = local_start.astimezone(timezone.utc)
-    utc_end = local_end.astimezone(timezone.utc)
-
     return (
-        int(utc_start.timestamp() * 1000),
-        int(utc_end.timestamp() * 1000),
+        int(local_start.astimezone(timezone.utc).timestamp() * 1000),
+        int(local_end.astimezone(timezone.utc).timestamp() * 1000),
     )
 
 
 def fetch_day(device_id, day):
     start_ms, end_ms = local_day_to_utc_ms(day)
 
-    url = f"{BASE_URL}/comp/{device_id}/stream/{STREAM_ID}/feed"
-    params = {
-        "sd": start_ms,
-        "ed": end_ms,
-        "api_key": GROVESTREAMS_API_KEY,
-    }
-
-    response = requests.get(url, params=params, timeout=60)
-
-    if response.status_code == 404:
-        return []
+    response = requests.get(
+        API_URL,
+        params={
+            "action": "grove_history",
+            "compId": device_id,
+            "streamId": STREAM_ID,
+            "start": start_ms,
+            "end": end_ms,
+        },
+        timeout=90,
+    )
 
     response.raise_for_status()
     payload = response.json()
 
-    return payload if isinstance(payload, list) else []
+    if isinstance(payload, dict):
+        rows = payload.get("data", [])
+    else:
+        rows = payload
+
+    return rows if isinstance(rows, list) else []
 
 
 def normalize_hourly(device_id, rows):
@@ -100,11 +96,14 @@ def normalize_hourly(device_id, rows):
             continue
 
         try:
-            utc_time = datetime.fromtimestamp(float(time_ms) / 1000.0, tz=timezone.utc)
+            utc_time = datetime.fromtimestamp(
+                float(time_ms) / 1000.0,
+                tz=timezone.utc,
+            )
         except (TypeError, ValueError, OSError):
             continue
 
-        # Match the existing C-12 table, which stores Eastern local clock time.
+        # Match the existing C-12 table's Eastern local timestamps.
         local_time = utc_time.astimezone(EASTERN).replace(tzinfo=None)
 
         normalized.append({
@@ -113,16 +112,20 @@ def normalize_hourly(device_id, rows):
             "bc_880nm": value,
         })
 
-    df = pd.DataFrame(normalized)
+    dataframe = pd.DataFrame(normalized)
 
-    if df.empty:
-        return df
+    if dataframe.empty:
+        return dataframe
 
-    df["time_stamp"] = pd.to_datetime(df["time_stamp"]).dt.floor("h")
+    dataframe["time_stamp"] = pd.to_datetime(
+        dataframe["time_stamp"]
+    ).dt.floor("h")
 
     return (
-        df.groupby(["device_id", "time_stamp"], as_index=False)
-        ["bc_880nm"]
+        dataframe.groupby(
+            ["device_id", "time_stamp"],
+            as_index=False,
+        )["bc_880nm"]
         .mean()
     )
 
@@ -172,9 +175,6 @@ def upsert_rows(engine, dataframe):
 
 
 def main():
-    if not GROVESTREAMS_API_KEY:
-        raise RuntimeError("Missing GROVESTREAMS_API_KEY GitHub secret.")
-
     if not DB_URL:
         raise RuntimeError("Missing DB_URL GitHub secret.")
 
@@ -215,7 +215,10 @@ def main():
 
             time.sleep(0.35)
 
-    print(f"C-12 backfill complete. Inserted or updated {total} hourly rows.")
+    print(
+        f"C-12 backfill complete. "
+        f"Inserted or updated {total} hourly rows."
+    )
 
 
 if __name__ == "__main__":
