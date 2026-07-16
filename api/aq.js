@@ -589,6 +589,87 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
+    // GroveStreams/C-12: test historical stream responses
+    // --------------------------------------------------
+    
+    if (action === "grove_history_test") {
+      if (!GROVE_KEY) {
+        return res.status(500).json({
+          error: "missing_GROVESTREAMS_API_KEY"
+        });
+      }
+    
+      const componentId = req.query.compId;
+      const streamId = req.query.streamId || "880nm";
+      const start = req.query.start;
+      const end = req.query.end;
+    
+      if (!componentId || !start || !end) {
+        return res.status(400).json({
+          error: "missing_compId_start_or_end"
+        });
+      }
+    
+      const candidates = [
+        {
+          name: "stream_feed_sd_ed",
+          url:
+            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
+            `/stream/${encodeURIComponent(streamId)}/feed` +
+            `?sd=${encodeURIComponent(start)}` +
+            `&ed=${encodeURIComponent(end)}` +
+            `&api_key=${encodeURIComponent(GROVE_KEY)}`
+        },
+        {
+          name: "stream_feed_start_end",
+          url:
+            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
+            `/stream/${encodeURIComponent(streamId)}/feed` +
+            `?start=${encodeURIComponent(start)}` +
+            `&end=${encodeURIComponent(end)}` +
+            `&api_key=${encodeURIComponent(GROVE_KEY)}`
+        },
+        {
+          name: "stream_data",
+          url:
+            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
+            `/stream/${encodeURIComponent(streamId)}/data` +
+            `?start=${encodeURIComponent(start)}` +
+            `&end=${encodeURIComponent(end)}` +
+            `&api_key=${encodeURIComponent(GROVE_KEY)}`
+        }
+      ];
+    
+      const results = [];
+    
+      for (const candidate of candidates) {
+        try {
+          const output = await fetchJson(candidate.url);
+    
+          results.push({
+            name: candidate.name,
+            status: output.status,
+            ok: output.ok,
+            data: output.data
+          });
+        } catch (error) {
+          results.push({
+            name: candidate.name,
+            error: String(error)
+          });
+        }
+      }
+    
+      return res.status(200).json({
+        componentId,
+        streamId,
+        start,
+        end,
+        results
+      });
+    }
+    
+    // --------------------------------------------------
     // GroveStreams / C-12: latest readings
     // --------------------------------------------------
 
