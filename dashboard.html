@@ -974,6 +974,72 @@
       backdrop-filter: blur(10px);
     }
 
+
+    .skip-link {
+      position: fixed;
+      left: 12px;
+      top: -80px;
+      z-index: 10000;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #ffffff;
+      color: var(--brand-navy);
+      font-weight: 900;
+      box-shadow: var(--shadow);
+    }
+
+    .skip-link:focus {
+      top: 10px;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    a:focus-visible,
+    .leaflet-interactive:focus-visible {
+      outline: 3px solid #0b63ce;
+      outline-offset: 3px;
+    }
+
+    .worst-cluster-icon {
+      background: transparent !important;
+      border: 0 !important;
+    }
+
+    .worst-cluster {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--cluster-color, #bbb);
+      color: #111827;
+      border: 3px solid #fff;
+      box-shadow: 0 5px 16px rgba(15, 23, 42, 0.4);
+      font-size: 0.78rem;
+      font-weight: 950;
+      line-height: 1;
+      text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 66px 0 0;
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248, 251, 255, 0.82);
+      color: var(--brand-navy);
+      font-weight: 900;
+      backdrop-filter: blur(3px);
+    }
+
+    .loading-overlay.hidden {
+      display: none;
+    }
+
     @media (max-width: 1500px) {
       #sidebar {
         width: 272px;
@@ -1088,10 +1154,175 @@
         text-align: left;
       }
     }
+
+    @media (max-width: 760px) {
+      html,
+      body {
+        height: auto;
+        min-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .topbar {
+        min-height: 58px;
+        height: auto;
+        padding: 10px 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+        position: sticky;
+        top: 0;
+      }
+
+      .brand {
+        font-size: 1rem;
+      }
+
+      .nav {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        gap: 5px;
+      }
+
+      .nav a {
+        flex: 1;
+        margin: 0;
+        padding: 9px 5px;
+        text-align: center;
+        border-radius: 10px;
+        font-size: 0.78rem;
+      }
+
+      .nav a.active {
+        border-bottom: 0;
+        background: rgba(255,255,255,0.15);
+        padding-bottom: 9px;
+      }
+
+      #layout {
+        height: auto;
+        min-height: 0;
+        width: 100%;
+        padding: 10px;
+        padding-bottom: 10px;
+        overflow: visible;
+        flex-direction: column;
+      }
+
+      #main-content {
+        order: 1;
+        overflow: visible;
+        width: 100%;
+      }
+
+      #sidebar {
+        order: 2;
+        width: 100%;
+        min-width: 0;
+        display: block;
+        overflow: visible;
+        border-radius: 18px;
+      }
+
+      .sidebar-intro {
+        padding-top: 4px;
+      }
+
+      .dashboard-grid {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .map-card {
+        min-height: 0;
+      }
+
+      #map {
+        min-height: 52vh;
+        height: 52vh;
+      }
+
+      .map-legend {
+        position: absolute;
+        top: 82px;
+        right: 7px;
+        margin: 0;
+        min-width: 132px;
+        max-width: 43vw;
+        padding: 7px;
+        font-size: 0.65rem;
+      }
+
+      .legend-item,
+      .sensor-key-row {
+        font-size: 0.62rem;
+      }
+
+      .panel-card,
+      .chart-card {
+        min-height: 0;
+      }
+
+      #chart-box {
+        height: 250px;
+        padding: 10px;
+      }
+
+      .aqi-showcase {
+        grid-template-columns: 96px 1fr;
+      }
+
+      .aqi-val {
+        font-size: 3rem;
+      }
+
+      .reading-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      button,
+      input,
+      select {
+        min-height: 44px;
+        font-size: 16px;
+      }
+
+      .risk-modal {
+        padding: 8px;
+        align-items: flex-start;
+      }
+
+      .risk-modal-card {
+        width: 100%;
+        max-height: 94vh;
+        margin-top: 8px;
+        padding: 16px;
+        border-radius: 16px;
+      }
+
+      .risk-summary {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .risk-scale,
+      .risk-bar-row {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-disclaimer {
+        position: static;
+        padding: 8px 12px;
+        pointer-events: auto;
+      }
+    }
+
   </style>
 </head>
 
 <body>
+<a class="skip-link" href="#main-content">Skip to dashboard content</a>
 <header class="topbar">
   <div class="brand">Cheverly Air Quality</div>
   <nav class="nav">
@@ -1113,7 +1344,7 @@
       <h2 class="card-title">Find your nearest station</h2>
       <p class="card-help">Search an address in or near Cheverly and jump to the closest live sensor.</p>
       <label>Location Search</label>
-      <input type="text" id="addrInput" placeholder="Enter an Address">
+      <input type="text" id="addrInput" placeholder="Enter an Address" autocomplete="street-address" aria-label="Address near Cheverly">
       <button id="locateBtn">Find Nearest Station</button>
     </div>
 
@@ -1121,7 +1352,7 @@
       <h2 class="card-title">Station selection</h2>
       <p class="card-help">Choose a station directly, or click a marker on the map.</p>
       <label>Station</label>
-      <select id="devSel" onchange="handleDropdownChange(this.value, true)"></select>
+      <select id="devSel" aria-label="Choose an air-quality station" onchange="handleDropdownChange(this.value, true)"></select>
     </div>
 
     <div class="card">
@@ -1148,7 +1379,8 @@
           <span id="mapStationType" class="type-pill">Select a station</span>
         </div>
 
-        <div id="map"></div>
+        <div id="map" role="application" aria-label="Interactive Cheverly air-quality station map"></div>
+        <div id="mapLoading" class="loading-overlay" role="status" aria-live="polite">Loading station data…</div>
 
         <div class="map-legend">
           <div class="legend-title">Air Quality Index</div>
@@ -1374,7 +1606,23 @@
     disableClusteringAtZoom: 16,
     spiderfyOnMaxZoom: true,
     showCoverageOnHover: false,
-    maxClusterRadius: 55
+    maxClusterRadius: 55,
+    iconCreateFunction: function (clusterGroup) {
+      const childMarkers = clusterGroup.getAllChildMarkers();
+      const worstAQI = childMarkers.reduce((worst, marker) => {
+        const value = Number(marker.options.ceaqiValue);
+        return Number.isFinite(value) ? Math.max(worst, value) : worst;
+      }, 0);
+      const color = getAQIColor(worstAQI);
+      const count = childMarkers.length;
+
+      return L.divIcon({
+        className: "worst-cluster-icon",
+        html: `<div class="worst-cluster" style="--cluster-color:${color}" aria-label="${count} stations, worst CE-AQI ${worstAQI || 'unavailable'}">${count}</div>`,
+        iconSize: [46, 46],
+        iconAnchor: [23, 23]
+      });
+    }
   });
 
   map.addLayer(cluster);
@@ -2640,7 +2888,9 @@
       baseLabel: baseLabel ?? oldMeta.baseLabel ?? null
     };
 
+    marker.options.ceaqiValue = value;
     marker.setIcon(createStationIcon(id, value));
+    cluster.refreshClusters(marker);
     marker.bindTooltip(buildMarkerTooltip(value, markerMeta[id].latestTimeMs, markerMeta[id].baseLabel), {
       permanent: false,
       direction: "top",
@@ -2657,7 +2907,10 @@
 
     const marker = L.marker([Number(lat), Number(lon)], {
       icon: createStationIcon(id, value),
-      title: getStationDisplayName(id)
+      title: getStationDisplayName(id),
+      ceaqiValue: value,
+      keyboard: true,
+      alt: `${getStationDisplayName(id)}, CE-AQI ${value || "unavailable"}`
     });
 
     markerMeta[id] = {
@@ -3085,7 +3338,7 @@
       }
     }
 
-    for (const s of SPODS) {
+    await Promise.all(SPODS.map(async (s) => {
       const [latestResponse, averagesResponse] = await Promise.all([
         proxyGet({ action: "quantaq_latest", sn: s.sn }),
         proxyGet({ action: "quantaq_averages", sn: s.sn })
@@ -3094,12 +3347,12 @@
       const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
       quantCache[s.sn] = latestRows[0] || null;
       quantAveragesCache[s.sn] = averagesResponse?.data || null;
-    }
+    }));
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
     const now = Date.now();
 
-    for (const c of C12S) {
+    await Promise.all(C12S.map(async (c) => {
       const res = await proxyGet({ action: "grove_last", compId: c.compId });
       const rows = Array.isArray(res) ? res : (res?.data || []);
 
@@ -3121,7 +3374,7 @@
         c.lat = lat;
         c.lon = lon;
       }
-    }
+    }));
 
     paDataArr.sort((a, b) => {
       const idA = String(a[0]);
@@ -3202,9 +3455,16 @@
       selectedStationId = defaultId;
       handleDropdownChange(defaultId, false);
     }
+
+    document.getElementById("mapLoading")?.classList.add("hidden");
+    setTimeout(() => map.invalidateSize(), 50);
   }
 
-  init();
+  init().catch(error => {
+    console.error("Dashboard initialization failed:", error);
+    const loading = document.getElementById("mapLoading");
+    if (loading) loading.textContent = "Some station data could not be loaded. Please refresh.";
+  });
 </script>
 </body>
 </html>
