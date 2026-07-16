@@ -589,10 +589,10 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // GroveStreams/C-12: test historical stream responses
+    // GroveStreams / C-12: historical stream data
     // --------------------------------------------------
     
-    if (action === "grove_history_test") {
+    if (action === "grove_history") {
       if (!GROVE_KEY) {
         return res.status(500).json({
           error: "missing_GROVESTREAMS_API_KEY"
@@ -610,62 +610,29 @@ export default async function handler(req, res) {
         });
       }
     
-      const candidates = [
-        {
-          name: "stream_feed_sd_ed",
-          url:
-            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
-            `/stream/${encodeURIComponent(streamId)}/feed` +
-            `?sd=${encodeURIComponent(start)}` +
-            `&ed=${encodeURIComponent(end)}` +
-            `&api_key=${encodeURIComponent(GROVE_KEY)}`
-        },
-        {
-          name: "stream_feed_start_end",
-          url:
-            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
-            `/stream/${encodeURIComponent(streamId)}/feed` +
-            `?start=${encodeURIComponent(start)}` +
-            `&end=${encodeURIComponent(end)}` +
-            `&api_key=${encodeURIComponent(GROVE_KEY)}`
-        },
-        {
-          name: "stream_data",
-          url:
-            `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
-            `/stream/${encodeURIComponent(streamId)}/data` +
-            `?start=${encodeURIComponent(start)}` +
-            `&end=${encodeURIComponent(end)}` +
-            `&api_key=${encodeURIComponent(GROVE_KEY)}`
-        }
-      ];
+      const url =
+        `https://grovestreams.com/api/comp/${encodeURIComponent(componentId)}` +
+        `/stream/${encodeURIComponent(streamId)}/feed` +
+        `?sd=${encodeURIComponent(start)}` +
+        `&ed=${encodeURIComponent(end)}` +
+        `&api_key=${encodeURIComponent(GROVE_KEY)}`;
     
-      const results = [];
+      const output = await fetchJson(url);
     
-      for (const candidate of candidates) {
-        try {
-          const output = await fetchJson(candidate.url);
-    
-          results.push({
-            name: candidate.name,
-            status: output.status,
-            ok: output.ok,
-            data: output.data
-          });
-        } catch (error) {
-          results.push({
-            name: candidate.name,
-            error: String(error)
-          });
-        }
+      if (!output.ok) {
+        return res.status(output.status).json({
+          error: "grove_history_failed",
+          status: output.status,
+          details: output.data
+        });
       }
     
       return res.status(200).json({
-        componentId,
-        streamId,
+        device_id: componentId,
+        stream_id: streamId,
         start,
         end,
-        results
+        data: Array.isArray(output.data) ? output.data : []
       });
     }
     
