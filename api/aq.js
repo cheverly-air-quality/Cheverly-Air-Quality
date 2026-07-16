@@ -444,9 +444,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // --------------------------------------------------
-    // QuantAQ database: rolling CE-AQI inputs
-    // --------------------------------------------------
+// --------------------------------------------------
+// QuantAQ database: rolling CE-AQI inputs
+// --------------------------------------------------
 
     if (action === "quantaq_averages") {
       if (!process.env.DATABASE_URL) {
@@ -454,158 +454,128 @@ export default async function handler(req, res) {
           error: "missing_DATABASE_URL"
         });
       }
-
+    
       const serialNumber = req.query.sn;
-
+    
       if (!serialNumber) {
         return res.status(400).json({
           error: "missing_sn"
         });
       }
-
+    
       try {
         const result = await pool.query(
           `
-          WITH sensor_data AS (
-            SELECT
-              time_stamp,
-              pm25,
-              pm10,
-              o3,
-              co,
-              no2
+          WITH latest AS (
+            SELECT MAX(time_stamp) AS latest_time
             FROM quantaq_master
             WHERE sensor_sn = $1
           ),
-
-          latest AS (
-            SELECT MAX(time_stamp) AS latest_time
-            FROM sensor_data
-          ),
-
-          recent_24h AS (
-            SELECT s.*
-            FROM sensor_data s
-            CROSS JOIN latest l
-            WHERE s.time_stamp >
-                  l.latest_time - INTERVAL '24 hours'
-              AND s.time_stamp <= l.latest_time
-          ),
-
-          rolling_values AS (
+    
+          sensor_data AS (
             SELECT
-              current_row.time_stamp,
-
-              (
-                SELECT AVG(window_row.o3)
-                FROM sensor_data window_row
-                WHERE window_row.time_stamp >
-                      current_row.time_stamp -
-                      INTERVAL '8 hours'
-                  AND window_row.time_stamp <=
-                      current_row.time_stamp
-                  AND window_row.o3 IS NOT NULL
-              ) AS o3_8h_average,
-
-              (
-                SELECT AVG(window_row.co)
-                FROM sensor_data window_row
-                WHERE window_row.time_stamp >
-                      current_row.time_stamp -
-                      INTERVAL '1 hour'
-                  AND window_row.time_stamp <=
-                      current_row.time_stamp
-                  AND window_row.co IS NOT NULL
-              ) AS co_1h_average,
-
-              (
-                SELECT AVG(window_row.co)
-                FROM sensor_data window_row
-                WHERE window_row.time_stamp >
-                      current_row.time_stamp -
-                      INTERVAL '8 hours'
-                  AND window_row.time_stamp <=
-                      current_row.time_stamp
-                  AND window_row.co IS NOT NULL
-              ) AS co_8h_average,
-
-              (
-                SELECT AVG(window_row.no2)
-                FROM sensor_data window_row
-                WHERE window_row.time_stamp >
-                      current_row.time_stamp -
-                      INTERVAL '1 hour'
-                  AND window_row.time_stamp <=
-                      current_row.time_stamp
-                  AND window_row.no2 IS NOT NULL
-              ) AS no2_1h_average
-
-            FROM recent_24h current_row
+              q.time_stamp,
+              q.pm25,
+              q.pm10,
+              q.o3,
+              q.co,
+              q.no2,
+              l.latest_time
+            FROM quantaq_master q
+            CROSS JOIN latest l
+            WHERE q.sensor_sn = $1
+              AND q.time_stamp >
+                  l.latest_time - INTERVAL '1 year'
+              AND q.time_stamp <= l.latest_time
+          ),
+    
+          rolling AS (
+            SELECT
+              time_stamp,
+              latest_time,
+    
+              AVG(o3) OVER (
+                ORDER BY time_stamp
+                RANGE BETWEEN INTERVAL '8 hours' PRECEDING
+                AND CURRENT ROW
+              ) AS o3_8h,
+    
+              AVG(co) OVER (
+                ORDER BY time_stamp
+                RANGE BETWEEN INTERVAL '1 hour' PRECEDING
+                AND CURRENT ROW
+              ) AS co_1h,
+    
+              AVG(co) OVER (
+                ORDER BY time_stamp
+                RANGE BETWEEN INTERVAL '8 hours' PRECEDING
+                AND CURRENT ROW
+              ) AS co_8h,
+    
+              AVG(no2) OVER (
+                ORDER BY time_stamp
+                RANGE BETWEEN INTERVAL '1 hour' PRECEDING
+                AND CURRENT ROW
+              ) AS no2_1h
+    
+            FROM sensor_data
           )
-
+    
           SELECT
             $1::text AS sn,
-
-            (
-              SELECT AVG(pm25)
-              FROM recent_24h
-              WHERE pm25 IS NOT NULL
-            ) AS pm25_24h,
-
-            (
-              SELECT AVG(pm10)
-              FROM recent_24h
-              WHERE pm10 IS NOT NULL
-            ) AS pm10_24h,
-
-            (
-              SELECT MAX(o3_8h_average)
-              FROM rolling_values
-            ) AS o3_highest_8h,
-
-            (
-              SELECT MAX(co_1h_average)
-              FROM rolling_values
-            ) AS co_highest_1h,
-
-            (
-              SELECT MAX(co_8h_average)
-              FROM rolling_values
-            ) AS co_highest_8h,
-
-            (
-              SELECT MAX(no2_1h_average)
-              FROM rolling_values
-            ) AS no2_highest_1h,
-
-            (
-              SELECT AVG(s.no2)
-              FROM sensor_data s
-              CROSS JOIN latest l
+    
+            AVG(s.pm25) FILTER (
               WHERE s.time_stamp >
-                    l.latest_time - INTERVAL '1 year'
-                AND s.time_stamp <= l.latest_time
-                AND s.no2 IS NOT NULL
-            ) AS no2_annual_available_average,
-
+                    s.latest_time - INTERVAL '24 hours'
+            ) AS pm25_24h,
+    
+            AVG(s.pm10) FILTER (
+              WHERE s.time_stamp >
+                    s.latest_time - INTERVAL '24 hours'
+            ) AS pm10_24h,
+    
             (
-              SELECT MIN(time_stamp)
-              FROM sensor_data
-            ) AS earliest_record,
-
+              SELECT MAX(r.o3_8h)
+              FROM rolling r
+              WHERE r.time_stamp >
+                    r.latest_time - INTERVAL '24 hours'
+            ) AS o3_highest_8h,
+    
             (
-              SELECT latest_time
-              FROM latest
-            ) AS latest_record,
-
+              SELECT MAX(r.co_1h)
+              FROM rolling r
+              WHERE r.time_stamp >
+                    r.latest_time - INTERVAL '24 hours'
+            ) AS co_highest_1h,
+    
             (
-              SELECT COUNT(*)
-              FROM sensor_data
-            ) AS stored_rows
+              SELECT MAX(r.co_8h)
+              FROM rolling r
+              WHERE r.time_stamp >
+                    r.latest_time - INTERVAL '24 hours'
+            ) AS co_highest_8h,
+    
+            (
+              SELECT MAX(r.no2_1h)
+              FROM rolling r
+              WHERE r.time_stamp >
+                    r.latest_time - INTERVAL '24 hours'
+            ) AS no2_highest_1h,
+    
+            AVG(s.no2) AS no2_annual_available_average,
+    
+            MIN(s.time_stamp) AS earliest_record,
+    
+            MAX(s.time_stamp) AS latest_record,
+    
+            COUNT(*) AS stored_rows
+    
+          FROM sensor_data s
+          GROUP BY s.latest_time
           `,
           [serialNumber]
         );
-
+    
         return res.status(200).json({
           sn: serialNumber,
           data: result.rows[0] || null
