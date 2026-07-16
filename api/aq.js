@@ -1,13 +1,22 @@
 import pg from "pg";
 
-const { Pool } = pg;
+const pool =
+  globalThis.cheverlyDbPool ||
+  new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    },
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+    // Keep the free Aiven database from running out of connections.
+    max: 1,
+    min: 0,
+    idleTimeoutMillis: 5000,
+    connectionTimeoutMillis: 10000,
+    allowExitOnIdle: true
+  });
+
+globalThis.cheverlyDbPool = pool;
 
 export const config = { runtime: "nodejs" };
 
