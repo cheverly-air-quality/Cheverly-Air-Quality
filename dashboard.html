@@ -3487,10 +3487,6 @@
       await new Promise(resolve => setTimeout(resolve, 150));
     }
 
-      const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
-      quantCache[s.sn] = latestRows[0] || null;
-      quantAveragesCache[s.sn] = averagesResponse?.data || null;
-    }));
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
     const now = Date.now();
