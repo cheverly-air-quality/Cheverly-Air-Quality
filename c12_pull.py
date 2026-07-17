@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 
 load_dotenv()
 
-DEVICES = ["D14781", "D14645", "D17615", "E10588", "D14646"]
+DEVICES = ["D14781", "D14645", "D17615", "E10588", "D14646", "B19939"]
 BASE_URL = "https://cheverly-air-quality.vercel.app/api/aq"
 
 DB_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL")
