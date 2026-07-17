@@ -1,11 +1,3 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/aq",
-      "destination": "/api/aq.js"
-    }
-  ],
-  "buildCommand": "",
-  "outputDirectory": "."
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
-
