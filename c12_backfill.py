@@ -15,7 +15,14 @@ DB_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL")
 START_DATE = os.getenv("BACKFILL_START_DATE")
 END_DATE = os.getenv("BACKFILL_END_DATE")
 
-DEVICES = ["D14781", "D14645", "D17615", "E10588", "D14646"]
+DEVICES = [
+    "D14781",
+    "D14645",
+    "D17615",
+    "E10588",
+    "D14646",
+    "B19939",
+]
 API_URL = "https://cheverly-air-quality.vercel.app/api/aq"
 STREAM_ID = "880nm"
 EASTERN = ZoneInfo("America/New_York")
