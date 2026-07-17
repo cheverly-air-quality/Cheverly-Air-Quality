@@ -2280,10 +2280,15 @@
       return quantAveragesCache[sn] || quantCache[sn];
     }
 
-    const [latestResponse, averagesResponse] = await Promise.all([
-      proxyGet({ action: "quantaq_latest", sn }),
-      proxyGet({ action: "quantaq_averages", sn })
-    ]);
+    const latestResponse = await proxyGet({
+      action: "quantaq_latest",
+      sn
+    });
+    
+    const averagesResponse = await proxyGet({
+      action: "quantaq_averages",
+      sn
+    });
 
     const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
     const latest = latestRows[0] || null;
@@ -3279,11 +3284,21 @@
       setLatestTimeDisplay(latestTimeMs);
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("MOD-")) {
-      const [latestResponse, historyResponse, averagesResponse] = await Promise.all([
-        proxyGet({ action: "quantaq_latest", sn: id }),
-        proxyGet({ action: "quantaq_history", sn: id, hours: STATION_TIMESERIES_HOURS }),
-        proxyGet({ action: "quantaq_averages", sn: id })
-      ]);
+      const latestResponse = await proxyGet({
+        action: "quantaq_latest",
+        sn: id
+      });
+      
+      const historyResponse = await proxyGet({
+        action: "quantaq_history",
+        sn: id,
+        hours: STATION_TIMESERIES_HOURS
+      });
+      
+      const averagesResponse = await proxyGet({
+        action: "quantaq_averages",
+        sn: id
+      });
 
       const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
       const historyRows = Array.isArray(historyResponse?.data) ? historyResponse.data : [];
@@ -3441,11 +3456,36 @@
       }
     }
 
-    await Promise.all(SPODS.map(async (s) => {
-      const [latestResponse, averagesResponse] = await Promise.all([
-        proxyGet({ action: "quantaq_latest", sn: s.sn }),
-        proxyGet({ action: "quantaq_averages", sn: s.sn })
-      ]);
+    for (const s of SPODS) {
+      try {
+        const latestResponse = await proxyGet({
+          action: "quantaq_latest",
+          sn: s.sn
+        });
+    
+        const latestRows = Array.isArray(latestResponse?.data)
+          ? latestResponse.data
+          : [];
+    
+        quantCache[s.sn] = latestRows[0] || null;
+    
+        const averagesResponse = await proxyGet({
+          action: "quantaq_averages",
+          sn: s.sn
+        });
+    
+        quantAveragesCache[s.sn] =
+          averagesResponse?.data || null;
+      } catch (error) {
+        console.error(`QuantAQ preload failed for ${s.sn}:`, error);
+    
+        quantCache[s.sn] = quantCache[s.sn] || null;
+        quantAveragesCache[s.sn] =
+          quantAveragesCache[s.sn] || null;
+      }
+    
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
 
       const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
       quantCache[s.sn] = latestRows[0] || null;
