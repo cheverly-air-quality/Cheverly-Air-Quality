@@ -109,58 +109,32 @@ export default async function handler(req, res) {
     // --------------------------------------------------
     // PurpleAir: station history
     // --------------------------------------------------
-
+    
     if (action === "purpleair_history") {
       if (!PURPLEAIR_KEY) {
         return res.status(500).json({
           error: "missing_PURPLEAIR_API_KEY"
         });
       }
-
+    
       const id = req.query.id;
-      const startInput = req.query.start;
-      const endInput = req.query.end;
-      
-      const toEpochMillis = (value) => {
-        if (!value) return null;
-      
-        const numericValue = Number(value);
-      
-        if (Number.isFinite(numericValue)) {
-          return Math.trunc(numericValue);
-        }
-      
-        const parsedDate = Date.parse(String(value));
-      
-        return Number.isFinite(parsedDate)
-          ? parsedDate
-          : null;
-      };
-      
-      const start = toEpochMillis(startInput);
-      const end = toEpochMillis(endInput);
-      
-      if (!componentId || start === null || end === null) {
+      const start = req.query.start;
+    
+      if (!id || !start) {
         return res.status(400).json({
-          error: "invalid_compId_start_or_end"
+          error: "missing_id_or_start"
         });
       }
-      
-      if (start >= end) {
-        return res.status(400).json({
-          error: "start_must_be_before_end"
-        });
-      } 
-
+    
       const url =
         `https://api.purpleair.com/v1/sensors/` +
         `${encodeURIComponent(id)}/history` +
         `?fields=pm2.5_atm` +
         `&average=60` +
         `&start_timestamp=${encodeURIComponent(start)}`;
-
+    
       const output = await purpleairFetch(url);
-
+    
       if (!output.ok) {
         return res.status(output.status).json({
           error: "purpleair_history_failed",
@@ -168,7 +142,7 @@ export default async function handler(req, res) {
           details: output.data
         });
       }
-
+    
       return res.status(200).json(output.data);
     }
 
