@@ -118,13 +118,39 @@ export default async function handler(req, res) {
       }
 
       const id = req.query.id;
-      const start = req.query.start;
-
-      if (!id || !start) {
+      const startInput = req.query.start;
+      const endInput = req.query.end;
+      
+      const toEpochMillis = (value) => {
+        if (!value) return null;
+      
+        const numericValue = Number(value);
+      
+        if (Number.isFinite(numericValue)) {
+          return Math.trunc(numericValue);
+        }
+      
+        const parsedDate = Date.parse(String(value));
+      
+        return Number.isFinite(parsedDate)
+          ? parsedDate
+          : null;
+      };
+      
+      const start = toEpochMillis(startInput);
+      const end = toEpochMillis(endInput);
+      
+      if (!componentId || start === null || end === null) {
         return res.status(400).json({
-          error: "missing_id_or_start"
+          error: "invalid_compId_start_or_end"
         });
       }
+      
+      if (start >= end) {
+        return res.status(400).json({
+          error: "start_must_be_before_end"
+        });
+      } 
 
       const url =
         `https://api.purpleair.com/v1/sensors/` +
