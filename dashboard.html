@@ -373,16 +373,23 @@
 
     .dashboard-grid {
       display: grid;
-      grid-template-columns: minmax(560px, 2fr) minmax(280px, 0.78fr);
+      grid-template-columns: minmax(560px, 2fr) minmax(320px, 0.9fr);
       gap: 12px;
       min-height: 480px;
+      align-items: start;
     }
 
     .map-card,
-    .panel-card,
     .chart-card {
       border-radius: 24px;
       overflow: hidden;
+    }
+
+    .panel-card {
+      border-radius: 24px;
+      overflow: visible;
+      height: auto;
+      align-self: start;
     }
 
     .map-card {
@@ -1047,7 +1054,7 @@
       }
 
       .dashboard-grid {
-        grid-template-columns: minmax(0, 2.15fr) minmax(255px, 0.72fr);
+        grid-template-columns: minmax(0, 2.05fr) minmax(320px, 0.95fr);
       }
 
       .panel-card {
@@ -1071,7 +1078,7 @@
       }
     }
 
-    @media (max-width: 1100px) {
+    @media (max-width: 1180px) {
       #layout {
         flex-direction: column;
         overflow-y: auto;
