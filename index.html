@@ -509,7 +509,7 @@
     });
 
     L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-      maxZoom: 19,
+      maxZoom: 19
     }).addTo(miniMap);
 
     L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
@@ -548,7 +548,9 @@
     };
 
     const SPODS = [
-      { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: null, lon: null },
+      // The code tries to resolve missing coordinates automatically.
+      // You can also place the same fixed MOD-00536 coordinates used in dashboard.html here.
+      { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: 38.920610, lon: -76.919770 },
       { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
       { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
       { sn: "MOD-00747", name: "QuantAQ MOD-00747", lat: 39.233944, lon: -76.504501 },
@@ -608,45 +610,87 @@
       { cLow: 1250, cHigh: 2049, iLow: 301, iHigh: 500 }
     ];
 
-    let paCoords = {};
-    let quantCache = {};
-    let c12Cache = {};
+    const paCoords = {};
+    const quantCache = {};
+    const quantAveragesCache = {};
+    const c12Cache = {};
+    const miniMarkers = [];
 
-    function safeNum(x) {
-      const v = Number(x);
-      return Number.isFinite(v) ? v : null;
+    function safeNum(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
     }
 
-    function activeNum(x) {
-      const v = safeNum(x);
-      return v !== null && v > 0 ? v : null;
+    function activeNum(value) {
+      const number = safeNum(value);
+      return number !== null && number > 0 ? number : null;
     }
 
     function hasValidCoords(lat, lon) {
-      const la = Number(lat);
-      const lo = Number(lon);
-      return Number.isFinite(la) && Number.isFinite(lo) && la !== 0 && lo !== 0;
+      const latitude = Number(lat);
+      const longitude = Number(lon);
+      return (
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude !== 0 &&
+        longitude !== 0
+      );
+    }
+
+    function normalizeTimestampMs(value) {
+      if (value === null || value === undefined || value === "") return null;
+
+      if (value instanceof Date) {
+        const ms = value.getTime();
+        return Number.isFinite(ms) ? ms : null;
+      }
+
+      if (typeof value === "number") {
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return value < 1e12 ? value * 1000 : value;
+      }
+
+      const trimmed = String(value).trim();
+      if (!trimmed) return null;
+
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        return normalizeTimestampMs(numeric);
+      }
+
+      const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(trimmed);
+      const parsed = Date.parse(hasTimezone ? trimmed : `${trimmed}Z`);
+      return Number.isFinite(parsed) ? parsed : null;
     }
 
     function getAQIColor(aqi) {
-      const v = Number(aqi);
-      if (!Number.isFinite(v)) return "#bbb";
-      if (v <= 50) return "#00e400";
-      if (v <= 100) return "#ffff00";
-      if (v <= 150) return "#ff7e00";
-      if (v <= 200) return "#ff0000";
-      if (v <= 300) return "#8f3f97";
+      const value = Number(aqi);
+      if (!Number.isFinite(value)) return "#bbb";
+      if (value <= 50) return "#00e400";
+      if (value <= 100) return "#ffff00";
+      if (value <= 150) return "#ff7e00";
+      if (value <= 200) return "#ff0000";
+      if (value <= 300) return "#8f3f97";
       return "#7e0023";
     }
 
-    function aqiFromBreakpoints(C, table) {
-      if (C === null || !Number.isFinite(Number(C))) return null;
-      const c = Number(C);
+    function aqiFromBreakpoints(concentration, table) {
+      if (concentration === null || !Number.isFinite(Number(concentration))) {
+        return null;
+      }
+
+      const value = Number(concentration);
+
       for (const bp of table) {
-        if (c >= bp.cLow && c <= bp.cHigh) {
-          return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+        if (value >= bp.cLow && value <= bp.cHigh) {
+          return Math.round(
+            ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) *
+              (value - bp.cLow) +
+              bp.iLow
+          );
         }
       }
+
       return null;
     }
 
@@ -664,103 +708,294 @@
     }
 
     function haversineKm(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const earthRadiusKm = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+
+      return (
+        earthRadiusKm *
+        2 *
+        Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      );
+    }
+
+    function quantAQHasUsableData(sensor) {
+      if (!sensor) return false;
+
+      const data =
+        quantAveragesCache[sensor.sn] ||
+        quantCache[sensor.sn];
+
+      if (!data) return false;
+
+      return [
+        data.pm25_24h ?? data.pm25 ?? data.pm2_5,
+        data.pm10_24h ?? data.pm10,
+        data.o3_highest_8h ?? data.o3_8h ?? data.o3,
+        data.co_highest_8h ?? data.co_8h ?? data.co,
+        data.no2_highest_1h ?? data.no2_1h ?? data.no2
+      ].some(value => activeNum(value) !== null);
+    }
+
+    function c12HasUsableData(sensor) {
+      if (!sensor) return false;
+      const data = c12Cache[sensor.compId];
+      return activeNum(data?.bcAverage ?? data?.bc) !== null;
     }
 
     function nearestQuantAQ(lat, lon) {
-      if (!hasValidCoords(lat, lon)) return null;
-      let best = null;
-      let bestDist = Infinity;
-      for (const s of SPODS) {
-        if (!hasValidCoords(s.lat, s.lon)) continue;
-        const d = haversineKm(lat, lon, s.lat, s.lon);
-        if (d < bestDist) {
-          bestDist = d;
-          best = s;
+      const candidates = SPODS.filter(quantAQHasUsableData);
+      if (candidates.length === 0) return null;
+
+      if (hasValidCoords(lat, lon)) {
+        let best = null;
+        let bestDistance = Infinity;
+
+        for (const sensor of candidates) {
+          if (!hasValidCoords(sensor.lat, sensor.lon)) continue;
+
+          const distance = haversineKm(
+            lat,
+            lon,
+            sensor.lat,
+            sensor.lon
+          );
+
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = sensor;
+          }
         }
+
+        if (best) return best;
       }
-      return best;
+
+      return candidates[0];
     }
 
     function nearestC12(lat, lon) {
-      if (!hasValidCoords(lat, lon)) return null;
-      let best = null;
-      let bestDist = Infinity;
-      for (const c of C12S) {
-        if (!hasValidCoords(c.lat, c.lon)) continue;
-        const d = haversineKm(lat, lon, c.lat, c.lon);
-        if (d < bestDist) {
-          bestDist = d;
-          best = c;
+      const candidates = C12S.filter(c12HasUsableData);
+      if (candidates.length === 0) return null;
+
+      if (hasValidCoords(lat, lon)) {
+        let best = null;
+        let bestDistance = Infinity;
+
+        for (const sensor of candidates) {
+          const cached = c12Cache[sensor.compId] || {};
+          const sensorLat = hasValidCoords(sensor.lat, sensor.lon)
+            ? sensor.lat
+            : cached.lat;
+          const sensorLon = hasValidCoords(sensor.lat, sensor.lon)
+            ? sensor.lon
+            : cached.lon;
+
+          if (!hasValidCoords(sensorLat, sensorLon)) continue;
+
+          const distance = haversineKm(
+            lat,
+            lon,
+            sensorLat,
+            sensorLon
+          );
+
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = sensor;
+          }
         }
+
+        if (best) return best;
       }
-      return best;
+
+      return candidates[0];
     }
 
     function addKnownAQI(pollutants, label, aqi, options = {}) {
-      const v = safeNum(aqi);
-      if (v === null || v <= 0) return;
+      const value = safeNum(aqi);
+      if (value === null || value <= 0) return;
+
       pollutants.push({
         label,
-        aqi: Math.round(v),
+        aqi: Math.round(value),
         canBeBase: options.canBeBase !== false,
         isSupport: options.isSupport === true
       });
     }
 
-    function addQuantAQPollutants(pollutants, qd, sourceLabel, includePM25 = true, options = {}) {
-      if (!qd) return;
-      const pm25 = activeNum(qd.pm25 ?? qd.pm2_5);
-      const o3 = activeNum(qd.o3);
-      const coPpb = activeNum(qd.co);
-      const no2 = activeNum(qd.no2);
-      const pm10 = activeNum(qd.pm10);
+    function addQuantAQPollutants(
+      pollutants,
+      data,
+      sourceLabel,
+      includePM25 = true,
+      options = {}
+    ) {
+      if (!data) return;
+
+      const pm25 = activeNum(
+        data.pm25_24h ?? data.pm25 ?? data.pm2_5
+      );
+      const pm10 = activeNum(
+        data.pm10_24h ?? data.pm10
+      );
+      const ozone = activeNum(
+        data.o3_highest_8h ?? data.o3_8h ?? data.o3
+      );
+      const coPpb = activeNum(
+        data.co_highest_8h ?? data.co_8h ?? data.co
+      );
+      const no2 = activeNum(
+        data.no2_highest_1h ?? data.no2_1h ?? data.no2
+      );
+
       const meta = {
         canBeBase: options.canBeBase !== false,
         isSupport: options.isSupport === true
       };
 
       if (includePM25) {
-        addKnownAQI(pollutants, `PM2.5 (${sourceLabel})`, aqiFromBreakpoints(pm25, BP_PM25_24H), meta);
+        addKnownAQI(
+          pollutants,
+          `PM2.5 (${sourceLabel})`,
+          aqiFromBreakpoints(pm25, BP_PM25_24H),
+          meta
+        );
       }
 
-      addKnownAQI(pollutants, `O₃ (${sourceLabel})`, aqiFromBreakpoints(o3, BP_O3_8H), meta);
-      addKnownAQI(pollutants, `CO (${sourceLabel})`, aqiFromBreakpoints(coPpb !== null ? coPpb / 1000 : null, BP_CO_8H_PPM), meta);
-      addKnownAQI(pollutants, `NO₂ (${sourceLabel})`, aqiFromBreakpoints(no2, BP_NO2_1H), meta);
-      addKnownAQI(pollutants, `PM10 (${sourceLabel})`, aqiFromBreakpoints(pm10, BP_PM10_24H), meta);
+      addKnownAQI(
+        pollutants,
+        `O₃ (${sourceLabel})`,
+        aqiFromBreakpoints(ozone, BP_O3_8H),
+        meta
+      );
+
+      addKnownAQI(
+        pollutants,
+        `CO (${sourceLabel})`,
+        aqiFromBreakpoints(
+          coPpb !== null ? coPpb / 1000 : null,
+          BP_CO_8H_PPM
+        ),
+        meta
+      );
+
+      addKnownAQI(
+        pollutants,
+        `NO₂ (${sourceLabel})`,
+        aqiFromBreakpoints(no2, BP_NO2_1H),
+        meta
+      );
+
+      addKnownAQI(
+        pollutants,
+        `PM10 (${sourceLabel})`,
+        aqiFromBreakpoints(pm10, BP_PM10_24H),
+        meta
+      );
     }
 
-    function addC12Pollutants(pollutants, bc, sourceLabel, options = {}) {
+    function addPrimaryPM25ForLocation(
+      pollutants,
+      lat,
+      lon,
+      purpleAirPM25 = null
+    ) {
+      const nearestQ = nearestQuantAQ(lat, lon);
+      const quantData = nearestQ
+        ? quantAveragesCache[nearestQ.sn] ||
+          quantCache[nearestQ.sn]
+        : null;
+
+      const quantPM25 = activeNum(
+        quantData?.pm25_24h ??
+        quantData?.pm25 ??
+        quantData?.pm2_5
+      );
+
+      if (nearestQ && quantPM25 !== null) {
+        addKnownAQI(
+          pollutants,
+          `PM2.5 (nearby ${nearestQ.sn})`,
+          aqiFromBreakpoints(
+            quantPM25,
+            BP_PM25_24H
+          ),
+          {
+            canBeBase: true,
+            isSupport: true
+          }
+        );
+        return;
+      }
+
+      addKnownAQI(
+        pollutants,
+        "PM2.5 (PurpleAir fallback)",
+        aqiFromBreakpoints(
+          purpleAirPM25,
+          BP_PM25_24H
+        )
+      );
+    }
+
+    function addC12Pollutants(
+      pollutants,
+      bc,
+      sourceLabel,
+      options = {}
+    ) {
       const bcValue = activeNum(bc);
       if (bcValue === null) return;
+
       const meta = {
         canBeBase: options.canBeBase !== false,
         isSupport: options.isSupport === true
       };
-      addKnownAQI(pollutants, `BC non-cancer (${sourceLabel})`, aqiFromBC(bcValue), meta);
-      addKnownAQI(pollutants, `DPM cancer (${sourceLabel})`, aqiFromDPM(bcValue), meta);
+
+      addKnownAQI(
+        pollutants,
+        `BC non-cancer (${sourceLabel})`,
+        aqiFromBC(bcValue),
+        meta
+      );
+
+      addKnownAQI(
+        pollutants,
+        `DPM cancer (${sourceLabel})`,
+        aqiFromDPM(bcValue),
+        meta
+      );
     }
 
-    function buildCompletePollutantsForLocation(lat, lon, ownPollutants = [], options = {}) {
+    function buildCompletePollutantsForLocation(
+      lat,
+      lon,
+      ownPollutants = [],
+      options = {}
+    ) {
       const pollutants = [...ownPollutants];
-      if (!hasValidCoords(lat, lon)) return pollutants;
 
       const supportMeta = {
-        canBeBase: options.supportCanBeBase === true,
+        canBeBase: true,
         isSupport: true
       };
 
       const nearestQ = nearestQuantAQ(lat, lon);
-      if (nearestQ && nearestQ.sn !== options.skipQuantAQ) {
+
+      if (
+        nearestQ &&
+        nearestQ.sn !== options.skipQuantAQ
+      ) {
         addQuantAQPollutants(
           pollutants,
-          quantCache[nearestQ.sn],
+          quantAveragesCache[nearestQ.sn] ||
+            quantCache[nearestQ.sn],
           `nearby ${nearestQ.sn}`,
           options.includeNearestQuantPM25 === true,
           supportMeta
@@ -768,10 +1003,21 @@
       }
 
       const nearestC = nearestC12(lat, lon);
-      if (nearestC && nearestC.compId !== options.skipC12) {
+
+      if (
+        nearestC &&
+        nearestC.compId !== options.skipC12
+      ) {
+        const c12Data =
+          c12Cache[nearestC.compId] || {};
+
+        const bcForCEAQI = activeNum(
+          c12Data.bcAverage ?? c12Data.bc
+        );
+
         addC12Pollutants(
           pollutants,
-          c12Cache[nearestC.compId]?.bc,
+          bcForCEAQI,
           `nearby ${nearestC.compId}`,
           supportMeta
         );
@@ -782,24 +1028,54 @@
 
     function calcCEAQI(pollutants) {
       const valid = pollutants
-        .map(p => ({ ...p, aqi: Math.round(Number(p.aqi)) }))
-        .filter(p => Number.isFinite(p.aqi) && p.aqi > 0);
+        .map(pollutant => ({
+          ...pollutant,
+          aqi: Math.round(Number(pollutant.aqi))
+        }))
+        .filter(
+          pollutant =>
+            Number.isFinite(pollutant.aqi) &&
+            pollutant.aqi > 0
+        );
 
-      if (valid.length === 0) return { ceaqi: 0, baseLabel: "No data" };
+      if (valid.length === 0) {
+        return {
+          ceaqi: 0,
+          baseLabel: "No data"
+        };
+      }
 
-      const baseCandidates = valid.filter(p => p.canBeBase !== false);
-      const candidates = baseCandidates.length ? baseCandidates : valid;
-      const baseItem = candidates.reduce((max, p) => p.aqi > max.aqi ? p : max, candidates[0]);
+      const baseItem = valid.reduce(
+        (max, pollutant) =>
+          pollutant.aqi > max.aqi
+            ? pollutant
+            : max,
+        valid[0]
+      );
+
       const baseIndex = valid.indexOf(baseItem);
       const base = baseItem.aqi;
 
-      const totalAdders = valid.reduce((sum, p, index) => {
-        if (index === baseIndex) return sum;
-        if (p.aqi >= 120) return sum + Math.round(base * 0.03);
-        if (p.aqi >= 100) return sum + Math.round(base * 0.02);
-        if (p.aqi >= 80) return sum + Math.round(base * 0.01);
-        return sum;
-      }, 0);
+      const totalAdders = valid.reduce(
+        (sum, pollutant, index) => {
+          if (index === baseIndex) return sum;
+
+          if (pollutant.aqi >= 120) {
+            return sum + Math.round(base * 0.03);
+          }
+
+          if (pollutant.aqi >= 100) {
+            return sum + Math.round(base * 0.02);
+          }
+
+          if (pollutant.aqi >= 80) {
+            return sum + Math.round(base * 0.01);
+          }
+
+          return sum;
+        },
+        0
+      );
 
       return {
         ceaqi: base + totalAdders,
@@ -807,38 +1083,91 @@
       };
     }
 
-    function getCoordsFromObject(obj, depth = 0) {
-      if (!obj || typeof obj !== "object" || depth > 4) return null;
+    function getCoordsFromObject(object, depth = 0) {
+      if (
+        !object ||
+        typeof object !== "object" ||
+        depth > 4
+      ) {
+        return null;
+      }
 
-      const latKeys = ["lat", "latitude", "Latitude", "device_lat", "deviceLatitude", "site_lat"];
-      const lonKeys = ["lon", "lng", "long", "longitude", "Longitude", "device_lon", "deviceLongitude", "site_lon"];
+      const latKeys = [
+        "lat",
+        "latitude",
+        "Latitude",
+        "device_lat",
+        "deviceLatitude",
+        "site_lat"
+      ];
+
+      const lonKeys = [
+        "lon",
+        "lng",
+        "long",
+        "longitude",
+        "Longitude",
+        "device_lon",
+        "deviceLongitude",
+        "site_lon"
+      ];
+
       let lat = null;
       let lon = null;
 
       for (const key of latKeys) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          lat = safeNum(obj[key]);
+        if (
+          Object.prototype.hasOwnProperty.call(
+            object,
+            key
+          )
+        ) {
+          lat = safeNum(object[key]);
           if (lat !== null) break;
         }
       }
 
       for (const key of lonKeys) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          lon = safeNum(obj[key]);
+        if (
+          Object.prototype.hasOwnProperty.call(
+            object,
+            key
+          )
+        ) {
+          lon = safeNum(object[key]);
           if (lon !== null) break;
         }
       }
 
-      if (hasValidCoords(lat, lon)) return { lat, lon };
-
-      if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
-        const coordLon = safeNum(obj.coordinates[0]);
-        const coordLat = safeNum(obj.coordinates[1]);
-        if (hasValidCoords(coordLat, coordLon)) return { lat: coordLat, lon: coordLon };
+      if (hasValidCoords(lat, lon)) {
+        return { lat, lon };
       }
 
-      for (const value of Object.values(obj)) {
-        const found = getCoordsFromObject(value, depth + 1);
+      if (
+        Array.isArray(object.coordinates) &&
+        object.coordinates.length >= 2
+      ) {
+        const coordLon = safeNum(
+          object.coordinates[0]
+        );
+        const coordLat = safeNum(
+          object.coordinates[1]
+        );
+
+        if (hasValidCoords(coordLat, coordLon)) {
+          return {
+            lat: coordLat,
+            lon: coordLon
+          };
+        }
+      }
+
+      for (const value of Object.values(object)) {
+        const found = getCoordsFromObject(
+          value,
+          depth + 1
+        );
+
         if (found) return found;
       }
 
@@ -846,119 +1175,401 @@
     }
 
     function makeMiniIcon(aqi, type) {
-      const className = type === "c12" ? "c12" : type === "mod" ? "mod" : "pa";
+      const className =
+        type === "c12"
+          ? "c12"
+          : type === "mod"
+            ? "mod"
+            : "pa";
+
       const color = getAQIColor(aqi);
+
       return L.divIcon({
         className: "",
-        html: `<div class="mini-marker ${className}" style="background:${color};"></div>`,
+        html:
+          `<div class="mini-marker ${className}" ` +
+          `style="background:${color};"></div>`,
         iconSize: [18, 18],
         iconAnchor: [9, 9]
       });
     }
 
-    function addMiniMarker(id, lat, lon, ceaqi, type, label) {
+    function addMiniMarker(
+      id,
+      lat,
+      lon,
+      ceaqi,
+      type,
+      label
+    ) {
       if (!hasValidCoords(lat, lon)) return;
-      const marker = L.marker([Number(lat), Number(lon)], {
-        icon: makeMiniIcon(ceaqi, type),
-        interactive: false,
-        title: label || id
-      });
+
+      const marker = L.marker(
+        [Number(lat), Number(lon)],
+        {
+          icon: makeMiniIcon(ceaqi, type),
+          interactive: false,
+          title: label || id
+        }
+      );
+
       marker.addTo(miniMap);
+      miniMarkers.push(marker);
     }
 
-    async function proxyGet(params) {
-      try {
-        const url = API_PROXY + "?" + new URLSearchParams(params).toString();
-        const res = await fetch(url);
-        return res.ok ? await res.json() : null;
-      } catch (e) {
-        return null;
+    async function proxyGet(
+      params,
+      attempts = 2,
+      timeoutMs = 20000
+    ) {
+      const url =
+        API_PROXY +
+        "?" +
+        new URLSearchParams(params).toString();
+
+      for (
+        let attempt = 1;
+        attempt <= attempts;
+        attempt++
+      ) {
+        const controller = new AbortController();
+        const timeout = setTimeout(
+          () => controller.abort(),
+          timeoutMs
+        );
+
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            cache: "no-store"
+          });
+
+          clearTimeout(timeout);
+
+          if (response.ok) {
+            return await response.json();
+          }
+        } catch (error) {
+          clearTimeout(timeout);
+          console.warn(
+            `Preview request failed for ${url}:`,
+            error
+          );
+        }
+
+        if (attempt < attempts) {
+          await new Promise(resolve =>
+            setTimeout(resolve, 350 * attempt)
+          );
+        }
       }
+
+      return null;
+    }
+
+    async function resolveMissingQuantCoordinates(sensor) {
+      if (hasValidCoords(sensor.lat, sensor.lon)) {
+        return;
+      }
+
+      const today =
+        new Date().toISOString().split("T")[0];
+
+      const response = await proxyGet(
+        {
+          action: "quantaq_by_date",
+          sn: sensor.sn,
+          date: today
+        },
+        1
+      );
+
+      const dataRoot = response?.resolved_sn
+        ? response.data
+        : response;
+
+      const coords =
+        getCoordsFromObject(response) ||
+        getCoordsFromObject(dataRoot);
+
+      if (coords) {
+        sensor.lat = coords.lat;
+        sensor.lon = coords.lon;
+      }
+    }
+
+    async function loadQuantAQData() {
+      for (const sensor of SPODS) {
+        await resolveMissingQuantCoordinates(sensor);
+
+        const averagesResponse = await proxyGet({
+          action: "quantaq_averages",
+          sn: sensor.sn
+        });
+
+        const averages =
+          averagesResponse?.data || null;
+
+        if (averages) {
+          quantAveragesCache[sensor.sn] =
+            averages;
+        } else {
+          const latestResponse = await proxyGet({
+            action: "quantaq_latest",
+            sn: sensor.sn
+          });
+
+          const latestRows =
+            Array.isArray(latestResponse?.data)
+              ? latestResponse.data
+              : [];
+
+          quantCache[sensor.sn] =
+            latestRows[0] || null;
+        }
+
+        await new Promise(resolve =>
+          setTimeout(resolve, 150)
+        );
+      }
+    }
+
+    async function loadC12Data() {
+      for (const sensor of C12S) {
+        const [lastResponse, averageResponse] =
+          await Promise.all([
+            proxyGet(
+              {
+                action: "grove_last",
+                compId: sensor.compId
+              },
+              1
+            ),
+            proxyGet({
+              action: "c12_average",
+              compId: sensor.compId
+            })
+          ]);
+
+        const rows = Array.isArray(lastResponse)
+          ? lastResponse
+          : lastResponse?.data || [];
+
+        const lat = safeNum(
+          rows.find(row => row.streamId === "lat")
+            ?.data
+        );
+
+        const lon = safeNum(
+          rows.find(row => row.streamId === "long")
+            ?.data
+        );
+
+        const bcRow = rows.find(
+          row => row.streamId === "880nm"
+        );
+
+        const bc = activeNum(bcRow?.data);
+        const bcTime = normalizeTimestampMs(
+          bcRow?.time
+        );
+
+        const bcAverage = activeNum(
+          averageResponse?.data
+            ?.bc_available_average
+        );
+
+        c12Cache[sensor.compId] = {
+          bc,
+          bcAverage,
+          bcTime,
+          lat,
+          lon
+        };
+
+        if (hasValidCoords(lat, lon)) {
+          sensor.lat = lat;
+          sensor.lon = lon;
+        }
+
+        await new Promise(resolve =>
+          setTimeout(resolve, 100)
+        );
+      }
+    }
+
+    function addPreviewMarkers() {
+      for (
+        const [id, station] of
+        Object.entries(paCoords)
+      ) {
+        const ownPollutants = [];
+
+        addPrimaryPM25ForLocation(
+          ownPollutants,
+          station.lat,
+          station.lon,
+          station.pm25
+        );
+
+        const result = calcCEAQI(
+          buildCompletePollutantsForLocation(
+            station.lat,
+            station.lon,
+            ownPollutants,
+            {
+              includeNearestQuantPM25: false
+            }
+          )
+        );
+
+        addMiniMarker(
+          id,
+          station.lat,
+          station.lon,
+          result.ceaqi,
+          "pa",
+          SENSORS[id]
+        );
+      }
+
+      for (const sensor of SPODS) {
+        if (
+          !hasValidCoords(sensor.lat, sensor.lon)
+        ) {
+          continue;
+        }
+
+        const ownPollutants = [];
+
+        addQuantAQPollutants(
+          ownPollutants,
+          quantAveragesCache[sensor.sn] ||
+            quantCache[sensor.sn],
+          sensor.sn,
+          true
+        );
+
+        const result = calcCEAQI(
+          buildCompletePollutantsForLocation(
+            sensor.lat,
+            sensor.lon,
+            ownPollutants,
+            {
+              skipQuantAQ: sensor.sn,
+              includeNearestQuantPM25: false
+            }
+          )
+        );
+
+        addMiniMarker(
+          sensor.sn,
+          sensor.lat,
+          sensor.lon,
+          result.ceaqi,
+          "mod",
+          sensor.name
+        );
+      }
+
+      for (const sensor of C12S) {
+        const data = c12Cache[sensor.compId];
+
+        if (
+          !data ||
+          !hasValidCoords(data.lat, data.lon)
+        ) {
+          continue;
+        }
+
+        const ownPollutants = [];
+
+        addC12Pollutants(
+          ownPollutants,
+          activeNum(data.bcAverage ?? data.bc),
+          sensor.compId
+        );
+
+        const result = calcCEAQI(
+          buildCompletePollutantsForLocation(
+            data.lat,
+            data.lon,
+            ownPollutants,
+            {
+              skipC12: sensor.compId,
+              includeNearestQuantPM25: true
+            }
+          )
+        );
+
+        addMiniMarker(
+          `C12-${sensor.compId}`,
+          data.lat,
+          data.lon,
+          result.ceaqi,
+          "c12",
+          sensor.name
+        );
+      }
+    }
+
+    function fitPreviewMap() {
+      if (miniMarkers.length === 0) return;
+
+      const group = L.featureGroup(miniMarkers);
+
+      miniMap.fitBounds(group.getBounds(), {
+        padding: [20, 20],
+        maxZoom: 13
+      });
     }
 
     async function loadPreviewDots() {
-      const today = new Date().toISOString().split("T")[0];
+      const purpleAirBox = await proxyGet({
+        action: "purpleair_box"
+      });
 
-      const paBox = await proxyGet({ action: "purpleair_box" });
-      const paDataArr = Array.isArray(paBox?.data) ? paBox.data : (paBox?.data?.data || []);
+      const purpleAirRows =
+        Array.isArray(purpleAirBox?.data)
+          ? purpleAirBox.data
+          : purpleAirBox?.data?.data || [];
 
-      for (const r of paDataArr) {
-        const id = String(r[0]);
-        const lat = safeNum(r[1]);
-        const lon = safeNum(r[2]);
-        const pm25 = activeNum(r[3]);
-        if (SENSORS[id] && hasValidCoords(lat, lon)) {
-          paCoords[id] = { lat, lon, pm25 };
+      for (const row of purpleAirRows) {
+        const id = String(row[0]);
+        const lat = safeNum(row[1]);
+        const lon = safeNum(row[2]);
+        const pm25 = activeNum(row[3]);
+
+        if (
+          SENSORS[id] &&
+          hasValidCoords(lat, lon)
+        ) {
+          paCoords[id] = {
+            lat,
+            lon,
+            pm25
+          };
         }
       }
 
-      for (const s of SPODS) {
-        const res = await proxyGet({ action: "quantaq_by_date", sn: s.sn, date: today });
-        const dataRoot = res?.resolved_sn ? res.data : res;
-        const allQ = dataRoot?.data || [];
-        quantCache[s.sn] = allQ.length ? allQ[allQ.length - 1] : null;
+      await loadQuantAQData();
+      await loadC12Data();
 
-        const coords = getCoordsFromObject(res) || getCoordsFromObject(dataRoot) || getCoordsFromObject(quantCache[s.sn]);
-        if (coords) {
-          s.lat = coords.lat;
-          s.lon = coords.lon;
-        }
-      }
+      addPreviewMarkers();
+      fitPreviewMap();
 
-      const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-      const now = Date.now();
-
-      for (const c of C12S) {
-        const last = await proxyGet({ action: "grove_last", compId: c.compId });
-        const rows = Array.isArray(last) ? last : (last?.data || []);
-        const lat = safeNum(rows.find(r => r.streamId === "lat")?.data);
-        const lon = safeNum(rows.find(r => r.streamId === "long")?.data);
-        const bcRow = rows.find(r => r.streamId === "880nm");
-        const bcTime = bcRow?.time ? new Date(String(bcRow.time).includes("Z") ? bcRow.time : `${bcRow.time}Z`).getTime() : null;
-        const bcFresh = Number.isFinite(bcTime) && (now - bcTime) < THREE_HOURS_MS;
-        const bc = bcFresh ? activeNum(bcRow?.data) : null;
-
-        c12Cache[c.compId] = { bc, lat, lon };
-        if (hasValidCoords(lat, lon)) {
-          c.lat = lat;
-          c.lon = lon;
-        }
-      }
-
-      for (const [id, station] of Object.entries(paCoords)) {
-        const ownPollutants = [];
-        addKnownAQI(ownPollutants, "PM2.5 (PurpleAir)", aqiFromBreakpoints(station.pm25, BP_PM25_24H));
-        const result = calcCEAQI(buildCompletePollutantsForLocation(station.lat, station.lon, ownPollutants, {
-          includeNearestQuantPM25: false
-        }));
-        addMiniMarker(id, station.lat, station.lon, result.ceaqi, "pa", SENSORS[id]);
-      }
-
-      for (const s of SPODS) {
-        if (!hasValidCoords(s.lat, s.lon)) continue;
-        const ownPollutants = [];
-        addQuantAQPollutants(ownPollutants, quantCache[s.sn], s.sn, true);
-        const result = calcCEAQI(buildCompletePollutantsForLocation(s.lat, s.lon, ownPollutants, {
-          skipQuantAQ: s.sn,
-          includeNearestQuantPM25: false
-        }));
-        addMiniMarker(s.sn, s.lat, s.lon, result.ceaqi, "mod", s.name);
-      }
-
-      for (const c of C12S) {
-        const cd = c12Cache[c.compId];
-        if (!cd || !hasValidCoords(cd.lat, cd.lon)) continue;
-        const ownPollutants = [];
-        addC12Pollutants(ownPollutants, cd.bc, c.compId);
-        const result = calcCEAQI(buildCompletePollutantsForLocation(cd.lat, cd.lon, ownPollutants, {
-          skipC12: c.compId,
-          includeNearestQuantPM25: true
-        }));
-        addMiniMarker(`C12-${c.compId}`, cd.lat, cd.lon, result.ceaqi, "c12", c.name);
-      }
+      setTimeout(
+        () => miniMap.invalidateSize(),
+        50
+      );
     }
 
-    loadPreviewDots();
+    loadPreviewDots().catch(error => {
+      console.error(
+        "Home-page preview map failed:",
+        error
+      );
+    });
   </script>
 </body>
 </html>
