@@ -498,9 +498,12 @@
   
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    const PREVIEW_CENTER = { lat: 38.9283, lon: -76.9158 };
+    const PREVIEW_RADIUS_KM = 4.5;
+
     const miniMap = L.map("mini-map", {
-      center: [38.9213, -76.9175],
-      zoom: 14,
+      center: [PREVIEW_CENTER.lat, PREVIEW_CENTER.lon],
+      zoom: 15,
       dragging: false,
       zoomControl: false,
       scrollWheelZoom: false,
@@ -548,8 +551,6 @@
     };
 
     const SPODS = [
-      // The code tries to resolve missing coordinates automatically.
-      // You can also place the same fixed MOD-00536 coordinates used in dashboard.html here.
       { sn: "MOD-00536", name: "QuantAQ MOD-00536", lat: 38.920610, lon: -76.919770 },
       { sn: "MOD-00745", name: "QuantAQ MOD-00745", lat: 38.905100, lon: -76.910000 },
       { sn: "MOD-00746", name: "QuantAQ MOD-00746", lat: 39.143200, lon: -76.846000 },
@@ -723,6 +724,16 @@
         2 *
         Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
       );
+    }
+
+    function isInsidePreviewArea(lat, lon) {
+      if (!hasValidCoords(lat, lon)) return false;
+      return haversineKm(
+        PREVIEW_CENTER.lat,
+        PREVIEW_CENTER.lon,
+        Number(lat),
+        Number(lon)
+      ) <= PREVIEW_RADIUS_KM;
     }
 
     function quantAQHasUsableData(sensor) {
@@ -1202,7 +1213,7 @@
       type,
       label
     ) {
-      if (!hasValidCoords(lat, lon)) return;
+      if (!hasValidCoords(lat, lon) || !isInsidePreviewArea(lat, lon)) return;
 
       const marker = L.marker(
         [Number(lat), Number(lon)],
@@ -1299,45 +1310,46 @@
     }
 
     async function loadQuantAQData() {
-      for (const sensor of SPODS) {
-        await resolveMissingQuantCoordinates(sensor);
+      const localSensors = SPODS.filter(sensor =>
+        isInsidePreviewArea(sensor.lat, sensor.lon)
+      );
 
+      await Promise.all(localSensors.map(async sensor => {
         const averagesResponse = await proxyGet({
           action: "quantaq_averages",
           sn: sensor.sn
         });
 
-        const averages =
-          averagesResponse?.data || null;
+        const averages = averagesResponse?.data || null;
 
         if (averages) {
-          quantAveragesCache[sensor.sn] =
-            averages;
-        } else {
-          const latestResponse = await proxyGet({
-            action: "quantaq_latest",
-            sn: sensor.sn
-          });
-
-          const latestRows =
-            Array.isArray(latestResponse?.data)
-              ? latestResponse.data
-              : [];
-
-          quantCache[sensor.sn] =
-            latestRows[0] || null;
+          quantAveragesCache[sensor.sn] = averages;
+          return;
         }
 
-        await new Promise(resolve =>
-          setTimeout(resolve, 150)
-        );
-      }
+        const latestResponse = await proxyGet({
+          action: "quantaq_latest",
+          sn: sensor.sn
+        });
+
+        const latestRows = Array.isArray(latestResponse?.data)
+          ? latestResponse.data
+          : [];
+
+        quantCache[sensor.sn] = latestRows[0] || null;
+      }));
     }
 
     async function loadC12Data() {
-      for (const sensor of C12S) {
-        const [lastResponse, averageResponse] =
-          await Promise.all([
+      const queue = [...C12S];
+      const workerCount = Math.min(2, queue.length);
+
+      async function worker() {
+        while (queue.length) {
+          const sensor = queue.shift();
+          if (!sensor) return;
+
+          const [lastResponse, averageResponse] = await Promise.all([
             proxyGet(
               {
                 action: "grove_last",
@@ -1351,49 +1363,69 @@
             })
           ]);
 
-        const rows = Array.isArray(lastResponse)
-          ? lastResponse
-          : lastResponse?.data || [];
+          const rows = Array.isArray(lastResponse)
+            ? lastResponse
+            : lastResponse?.data || [];
 
-        const lat = safeNum(
-          rows.find(row => row.streamId === "lat")
-            ?.data
-        );
+          const lat = safeNum(
+            rows.find(row => row.streamId === "lat")?.data
+          );
 
-        const lon = safeNum(
-          rows.find(row => row.streamId === "long")
-            ?.data
-        );
+          const lon = safeNum(
+            rows.find(row => row.streamId === "long")?.data
+          );
 
-        const bcRow = rows.find(
-          row => row.streamId === "880nm"
-        );
+          const bcRow = rows.find(
+            row => row.streamId === "880nm"
+          );
 
-        const bc = activeNum(bcRow?.data);
-        const bcTime = normalizeTimestampMs(
-          bcRow?.time
-        );
+          const bc = activeNum(bcRow?.data);
+          const bcTime = normalizeTimestampMs(bcRow?.time);
+          const bcAverage = activeNum(
+            averageResponse?.data?.bc_available_average
+          );
 
-        const bcAverage = activeNum(
-          averageResponse?.data
-            ?.bc_available_average
-        );
+          c12Cache[sensor.compId] = {
+            bc,
+            bcAverage,
+            bcTime,
+            lat,
+            lon
+          };
 
-        c12Cache[sensor.compId] = {
-          bc,
-          bcAverage,
-          bcTime,
-          lat,
-          lon
-        };
-
-        if (hasValidCoords(lat, lon)) {
-          sensor.lat = lat;
-          sensor.lon = lon;
+          if (hasValidCoords(lat, lon)) {
+            sensor.lat = lat;
+            sensor.lon = lon;
+          }
         }
+      }
 
-        await new Promise(resolve =>
-          setTimeout(resolve, 100)
+      await Promise.all(
+        Array.from({ length: workerCount }, () => worker())
+      );
+    }
+
+    function clearMiniMarkers() {
+      for (const marker of miniMarkers) {
+        miniMap.removeLayer(marker);
+      }
+      miniMarkers.length = 0;
+    }
+
+    function addQuickPurpleAirMarkers() {
+      for (const [id, station] of Object.entries(paCoords)) {
+        const pmAqi = aqiFromBreakpoints(
+          station.pm25,
+          BP_PM25_24H
+        );
+
+        addMiniMarker(
+          id,
+          station.lat,
+          station.lon,
+          pmAqi || 0,
+          "pa",
+          SENSORS[id]
         );
       }
     }
@@ -1433,7 +1465,9 @@
         );
       }
 
-      for (const sensor of SPODS) {
+      for (const sensor of SPODS.filter(sensor =>
+        isInsidePreviewArea(sensor.lat, sensor.lon)
+      )) {
         if (
           !hasValidCoords(sensor.lat, sensor.lon)
         ) {
@@ -1514,14 +1548,11 @@
     }
 
     function fitPreviewMap() {
-      if (miniMarkers.length === 0) return;
-
-      const group = L.featureGroup(miniMarkers);
-
-      miniMap.fitBounds(group.getBounds(), {
-        padding: [20, 20],
-        maxZoom: 13
-      });
+      miniMap.setView(
+        [PREVIEW_CENTER.lat, PREVIEW_CENTER.lon],
+        15,
+        { animate: false }
+      );
     }
 
     async function loadPreviewDots() {
@@ -1552,9 +1583,16 @@
         }
       }
 
-      await loadQuantAQData();
-      await loadC12Data();
+      clearMiniMarkers();
+      addQuickPurpleAirMarkers();
+      fitPreviewMap();
 
+      await Promise.all([
+        loadQuantAQData(),
+        loadC12Data()
+      ]);
+
+      clearMiniMarkers();
       addPreviewMarkers();
       fitPreviewMap();
 
