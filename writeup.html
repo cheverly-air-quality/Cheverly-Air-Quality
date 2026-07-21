@@ -1,487 +1,707 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cheverly Air Quality | FAQs</title>
-        <style>
-        :root {
-            --brand-navy: #1a305e;
-            --search-blue: #4477ce;
-            --aqi-green: #00e400;
-            --aqi-yellow: #ffff00;
-            --aqi-orange: #ff7e00;
-            --aqi-red: #ff0000;
-            --aqi-purple: #8f3f97;
-            --aqi-maroon: #7e0023;
-            --good-green: #00e400;
-            --moderate-yellow: #ffff00;
-            --unhealthy-sensitive-orange: #ff7e00;
-            --unhealthy-red: #ff0000;
-            --very-unhealthy-purple: #8f3f97;
-            --hazardous-maroon: #7e0023;
-            --pastel-green: #e8f8e6;
-            --pastel-yellow: #fff8c7;
-            --pastel-orange: #ffe5c8;
-            --pastel-red: #ffdada;
-            --pastel-purple: #ecd9f1;
-            --pastel-maroon: #ead2d9;
-            --text-main: #1f2a44;
-            --text-muted: #667085;
-            --line: #dde5ef;
-            --page-bg: #eef3f8;
-            --shadow: 0 18px 44px rgba(26, 48, 94, 0.12);
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cheverly Air Quality | FAQs</title>
 
-        html {
-            scroll-behavior: smooth;
-        }
+  <style>
+    :root {
+      --brand-navy: #1a305e;
+      --brand-navy-2: #243d73;
+      --search-blue: #4477ce;
+      --pastel-green: #e8f8e6;
+      --pastel-yellow: #fff8c7;
+      --pastel-orange: #ffe5c8;
+      --pastel-red: #ffdada;
+      --pastel-purple: #ecd9f1;
+      --pastel-maroon: #ead2d9;
+      --text-main: #1f2a44;
+      --text-muted: #667085;
+      --line: #dde5ef;
+      --page-bg: #eef3f8;
+      --shadow: 0 18px 44px rgba(26, 48, 94, 0.12);
+    }
 
-        body {
-            margin: 0;
-            font-family: "Segoe UI", Roboto, sans-serif;
-            line-height: 1.65;
-            color: var(--text-main);
-            background:
-                radial-gradient(circle at top left, rgba(68, 119, 206, 0.12), transparent 35%),
-                linear-gradient(180deg, #f6f9fd 0%, var(--page-bg) 100%);
-            padding-bottom: 34px;
-        }
+    * {
+      box-sizing: border-box;
+    }
 
-        .topbar {
-            background: var(--brand-navy);
-            color: #fff;
-            padding: 0 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 64px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
-        }
+    html {
+      scroll-behavior: smooth;
+    }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            font-size: 1.25rem;
-            font-weight: 950;
-            letter-spacing: 0.02em;
-        }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      line-height: 1.65;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at top left, rgba(68, 119, 206, 0.12), transparent 35%),
+        linear-gradient(180deg, #f6f9fd 0%, var(--page-bg) 100%);
+      padding-bottom: 34px;
+    }
 
-        .brand::before {
-            content: "";
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #9bc4ff;
-            box-shadow: 0 0 0 6px rgba(155, 196, 255, 0.16);
-        }
+    .topbar {
+      background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+      color: #fff;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    }
 
-        .nav a {
-            color: #fff;
-            text-decoration: none;
-            margin-left: 1.5rem;
-            font-weight: 800;
-            opacity: 0.82;
-            transition: opacity 0.2s;
-        }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 1.25rem;
+      font-weight: 950;
+      letter-spacing: 0.02em;
+    }
 
-        .nav a:hover,
-        .nav a.active {
-            opacity: 1;
-        }
+    .brand::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #9bc4ff;
+      box-shadow: 0 0 0 6px rgba(155, 196, 255, 0.16);
+    }
 
-        .nav a.active {
-            border-bottom: 2px solid white;
-            padding-bottom: 4px;
-        }
+    .nav {
+      display: flex;
+      align-items: center;
+    }
 
-        .container {
-            max-width: 1040px;
-            margin: 0 auto;
-            padding: 34px 1.5rem 3rem;
-        }
+    .nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-weight: 800;
+      opacity: 0.82;
+      transition: opacity 0.2s;
+    }
 
-        .page-intro {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid var(--line);
-            box-shadow: var(--shadow);
-            border-radius: 26px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-        }
+    .nav a:hover,
+    .nav a.active {
+      opacity: 1;
+    }
 
-        h1 {
-            color: var(--brand-navy);
-            font-size: clamp(2rem, 4vw, 2.8rem);
-            line-height: 1.08;
-            margin: 0;
-            letter-spacing: -0.02em;
-        }
+    .nav a.active {
+      border-bottom: 2px solid white;
+      padding-bottom: 4px;
+    }
 
-        .jump-menu {
-            background: rgba(255, 255, 255, 0.88);
-            border: 1px solid var(--line);
-            border-radius: 22px;
-            padding: 18px;
-            margin-bottom: 34px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
-        }
+    .container {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 34px 1.5rem 3rem;
+    }
 
-        .jump-menu a {
-            color: var(--brand-navy);
-            text-decoration: none;
-            font-weight: 900;
-            background: #eef4ff;
-            padding: 8px 14px;
-            border-radius: 999px;
-            border: 1px solid #cfe0ff;
-            font-size: 0.86rem;
-            transition: transform 0.2s, filter 0.2s;
-        }
+    .page-intro,
+    section {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 26px;
+    }
 
-        .jump-menu a:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.03);
-        }
+    .page-intro {
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
 
-        section {
-            scroll-margin-top: 86px;
-            margin-bottom: 28px;
-            padding: 2rem;
-            border: 1px solid var(--line);
-            border-radius: 26px;
-            background: rgba(255, 255, 255, 0.94);
-            box-shadow: var(--shadow);
-        }
+    .page-intro h1 {
+      color: var(--brand-navy);
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      line-height: 1.08;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
 
-        section p {
-            color: #4f5d73;
-            font-size: 1rem;
-        }
+    .page-intro p {
+      max-width: 800px;
+      margin: 0.9rem 0 0;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
 
-        h2 {
-            color: var(--brand-navy);
-            font-size: 1.48rem;
-            line-height: 1.25;
-            border-left: 5px solid var(--search-blue);
-            padding-left: 14px;
-            margin: 0.55rem 0 1.25rem;
-        }
+    .updated-tag {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      color: var(--brand-navy);
+      background: #eef4ff;
+      border: 1px solid #cfe0ff;
+      font-weight: 950;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      padding: 6px 10px;
+      border-radius: 999px;
+      margin-bottom: 0.9rem;
+    }
 
-        h3 {
-            color: var(--search-blue);
-            font-size: 1.12rem;
-            margin-top: 1.55rem;
-            margin-bottom: 0.35rem;
-        }
+    .jump-menu {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      margin-bottom: 34px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
+    }
 
-        .draft-tag {
-            display: inline-flex;
-            align-items: center;
-            width: fit-content;
-            color: var(--brand-navy);
-            background: #eef4ff;
-            border: 1px solid #cfe0ff;
-            font-weight: 950;
-            text-transform: uppercase;
-            font-size: 0.72rem;
-            letter-spacing: 0.08em;
-            padding: 6px 10px;
-            border-radius: 999px;
-            margin: 0 0 0.9rem;
-        }
+    .jump-menu a {
+      color: var(--brand-navy);
+      text-decoration: none;
+      font-weight: 900;
+      background: #eef4ff;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid #cfe0ff;
+      font-size: 0.86rem;
+    }
 
-        .info-box {
-            background: #f8fbff;
-            padding: 1.25rem;
-            border-radius: 20px;
-            margin: 20px 0;
-            border: 1px solid var(--line);
-        }
+    section {
+      scroll-margin-top: 86px;
+      margin-bottom: 28px;
+      padding: 2rem;
+    }
 
-        .info-box p:first-child {
-            margin-top: 0;
-        }
+    section p,
+    section li {
+      color: #4f5d73;
+      font-size: 1rem;
+    }
 
-        .info-box p:last-child {
-            margin-bottom: 0;
-        }
+    h2 {
+      color: var(--brand-navy);
+      font-size: 1.55rem;
+      line-height: 1.25;
+      border-left: 5px solid var(--search-blue);
+      padding-left: 14px;
+      margin: 0 0 1.25rem;
+    }
 
-        ul {
-            color: #4f5d73;
-            padding-left: 1.35rem;
-        }
+    h3 {
+      color: var(--search-blue);
+      font-size: 1.12rem;
+      margin: 1.55rem 0 0.35rem;
+    }
 
-        li {
-            margin-bottom: 0.45rem;
-        }
+    ul,
+    ol {
+      color: #4f5d73;
+      padding-left: 1.35rem;
+    }
 
-        table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin: 25px 0 8px;
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            overflow: hidden;
-            box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
-            background: white;
-        }
+    li {
+      margin-bottom: 0.55rem;
+    }
 
-        th {
-            background: #eef4ff;
-            color: var(--brand-navy);
-            padding: 15px;
-            text-align: left;
-            font-weight: 950;
-        }
+    .info-box,
+    .important-note,
+    .limitation-box {
+      padding: 1.25rem;
+      border-radius: 20px;
+      margin: 20px 0;
+      border: 1px solid var(--line);
+    }
 
-        td {
-            padding: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.35);
-        }
+    .info-box {
+      background: #f8fbff;
+    }
 
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
+    .important-note {
+      background: #fff8cf;
+      border-color: #efe2a2;
+    }
 
-        .aqi-good {
-            background-color: var(--pastel-green);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .limitation-box {
+      background: #f6f1f8;
+      border-color: #dfcde5;
+    }
 
-        .aqi-moderate {
-            background-color: var(--pastel-yellow);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .info-box > :first-child,
+    .important-note > :first-child,
+    .limitation-box > :first-child {
+      margin-top: 0;
+    }
 
-        .aqi-sensitive {
-            background-color: var(--pastel-orange);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .info-box > :last-child,
+    .important-note > :last-child,
+    .limitation-box > :last-child {
+      margin-bottom: 0;
+    }
 
-        .aqi-unhealthy {
-            background-color: var(--pastel-red);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .formula-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
 
-        .aqi-very-unhealthy {
-            background-color: var(--pastel-purple);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .formula-card {
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
 
-        .aqi-hazardous {
-            background-color: var(--pastel-maroon);
-            color: var(--text-main);
-            font-weight: 750;
-        }
+    .formula-card strong {
+      color: var(--brand-navy);
+      display: block;
+      margin-bottom: 5px;
+    }
 
-        .contact-card {
-            background: linear-gradient(135deg, var(--brand-navy), #24427f);
-            color: white;
-            padding: 1.45rem;
-            border-radius: 22px;
-            margin-top: 20px;
-            box-shadow: 0 14px 34px rgba(26, 48, 94, 0.2);
-        }
+    .formula {
+      font-family: Consolas, "Courier New", monospace;
+      font-weight: 800;
+      color: #243d73;
+      overflow-wrap: anywhere;
+    }
 
-        .contact-card h4 {
-            margin: 0 0 10px 0;
-            color: #9bc4ff;
-            font-weight: 950;
-            letter-spacing: 0.03em;
-        }
+    .faq-list {
+      display: grid;
+      gap: 12px;
+    }
 
-        .contact-card p {
-            color: white;
-            margin: 0.45rem 0;
-        }
+    details {
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0 16px;
+    }
 
-        .site-footer {
-            text-align: center;
-            padding: 40px;
-            color: #64748b;
-            font-size: 0.9rem;
-            border-top: 1px solid var(--line);
-            background: rgba(255,255,255,0.58);
-        }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      color: var(--brand-navy);
+      font-weight: 950;
+      padding: 15px 30px 15px 0;
+      position: relative;
+    }
 
-        .site-footer p {
-            margin: 0;
-        }
+    summary::-webkit-details-marker {
+      display: none;
+    }
 
-        .dashboard-disclaimer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.92);
-            color: #667085;
-            font-size: 0.7rem;
-            padding: 5px 20px;
-            text-align: center;
-            border-top: 1px solid #dde5ef;
-            z-index: 3000;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-        }
+    summary::after {
+      content: "+";
+      position: absolute;
+      right: 0;
+      top: 12px;
+      font-size: 1.35rem;
+      color: var(--search-blue);
+    }
 
-        @media (max-width: 760px) {
-            .topbar {
-                padding: 0 1rem;
-            }
+    details[open] summary::after {
+      content: "−";
+    }
 
-            .nav a {
-                margin-left: 0.75rem;
-                font-size: 0.82rem;
-            }
+    details p {
+      margin-top: 0;
+      padding-bottom: 4px;
+    }
 
-            .container {
-                padding: 22px 1rem 2.5rem;
-            }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 25px 0 8px;
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(26, 48, 94, 0.08);
+    }
 
-            .page-intro,
-            section {
-                border-radius: 20px;
-                padding: 1.35rem;
-            }
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: white;
+    }
 
-            .jump-menu {
-                border-radius: 18px;
-            }
+    th {
+      background: #eef4ff;
+      color: var(--brand-navy);
+      padding: 15px;
+      text-align: left;
+      font-weight: 950;
+    }
 
-            table {
-                font-size: 0.86rem;
-            }
+    td {
+      padding: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+    }
 
-            th,
-            td {
-                padding: 11px;
-            }
-        }
-    </style>
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .aqi-good { background: var(--pastel-green); font-weight: 750; }
+    .aqi-moderate { background: var(--pastel-yellow); font-weight: 750; }
+    .aqi-sensitive { background: var(--pastel-orange); font-weight: 750; }
+    .aqi-unhealthy { background: var(--pastel-red); font-weight: 750; }
+    .aqi-very-unhealthy { background: var(--pastel-purple); font-weight: 750; }
+    .aqi-hazardous { background: var(--pastel-maroon); font-weight: 750; }
+
+    .contact-card {
+      background: linear-gradient(135deg, var(--brand-navy), #24427f);
+      color: white;
+      padding: 1.45rem;
+      border-radius: 22px;
+      margin-top: 20px;
+      box-shadow: 0 14px 34px rgba(26, 48, 94, 0.2);
+    }
+
+    .contact-card h3 {
+      margin: 0 0 10px;
+      color: #9bc4ff;
+      font-weight: 950;
+      letter-spacing: 0.02em;
+    }
+
+    .contact-card p {
+      color: white;
+      margin: 0.55rem 0;
+    }
+
+    .contact-card a {
+      color: white;
+      font-weight: 900;
+    }
+
+    .site-footer {
+      text-align: center;
+      padding: 40px 20px 55px;
+      color: #64748b;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .site-footer p {
+      margin: 0;
+    }
+
+    .dashboard-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.92);
+      color: #667085;
+      font-size: 0.7rem;
+      padding: 5px 20px;
+      text-align: center;
+      border-top: 1px solid #dde5ef;
+      z-index: 3000;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        padding: 10px 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .brand {
+        font-size: 1rem;
+      }
+
+      .nav {
+        width: 100%;
+        justify-content: space-between;
+        gap: 5px;
+      }
+
+      .nav a {
+        flex: 1;
+        margin: 0;
+        padding: 9px 5px;
+        text-align: center;
+        border-radius: 10px;
+        font-size: 0.78rem;
+      }
+
+      .nav a.active {
+        border-bottom: 0;
+        background: rgba(255, 255, 255, 0.15);
+        padding-bottom: 9px;
+      }
+
+      .container {
+        padding: 22px 1rem 2.5rem;
+      }
+
+      .page-intro,
+      section {
+        border-radius: 20px;
+        padding: 1.35rem;
+      }
+
+      .jump-menu {
+        border-radius: 18px;
+      }
+
+      .formula-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-disclaimer {
+        position: static;
+        padding: 8px 12px;
+        pointer-events: auto;
+      }
+
+      .site-footer {
+        padding-bottom: 30px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-
-<header class="topbar">
+  <header class="topbar">
     <div class="brand">Cheverly Air Quality</div>
-    <nav class="nav">
-        <a href="index.html">Home</a>
-        <a href="dashboard.html">Map & Data</a>
-        <a href="writeup.html" class="active">FAQs</a>
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="dashboard.html">Map &amp; Data</a>
+      <a href="writeup.html" class="active" aria-current="page">FAQs</a>
     </nav>
-</header>
+  </header>
 
-<main class="container">
+  <main class="container">
     <div class="page-intro">
-        <h1>Project Documentation & Methodology</h1>
+      <div class="updated-tag">Pilot methodology, updated July 2026</div>
+      <h1>Frequently Asked Questions &amp; Methodology</h1>
+      <p>This page explains why the community created the Cumulative Exposure Air Quality Index (CE-AQI), how the current pilot dashboard works, where the data come from, and how to report a possible air pollution problem.</p>
     </div>
-    
-    <nav class="jump-menu">
-        <a href="#network-basics">Network History</a>
-        <a href="#why-ceaqi">The "Why"</a>
-        <a href="#calculations">How to Calculate</a>
-        <a href="#health-risks">Health Categories</a>
-        <a href="#action">Taking Action</a>
+
+    <nav class="jump-menu" aria-label="Page sections">
+      <a href="#network">Network history</a>
+      <a href="#why-ceaqi">Why CE-AQI</a>
+      <a href="#methodology">How it is calculated</a>
+      <a href="#dashboard-faq">Dashboard questions</a>
+      <a href="#health">Health categories</a>
+      <a href="#action">Taking action</a>
     </nav>
 
-    <section id="network-basics">
-        <p class="draft-tag">Draft - January 2026</p>
-        <h2>How Did the Community Build the Hyper-Local Air Monitoring Network?</h2>
-        <h3>Background</h3>
-        <p>Since 2007, community members from Cheverly, Fairmount Heights, Seat Pleasant, Cedar Heights, and adjoining neighborhoods, have been concerned about health risks due to heavy diesel traffic and various neighboring industries. These include diesel bus maintenance and dispatch facilities, food and package warehouse distribution facilities, concrete batching and aggregate, industries, cremation, wastewater treatment facilities, and metal shredding and recycling operations, to name a few.</p>
-        
-        <p>Beginning in 2018, the Center for Economic and Environmental Justice (CEEJH) at the University of Maryland established a Purple Air sensor network in collaboration with Cheverly and the neighboring communities. In 2021 the Maryland Department of Environment, Air and Radiation used the hyper-local sensor network for the Cheverly Targeted Inspection Initiative to analyze the data to identify concerns and inspect air permit compliance. Community members continue to report events to the MDE hotline.</p>
-        
-        <p>For years these communities have also experienced explosions and grinding vibrations, often at night, resulting in cracked walls and sleeplessness. Proposed and built industrial projects, such as warehouse distribution, have resulted in the loss of natural green space to counteract air pollution, as well as exacerbating flood conditions.</p>
-        
-        <p>With the 2024 addition of five black carbon C-12 monitors, very high black carbon emissions are frequently detected. In 2025, Quant AQ Modulair sensors and SPod volatile organic compound sensors were added, measuring carbon monoxide, NOX, NOX2, Ozone, wind directions, as well as other volatile organic materials. Under the direction of the UMD Center for Atmospheric and Oceanic Sciences, sticky tapes have been strategically deployed to capture airborne particles to advance understanding of fine particles in these neighborhoods.</p>
+    <section id="network">
+      <h2>How Did the Community Build the Hyper-Local Air Monitoring Network?</h2>
+
+      <h3>Background</h3>
+      <p>Since 2007, community members from Cheverly, Fairmount Heights, Seat Pleasant, Cedar Heights, and adjoining neighborhoods have been concerned about health risks from heavy diesel traffic and nearby industries. These include diesel bus maintenance and dispatch facilities, food and package warehouse distribution facilities, concrete batching and aggregate industries, cremation facilities, wastewater treatment facilities, and metal shredding and recycling operations.</p>
+
+      <p>Beginning in 2018, the Center for Community Engagement, Environmental Justice and Health (CEEJH) at the University of Maryland established a PurpleAir sensor network in collaboration with Cheverly and neighboring communities. In 2021, the Maryland Department of the Environment used the hyper-local sensor network as part of the Cheverly Targeted Inspection Initiative to help identify concerns and inspect air permit compliance. Community members continue to report possible pollution events to MDE.</p>
+
+      <p>For years, residents have also reported explosions and grinding vibrations, often at night, as well as the loss of natural green space from proposed and completed industrial development. Community members are concerned that these conditions can worsen air pollution, noise, vibration, and flooding.</p>
+
+      <p>In 2024, five C-12 black carbon monitors were added to the network. In 2025, the network expanded with QuantAQ MODULAIR instruments and SPod volatile organic compound instruments. The QuantAQ instruments provide measurements used in the dashboard for particulate matter, ozone, carbon monoxide, and nitrogen dioxide. Additional particle sampling has also been conducted to improve understanding of fine particles in these neighborhoods.</p>
     </section>
 
     <section id="why-ceaqi">
-        <p class="draft-tag">Draft - January 2026</p>
-        <h2>How and Why EJAT Developed and Is Now Piloting the CE-AQI</h2>
-        <h3>The Reason Behind the CE-AQI</h3>
-        <p>After years of frustration over breathing bad air everyday and being told by the Environmental Protection Agency and other regulators that the air in the Cheverly area (when only a small set of air pollutants was considered) was good... and that there was no way to include several of the highest-risk air pollutants measured by the community's hyper-local air monitoring network ... The EJAT, after talking to both public health and environmental experts, decided to develop its own technique to more appropriately communicate health risks from the complex mixture of air pollutants being measured in their community.</p>
-        
-        <h3>The Pilot Effort</h3>
-        <p>EJAT recognizes that the CE-AQI is new and somewhat controversial. That said, the EJAT feels strongly that continuing to NOT talk about the highest-risk air pollutants being measured in the community... and continuing to tell people that the air quality is in the healthy range when it is often in the unhealthy or very healthy range is both misleading and irresponsible.</p>
-        <p>The current effort is essentially a pilot and we hope to get more input from experts and other stakeholders to improve the technique, data and science used in the CE-AQI. Again, EJAT believes using the traditional AQI to communicate health risks from air pollution in overburdened communities is inappropriate because it tells people that the air is healthy, when, because the highest-risk pollutants are not included and are being ignored, it is most likely very unhealthy.</p>
-        
-        <h3>Perfection as the Enemy of the Good</h3>
-        <p>We are not looking for more comments on how trying to do what we are doing is too hard... or that there is too much uncertainty... to analyze cumulative exposure to air pollutants and that the community should just wait for the scientific community to figure out the perfect way to communicate to the public how air quality is affecting their health and the health of their families. In other words, comments that assume it is OK for overburdened communities to continue breathing unhealthy air while experts do research are not helpful. Should you choose to submit a "just wait for the experts" comment, please also describe why you believe this kind of approach is responsible, given that we now know that exposure to critical, very high-risk air pollutants is being ignored.</p>
+      <h2>Why Did EJAT Develop the CE-AQI?</h2>
+
+      <h3>The reason behind the CE-AQI</h3>
+      <p>After years of frustration over breathing polluted air while regional tools often described local air quality as good, the Environmental Justice Action Team (EJAT) began developing a different way to communicate risk. Traditional AQI tools consider a limited group of criteria pollutants and may not reflect some of the highest-risk pollutants measured by the community's hyper-local network.</p>
+
+      <p>After discussions with public health and environmental experts, EJAT developed the CE-AQI to communicate the combined impact of multiple criteria and toxic air pollutants measured in and around the community.</p>
+
+      <h3>A pilot effort</h3>
+      <p>The CE-AQI is a pilot method. It is not an official EPA or MDE index, and it is expected to improve as EJAT receives additional feedback, data, and scientific review. The purpose of the pilot is to make high-priority pollutants visible rather than leaving them out of the public discussion simply because they are not included in the traditional AQI.</p>
+
+      <h3>Useful feedback</h3>
+      <p>EJAT welcomes feedback that helps improve the method, data quality, health communication, and scientific basis of the dashboard. The central question is how to responsibly communicate the pollutants already being measured while research on cumulative exposure continues.</p>
+
+      <div class="important-note">
+        <p><strong>Important:</strong> CE-AQI values use the familiar AQI color categories for communication, but CE-AQI is an experimental community index. It should not be treated as an official regulatory determination or as medical advice.</p>
+      </div>
     </section>
 
-    <section id="calculations">
-        <p class="draft-tag">Draft - For Discussion During March 2026 Calls</p>
-        <h2>Version 2: How to Calculate the CE-AQI</h2>
-        <div class="info-box">
-            <p><strong>Step 1 - Calculate pollutant specific AQIs:</strong> For each monitor or sensor:</p>
-            <ul>
-                <li><strong>PurpleAir:</strong> Calculate the 24-hour AQI for PM2.5 using the 24-hour NAAQS. Also, calculate an annual AQI using the average, long-term concentration over the previous year using the annual NAAQS.</li>
-                <li><strong>Quant-AQ Modulair:</strong> Use the data from that sensor for that site to calculate AQIs for Ozone, NOX, and CO.</li>
-                <li><strong>Black Carbon (C-12):</strong> Calculate the AQI for Black Carbon using the pilot index.</li>
-            </ul>
-            <p><strong>Step 2 - Identify the Base Value:</strong> The pollutant with the highest AQI value for that specific monitor/site becomes the Base Value for the CE-AQI.</p>
-            <p><strong>Step 3 - Identify the Adders:</strong> For every other pollutant measured at that same site, identify the "Adder" based on its own AQI:</p>
-            <ul>
-                <li>AQI between 80 and 99: Adder = 1% of the Base Value.</li>
-                <li>AQI between 100 and 119: Adder = 2% of the Base Value.</li>
-                <li>AQI 120 or higher: Adder = 3% of the Base Value.</li>
-            </ul>
-            <p><strong>Step 4 - Final Calculation:</strong> The final CE-AQI for that specific monitor is calculated by adding the adders to the Base Value. Repeat for all monitors in the network.</p>
+    <section id="methodology">
+      <h2>How Is the Current CE-AQI Calculated?</h2>
+
+      <p>The current dashboard uses the CE-AQI pilot framework, with implementation details added so that every displayed station can receive a complete pollutant packet.</p>
+
+      <div class="info-box">
+        <h3>Step 1: Assemble the pollutant packet</h3>
+        <p>Each displayed station includes every usable pollutant variable available to the network. When a station does not measure a pollutant directly, the dashboard uses the closest usable QuantAQ or C-12 sensor. This is why several nearby stations can show similar CE-AQI values.</p>
+
+        <ul>
+          <li><strong>PM2.5:</strong> The dashboard uses the closest usable QuantAQ 24-hour value when available. PurpleAir serves as the fallback source.</li>
+          <li><strong>PM10:</strong> QuantAQ 24-hour value.</li>
+          <li><strong>Ozone:</strong> QuantAQ highest 8-hour value.</li>
+          <li><strong>Carbon monoxide:</strong> QuantAQ highest 8-hour value.</li>
+          <li><strong>Nitrogen dioxide:</strong> QuantAQ highest 1-hour value.</li>
+          <li><strong>Black carbon:</strong> C-12 data are compared with the pilot non-cancer reference of 600 ng/m³.</li>
+          <li><strong>Diesel particulate matter:</strong> Black carbon is multiplied by 1.25, then compared with the 330 ng/m³ pilot health-protection benchmark selected for this version.</li>
+        </ul>
+
+        <div class="formula-grid">
+          <div class="formula-card">
+            <strong>Black carbon to DPM</strong>
+            <div class="formula">DPM = BC × 1.25</div>
+          </div>
+          <div class="formula-card">
+            <strong>DPM pilot sub-index</strong>
+            <div class="formula">DPM sub-AQI = (DPM ÷ 330) × 100</div>
+          </div>
+          <div class="formula-card">
+            <strong>Black carbon pilot sub-index</strong>
+            <div class="formula">BC sub-AQI = (BC ÷ 600) × 100</div>
+          </div>
+          <div class="formula-card">
+            <strong>Criteria pollutants</strong>
+            <div class="formula">Use pollutant-specific AQI breakpoints</div>
+          </div>
         </div>
+
+        <h3>Step 2: Identify the Base Value</h3>
+        <p>The pollutant with the highest valid pollutant-specific AQI becomes the Base Value. A value borrowed from the closest supporting sensor can become the base when it is the highest pollutant risk assigned to that location.</p>
+
+        <h3>Step 3: Calculate the Adders</h3>
+        <p>The pollutant used as the Base Value does not receive an adder. Each other pollutant receives an adder based on its own pollutant-specific AQI:</p>
+        <ul>
+          <li>AQI 80 to 99: add 1% of the Base Value.</li>
+          <li>AQI 100 to 119: add 2% of the Base Value.</li>
+          <li>AQI 120 or higher: add 3% of the Base Value.</li>
+          <li>AQI below 80: included in the breakdown, but no adder is applied.</li>
+        </ul>
+
+        <h3>Step 4: Calculate the Final CE-AQI</h3>
+        <p>The dashboard adds the Base Value and all applicable adders. The final result determines the station's CE-AQI number, marker color, health category, and displayed main driver.</p>
+      </div>
+
+      <div class="limitation-box">
+        <p><strong>Current limitations:</strong> The nearest-sensor method is an estimate, not a direct measurement of every pollutant at every station. The C-12 live concentration and the stored average used in the CE-AQI may represent different time periods. Missing, delayed, or stale data can also affect which pollutants are available.</p>
+      </div>
     </section>
 
-    <section id="health-risks">
-        <p class="draft-tag">Draft - January 2026</p>
-        <h2>AQI Categories and Cautionary Statements</h2>
+    <section id="dashboard-faq">
+      <h2>Questions About the Dashboard</h2>
+
+      <div class="faq-list">
+        <details open>
+          <summary>Why do several stations have similar CE-AQI values?</summary>
+          <p>Many stations measure only part of the pollutant packet. The dashboard fills missing variables with the closest usable QuantAQ or C-12 sensor. Stations near the same supporting sensors may therefore share several pollutant values and receive similar scores.</p>
+        </details>
+
+        <details>
+          <summary>Why can the CE-AQI be higher than the regular AQI?</summary>
+          <p>The regular AQI reports the highest value among a limited group of criteria pollutants. The CE-AQI also includes black carbon and diesel particulate matter, then adds small cumulative-exposure adders for other elevated pollutants. The two indexes are related communication tools, but they are not the same calculation.</p>
+        </details>
+
+        <details>
+          <summary>What does “Main driver” mean?</summary>
+          <p>The main driver is the pollutant with the highest pollutant-specific AQI in that station's packet. It becomes the Base Value used in the CE-AQI calculation.</p>
+        </details>
+
+        <details>
+          <summary>What does “Latest detected” mean?</summary>
+          <p>It is the timestamp associated with the latest displayed station reading. Some CE-AQI components use rolling or stored averages, so the latest detected time does not mean every pollutant in the packet was measured at that exact minute.</p>
+        </details>
+
+        <details>
+          <summary>Why does the page sometimes take a few seconds to load?</summary>
+          <p>The dashboard combines PurpleAir, QuantAQ, C-12, database averages, map markers, and recent trend data. Requests are intentionally queued and cached so the database is not overloaded. The map may appear before all station details and trend data finish loading.</p>
+        </details>
+
+        <details>
+          <summary>Are stale readings used?</summary>
+          <p>The dashboard skips a C-12 live reading when it is more than three hours old. A stored C-12 average may still be used in the CE-AQI calculation when historical data are available. The station panel shows the latest detected time so users can judge how current the displayed concentration is.</p>
+        </details>
+
+        <details>
+          <summary>Can I use this dashboard for medical or regulatory decisions?</summary>
+          <p>No. This is an experimental community-awareness tool. For official air-quality information, regulatory decisions, or personal medical guidance, use the appropriate government agency or health professional.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="health">
+      <h2>AQI Categories and Cautionary Statements</h2>
+      <p>The dashboard uses the familiar AQI category colors to communicate the CE-AQI result.</p>
+
+      <div class="table-wrap">
         <table>
-            <thead>
-                <tr><th>AQI Category</th><th>Index Value</th><th>Description of Air Quality</th></tr>
-            </thead>
-            <tbody>
-                <tr class="aqi-good"><td>Good (Green)</td><td>0 to 50</td><td>Air quality is satisfactory, and air pollution poses little or no risk.</td></tr>
-                <tr class="aqi-moderate"><td>Moderate (Yellow)</td><td>51 to 100</td><td>Air quality is acceptable. However, there may be a risk for some people, particularly those who are unusually sensitive to air pollution.</td></tr>
-                <tr class="aqi-sensitive"><td>Unhealthy for Sensitive Groups (Orange)</td><td>101 to 150</td><td>Members of sensitive groups may experience health effects. The general public is less likely to be affected.</td></tr>
-                <tr class="aqi-unhealthy"><td>Unhealthy (Red)</td><td>151 to 200</td><td>Some members of the general public may experience health effects; members of sensitive groups may experience more serious health effects.</td></tr>
-                <tr class="aqi-very-unhealthy"><td>Very Unhealthy (Purple)</td><td>201 to 300</td><td>Health alert: The risk of health effects is increased for everyone.</td></tr>
-                <tr class="aqi-hazardous"><td>Hazardous (Maroon)</td><td>301 and higher</td><td>Health warning of emergency conditions: everyone is more likely to be affected.</td></tr>
-            </tbody>
+          <thead>
+            <tr>
+              <th>AQI Category</th>
+              <th>Index Value</th>
+              <th>Description of Air Quality</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="aqi-good">
+              <td>Good (Green)</td>
+              <td>0 to 50</td>
+              <td>Air quality is satisfactory, and air pollution poses little or no risk.</td>
+            </tr>
+            <tr class="aqi-moderate">
+              <td>Moderate (Yellow)</td>
+              <td>51 to 100</td>
+              <td>Air quality is acceptable. However, there may be a risk for some people, particularly those who are unusually sensitive to air pollution.</td>
+            </tr>
+            <tr class="aqi-sensitive">
+              <td>Unhealthy for Sensitive Groups (Orange)</td>
+              <td>101 to 150</td>
+              <td>Members of sensitive groups may experience health effects. The general public is less likely to be affected.</td>
+            </tr>
+            <tr class="aqi-unhealthy">
+              <td>Unhealthy (Red)</td>
+              <td>151 to 200</td>
+              <td>Some members of the general public may experience health effects. Members of sensitive groups may experience more serious health effects.</td>
+            </tr>
+            <tr class="aqi-very-unhealthy">
+              <td>Very Unhealthy (Purple)</td>
+              <td>201 to 300</td>
+              <td>Health alert: The risk of health effects is increased for everyone.</td>
+            </tr>
+            <tr class="aqi-hazardous">
+              <td>Hazardous (Maroon)</td>
+              <td>301 and higher</td>
+              <td>Health warning of emergency conditions: Everyone is more likely to be affected.</td>
+            </tr>
+          </tbody>
         </table>
+      </div>
     </section>
 
     <section id="action">
-        <p class="draft-tag">Draft - January 2026</p>
-        <h2>Who Is Taking Action to Clean the Air?</h2>
-        <p>Since 2018, the Cheverly community has been working in partnership with the U of M Center for Community Engagement Environmental Justice and Health (CEEJH) and the Maryland Department of the Environment (MDE) to address air pollution and other environmental justice issues in the community. There are many stationary and mobile sources in the area around Sheriff Road, US Route 50, Kenilworth Avenue and Tuxedo Road. Over the past year, the communities of Fairmount Heights and Seat Pleasant have also started to get involved.</p>
-        
-        <h3>How Can I Help?</h3>
-        <p>MDE has about 30 inspectors to cover over 10,000 sources spread throughout the State. They need the community's help to identify potential violations of air pollution laws. If you see, or smell or hear something that looks like it may be an air pollution problem - take 5 minutes and report it to MDE. Because of the partnership with MDE and the communities in the Cheverly area, the Cheverly area is now the community that reports the most potential air pollution problems to MDE. MDE's response to inquiries or complaints is directly related to the number of inquiries and complaints that they receive.</p>
+      <h2>Who Is Taking Action to Clean the Air?</h2>
+      <p>Since 2018, the Cheverly community has worked with the University of Maryland's CEEJH and the Maryland Department of the Environment to address air pollution and other environmental justice concerns associated with nearby stationary and mobile pollution sources.</p>
 
-        <div class="contact-card">
-            <h4>AIR POLLUTION: SEE SOMETHING? SAY SOMETHING.</h4>
-            <p><strong>CALL MDE Air Pollution Hotline:</strong> ()  - </p>
-            <p><strong>EMAIL:</strong> **@maryland.gov</p>
-        </div>
+      <h3>How can I help?</h3>
+      <p>Community reports can help MDE identify possible violations and determine when and where a problem is occurring. When it is safe to do so, record the location, date, time, odor or visible emissions, how long the event lasted, and any other useful details. Photos or video can also help when they can be collected safely and legally.</p>
+
+      <div class="contact-card">
+        <h3>Air pollution: See something? Say something.</h3>
+        <p><strong>Air pollution complaint line:</strong> <a href="tel:+14105373215">410-537-3215</a></p>
+        <p><strong>Email:</strong> <a href="mailto:mdeair.complaints@maryland.gov">mdeair.complaints@maryland.gov</a></p>
+        <p><strong>Environmental emergency:</strong> <a href="tel:+18666334686">866-633-4686</a></p>
+      </div>
     </section>
-</main>
+  </main>
 
-<footer class="site-footer">
-    <p>© 2026 Environmental Justice Action Team (EJAT) | Cheverly, MD</p>
-</footer>
+  <footer class="site-footer">
+    <p>© 2026 Environmental Justice Action Team (EJAT) | Town of Cheverly, MD</p>
+  </footer>
 
+  <div class="dashboard-disclaimer">
+    Disclaimer: This dashboard displays experimental data for community awareness. It is not for official regulatory use or medical advice.
+  </div>
 </body>
 </html>
