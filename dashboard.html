@@ -1525,6 +1525,14 @@
 
   let beltsvilleTrendCache = { data: [], fetchedAt: 0 };
 
+  // Keep repeated station requests from hitting the API again during the same visit.
+  // Rolling averages change slowly, so those responses are also kept in sessionStorage.
+  const apiMemoryCache = new Map();
+  const apiInflight = new Map();
+  const API_CACHE_TTL_MS = 2 * 60 * 1000;
+  const API_HISTORY_CACHE_TTL_MS = 5 * 60 * 1000;
+  const API_AVERAGE_CACHE_TTL_MS = 30 * 60 * 1000;
+
   const SENSORS = {
     "52823": "EJAT.CV.6.52823",
     "53677": "EJAT.CV.1.53677",
@@ -1656,6 +1664,9 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
+      normalized: true,
+      parsing: false,
       interaction: {
         mode: "nearest",
         intersect: false
@@ -2064,23 +2075,25 @@
     const now = Date.now();
 
     // AirNow updates hourly, so avoid refetching every time a user clicks a marker.
-    if (beltsvilleTrendCache.data.length && now - beltsvilleTrendCache.fetchedAt < 15 * 60 * 1000) {
+    if (now - beltsvilleTrendCache.fetchedAt < 15 * 60 * 1000) {
       return beltsvilleTrendCache.data;
     }
 
-    const layerUrls = [];
+    const resolvedUrls = await Promise.all(
+      AIRNOW_24H_ITEM_IDS.map(itemId => getArcGISItemLayerUrl(itemId))
+    );
 
-    for (const itemId of AIRNOW_24H_ITEM_IDS) {
-      const layerUrl = await getArcGISItemLayerUrl(itemId);
-      if (layerUrl) layerUrls.push(layerUrl);
-    }
+    const layerUrls = [
+      ...resolvedUrls.filter(Boolean),
+      AIRNOW_CURRENT_LAYER_URL
+    ];
 
-    // Fallback: current AirNow monitor layer. This may only return the latest point,
-    // but it keeps the dashboard from breaking if the 24-hour item URL changes.
-    layerUrls.push(AIRNOW_CURRENT_LAYER_URL);
+    // Resolve the possible AirNow layers together rather than waiting on each one.
+    const featureSets = await Promise.all(
+      layerUrls.map(layerUrl => queryAirNowLayer(layerUrl))
+    );
 
-    for (const layerUrl of layerUrls) {
-      const features = await queryAirNowLayer(layerUrl);
+    for (const features of featureSets) {
       const series = featuresToReferenceSeries(features);
 
       if (series.length > 0) {
@@ -2218,59 +2231,155 @@
   async function fetchC12HistorySeries(compId, hours = STATION_TIMESERIES_HOURS) {
     const endMs = Date.now();
     const startMs = endMs - (hours * 60 * 60 * 1000);
-    const startSec = Math.floor(startMs / 1000);
-    const endSec = Math.floor(endMs / 1000);
 
-    // The current dashboard already uses grove_last. These extra action names let the
-    // same HTML work if the API proxy exposes C12/GroveStreams history under one of them.
-    const requests = [
-      { action: "grove_history", compId, streamId: "880nm", start: startSec, end: endSec },
-      { action: "grove_history", compId, streamId: "880nm", start: startMs, end: endMs },
-      { action: "grove_stream_history", compId, streamId: "880nm", start: startSec, end: endSec },
-      { action: "c12_history", compId, hours }
-    ];
+    const parsePayload = payload => getRowsFromPayload(payload)
+      .map(row => parseC12HistoryPoint(row, compId))
+      .filter(Boolean)
+      .filter(p => p.x >= startMs && p.x <= endMs)
+      .sort((a, b) => a.x - b.x);
 
-    for (const params of requests) {
-      const payload = await proxyGet(params);
-      const rows = getRowsFromPayload(payload);
-      const series = rows
-        .map(row => parseC12HistoryPoint(row, compId))
-        .filter(Boolean)
-        .filter(p => p.x >= startMs && p.x <= endMs)
-        .sort((a, b) => a.x - b.x);
+    // Use the database history endpoint first. It is the normal path now and avoids
+    // waiting for several older GroveStreams action-name fallbacks.
+    const storedPayload = await proxyGet({
+      action: "c12_history",
+      compId,
+      hours
+    });
 
-      if (series.length > 0) return series;
-    }
+    const storedSeries = parsePayload(storedPayload);
+    if (storedSeries.length > 0) return storedSeries;
 
-    console.warn(`No C12 history returned for ${compId}. A true C12 line requires the /api/aq proxy to support a GroveStreams history action such as grove_history or c12_history.`);
+    // Keep one live-service fallback in case the database endpoint is temporarily empty.
+    const livePayload = await proxyGet({
+      action: "grove_history",
+      compId,
+      streamId: "880nm",
+      start: startMs,
+      end: endMs
+    });
+
+    const liveSeries = parsePayload(livePayload);
+    if (liveSeries.length > 0) return liveSeries;
+
+    console.warn(`No C12 history returned for ${compId}.`);
     return [];
   }
 
-  async function proxyGet(params, attempts = 3) {
+  function getApiCacheTtl(params) {
+    const action = String(params?.action || "");
+
+    if (action.includes("average")) return API_AVERAGE_CACHE_TTL_MS;
+    if (action.includes("history")) return API_HISTORY_CACHE_TTL_MS;
+    return API_CACHE_TTL_MS;
+  }
+
+  function getSessionCachedResponse(url, ttl) {
+    if (ttl < API_AVERAGE_CACHE_TTL_MS) return null;
+
+    try {
+      const raw = sessionStorage.getItem(`cheverly-api:${url}`);
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || Date.now() - parsed.savedAt > ttl) {
+        sessionStorage.removeItem(`cheverly-api:${url}`);
+        return null;
+      }
+
+      return parsed.data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setSessionCachedResponse(url, ttl, data) {
+    if (ttl < API_AVERAGE_CACHE_TTL_MS || data === null) return;
+
+    try {
+      sessionStorage.setItem(`cheverly-api:${url}`, JSON.stringify({
+        savedAt: Date.now(),
+        data
+      }));
+    } catch (e) {
+      // Ignore storage limits or disabled storage.
+    }
+  }
+
+  async function proxyGet(params, attempts = 2) {
     const url = API_PROXY + "?" + new URLSearchParams(params).toString();
+    const ttl = getApiCacheTtl(params);
+    const now = Date.now();
+    const memoryHit = apiMemoryCache.get(url);
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-        const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
-        clearTimeout(timeout);
-
-        if (res.ok) {
-          return await res.json();
-        }
-
-        console.warn(`API request failed (${res.status}) on attempt ${attempt}:`, url);
-      } catch (e) {
-        console.warn(`API request attempt ${attempt} failed:`, e);
-      }
-
-      if (attempt < attempts) {
-        await new Promise(resolve => setTimeout(resolve, 450 * attempt));
-      }
+    if (memoryHit && now - memoryHit.savedAt < ttl) {
+      return memoryHit.data;
     }
 
-    return null;
+    const sessionHit = getSessionCachedResponse(url, ttl);
+    if (sessionHit !== null) {
+      apiMemoryCache.set(url, { savedAt: now, data: sessionHit });
+      return sessionHit;
+    }
+
+    if (apiInflight.has(url)) {
+      return apiInflight.get(url);
+    }
+
+    const request = (async () => {
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
+        try {
+          const res = await fetch(url, {
+            signal: controller.signal,
+            cache: "default"
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            apiMemoryCache.set(url, { savedAt: Date.now(), data });
+            setSessionCachedResponse(url, ttl, data);
+            return data;
+          }
+
+          console.warn(`API request failed (${res.status}) on attempt ${attempt}:`, url);
+        } catch (e) {
+          console.warn(`API request attempt ${attempt} failed:`, e);
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (attempt < attempts) {
+          await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+        }
+      }
+
+      return null;
+    })();
+
+    apiInflight.set(url, request);
+
+    try {
+      return await request;
+    } finally {
+      apiInflight.delete(url);
+    }
+  }
+
+  async function mapWithConcurrency(items, limit, worker) {
+    const queue = [...items];
+    const workers = Array.from(
+      { length: Math.min(limit, queue.length) },
+      async () => {
+        while (queue.length) {
+          const item = queue.shift();
+          await worker(item);
+        }
+      }
+    );
+
+    await Promise.all(workers);
   }
 
   async function ensureQuantAQCache(sn) {
@@ -2280,15 +2389,10 @@
       return quantAveragesCache[sn] || quantCache[sn];
     }
 
-    const latestResponse = await proxyGet({
-      action: "quantaq_latest",
-      sn
-    });
-    
-    const averagesResponse = await proxyGet({
-      action: "quantaq_averages",
-      sn
-    });
+    const [latestResponse, averagesResponse] = await Promise.all([
+      proxyGet({ action: "quantaq_latest", sn }),
+      proxyGet({ action: "quantaq_averages", sn })
+    ]);
 
     const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
     const latest = latestRows[0] || null;
@@ -3218,13 +3322,21 @@
     const nowSec = Math.floor(windowEndMs / 1000);
     const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
 
-    await loadBeltsvilleReferenceTrend(windowEndMs);
+    // Do not make the selected station wait for the external AirNow reference line.
+    // The station panel and its own trend render first, then the reference line joins.
+    const referencePromise = loadBeltsvilleReferenceTrend(windowEndMs)
+      .catch(error => console.warn("Beltsville reference trend failed:", error));
+
     setChartTimeWindow(windowEndMs);
 
     let { lat: stationLat, lon: stationLon } = getStationCoords(id);
 
     if (!id.startsWith("C12-") && !id.startsWith("MOD-")) {
-      const pa = await proxyGet({ action: "purpleair_box" });
+      const [pa, json] = await Promise.all([
+        proxyGet({ action: "purpleair_box" }),
+        proxyGet({ action: "purpleair_history", id, start: seriesStartSec })
+      ]);
+
       const paDataArr = Array.isArray(pa?.data) ? pa.data : (pa?.data?.data || []);
       const liveStation = paDataArr.find(r => String(r[0]) === id);
 
@@ -3249,7 +3361,6 @@
       document.getElementById("val_param").innerText = pm25Live !== null ? `${pm25Live} µg/m³` : "--";
       document.getElementById("label_param").innerText = "PM2.5 Concentration";
 
-      const json = await proxyGet({ action: "purpleair_history", id, start: seriesStartSec });
       if (json?.data && json.data.length > 0) {
         const paSeries = json.data
           .filter(r => {
@@ -3284,21 +3395,15 @@
       setLatestTimeDisplay(latestTimeMs);
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("MOD-")) {
-      const latestResponse = await proxyGet({
-        action: "quantaq_latest",
-        sn: id
-      });
-      
-      const historyResponse = await proxyGet({
-        action: "quantaq_history",
-        sn: id,
-        hours: STATION_TIMESERIES_HOURS
-      });
-      
-      const averagesResponse = await proxyGet({
-        action: "quantaq_averages",
-        sn: id
-      });
+      const [latestResponse, historyResponse, averagesResponse] = await Promise.all([
+        proxyGet({ action: "quantaq_latest", sn: id }),
+        proxyGet({
+          action: "quantaq_history",
+          sn: id,
+          hours: STATION_TIMESERIES_HOURS
+        }),
+        proxyGet({ action: "quantaq_averages", sn: id })
+      ]);
 
       const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
       const historyRows = Array.isArray(historyResponse?.data) ? historyResponse.data : [];
@@ -3350,9 +3455,10 @@
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     } else if (id.startsWith("C12-")) {
       const compId = id.replace("C12-", "");
-      const [res, averageResponse] = await Promise.all([
+      const [res, averageResponse, c12Series] = await Promise.all([
         proxyGet({ action: "grove_last", compId }),
-        proxyGet({ action: "c12_average", compId })
+        proxyGet({ action: "c12_average", compId }),
+        fetchC12HistorySeries(compId, STATION_TIMESERIES_HOURS)
       ]);
       const rows = Array.isArray(res) ? res : (res?.data || []);
       const bcAverage = activeNum(averageResponse?.data?.bc_available_average);
@@ -3391,7 +3497,6 @@
       document.getElementById("val_param").innerText = bc !== null ? `${bc} ng/m³` : "--";
       document.getElementById("label_param").innerText = "Black Carbon Concentration";
 
-      const c12Series = await fetchC12HistorySeries(compId, STATION_TIMESERIES_HOURS);
       if (c12Series.length > 0) {
         const latestFromSeries = applyStationSeriesWindow(c12Series, windowEndMs);
         latestTimeMs = freshestTime(latestTimeMs, latestFromSeries);
@@ -3428,13 +3533,16 @@
       updateMarkerValue(id, result.ceaqi, latestTimeMs, result.baseLabel);
     }
 
-    chart.update();
+    chart.update("none");
+
+    referencePromise.then(() => {
+      setChartTimeWindow(windowEndMs);
+      chart.update("none");
+    });
   }
 
   async function init() {
     const sel = document.getElementById("devSel");
-    const today = new Date().toISOString().split("T")[0];
-
     sel.innerHTML = "";
     cluster.clearLayers();
     markerMap = {};
@@ -3456,42 +3564,32 @@
       }
     }
 
-    for (const s of SPODS) {
+    // Load a few stations at a time. This is much faster than the old fully
+    // sequential loop but avoids the burst that previously overloaded the database.
+    await mapWithConcurrency(SPODS, 3, async s => {
       try {
-        const latestResponse = await proxyGet({
-          action: "quantaq_latest",
-          sn: s.sn
-        });
-    
+        const [latestResponse, averagesResponse] = await Promise.all([
+          proxyGet({ action: "quantaq_latest", sn: s.sn }),
+          proxyGet({ action: "quantaq_averages", sn: s.sn })
+        ]);
+
         const latestRows = Array.isArray(latestResponse?.data)
           ? latestResponse.data
           : [];
-    
+
         quantCache[s.sn] = latestRows[0] || null;
-    
-        const averagesResponse = await proxyGet({
-          action: "quantaq_averages",
-          sn: s.sn
-        });
-    
-        quantAveragesCache[s.sn] =
-          averagesResponse?.data || null;
+        quantAveragesCache[s.sn] = averagesResponse?.data || null;
       } catch (error) {
         console.error(`QuantAQ preload failed for ${s.sn}:`, error);
-    
         quantCache[s.sn] = quantCache[s.sn] || null;
-        quantAveragesCache[s.sn] =
-          quantAveragesCache[s.sn] || null;
+        quantAveragesCache[s.sn] = quantAveragesCache[s.sn] || null;
       }
-    
-      await new Promise(resolve => setTimeout(resolve, 150));
-    }
-
+    });
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
     const now = Date.now();
 
-    await Promise.all(C12S.map(async (c) => {
+    await mapWithConcurrency(C12S, 3, async c => {
       const [res, averageResponse] = await Promise.all([
         proxyGet({ action: "grove_last", compId: c.compId }),
         proxyGet({ action: "c12_average", compId: c.compId })
@@ -3524,7 +3622,7 @@
         c.lat = lat;
         c.lon = lon;
       }
-    }));
+    });
 
     paDataArr.sort((a, b) => {
       const idA = String(a[0]);
@@ -3603,15 +3701,26 @@
       });
     }
 
+    document.getElementById("mapLoading")?.classList.add("hidden");
+    setTimeout(() => map.invalidateSize(), 50);
+
     if (sel.options.length) {
       const defaultId = markerMap["203601"] ? "203601" : sel.options[0].value;
       sel.value = defaultId;
       selectedStationId = defaultId;
-      handleDropdownChange(defaultId, false);
-    }
 
-    document.getElementById("mapLoading")?.classList.add("hidden");
-    setTimeout(() => map.invalidateSize(), 50);
+      const loadDefaultStation = () => {
+        handleDropdownChange(defaultId, false).catch(error => {
+          console.warn("Default station details failed:", error);
+        });
+      };
+
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(loadDefaultStation, { timeout: 700 });
+      } else {
+        setTimeout(loadDefaultStation, 0);
+      }
+    }
   }
 
   init().catch(error => {
