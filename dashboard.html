@@ -1533,6 +1533,24 @@
   const API_HISTORY_CACHE_TTL_MS = 5 * 60 * 1000;
   const API_AVERAGE_CACHE_TTL_MS = 30 * 60 * 1000;
 
+  // The Vercel API currently uses a very small PostgreSQL connection pool.
+  // Keep database-backed requests in a single queue so the browser does not
+  // overwhelm the API with several SQL queries at the same time.
+  const DB_BACKED_ACTIONS = new Set([
+    "quantaq_latest",
+    "quantaq_history",
+    "quantaq_averages",
+    "c12_history",
+    "c12_average"
+  ]);
+  let databaseRequestChain = Promise.resolve();
+
+  function runDatabaseRequest(task) {
+    const queued = databaseRequestChain.then(task, task);
+    databaseRequestChain = queued.catch(() => null);
+    return queued;
+  }
+
   const SENSORS = {
     "52823": "EJAT.CV.6.52823",
     "53677": "EJAT.CV.1.53677",
@@ -2325,10 +2343,13 @@
       return apiInflight.get(url);
     }
 
-    const request = (async () => {
+    const executeRequest = async () => {
+      const isDatabaseRequest = DB_BACKED_ACTIONS.has(String(params?.action || ""));
+      const timeoutMs = isDatabaseRequest ? 30000 : 18000;
+
       for (let attempt = 1; attempt <= attempts; attempt++) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
           const res = await fetch(url, {
@@ -2345,18 +2366,26 @@
 
           console.warn(`API request failed (${res.status}) on attempt ${attempt}:`, url);
         } catch (e) {
-          console.warn(`API request attempt ${attempt} failed:`, e);
+          if (e?.name === "AbortError") {
+            console.warn(`API request timed out after ${timeoutMs / 1000}s on attempt ${attempt}:`, url);
+          } else {
+            console.warn(`API request attempt ${attempt} failed:`, e);
+          }
         } finally {
           clearTimeout(timeout);
         }
 
         if (attempt < attempts) {
-          await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
         }
       }
 
       return null;
-    })();
+    };
+
+    const request = DB_BACKED_ACTIONS.has(String(params?.action || ""))
+      ? runDatabaseRequest(executeRequest)
+      : executeRequest();
 
     apiInflight.set(url, request);
 
@@ -2389,19 +2418,28 @@
       return quantAveragesCache[sn] || quantCache[sn];
     }
 
-    const [latestResponse, averagesResponse] = await Promise.all([
-      proxyGet({ action: "quantaq_latest", sn }),
-      proxyGet({ action: "quantaq_averages", sn })
-    ]);
-
-    const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
-    const latest = latestRows[0] || null;
+    // The rolling averages contain everything needed for CE-AQI support.
+    // Only request the latest row as a fallback when averages are unavailable.
+    const averagesResponse = await proxyGet({
+      action: "quantaq_averages",
+      sn
+    });
     const averages = averagesResponse?.data || null;
 
-    if (latest) quantCache[sn] = latest;
-    if (averages) quantAveragesCache[sn] = averages;
+    if (averages) {
+      quantAveragesCache[sn] = averages;
+      return averages;
+    }
 
-    return averages || latest || null;
+    const latestResponse = await proxyGet({
+      action: "quantaq_latest",
+      sn
+    });
+    const latestRows = Array.isArray(latestResponse?.data) ? latestResponse.data : [];
+    const latest = latestRows[0] || null;
+
+    if (latest) quantCache[sn] = latest;
+    return latest;
   }
 
   function getAQIColor(aqi) {
@@ -3564,32 +3602,26 @@
       }
     }
 
-    // Load a few stations at a time. This is much faster than the old fully
-    // sequential loop but avoids the burst that previously overloaded the database.
-    await mapWithConcurrency(SPODS, 3, async s => {
+    // Only preload the rolling averages needed to calculate map colors.
+    // These SQL-backed requests are intentionally serialized by proxyGet.
+    // Latest readings and history are loaded only when a station is selected.
+    for (const s of SPODS) {
       try {
-        const [latestResponse, averagesResponse] = await Promise.all([
-          proxyGet({ action: "quantaq_latest", sn: s.sn }),
-          proxyGet({ action: "quantaq_averages", sn: s.sn })
-        ]);
-
-        const latestRows = Array.isArray(latestResponse?.data)
-          ? latestResponse.data
-          : [];
-
-        quantCache[s.sn] = latestRows[0] || null;
-        quantAveragesCache[s.sn] = averagesResponse?.data || null;
+        const data = await ensureQuantAQCache(s.sn);
+        if (!data) {
+          console.warn(`No QuantAQ preload data returned for ${s.sn}`);
+        }
       } catch (error) {
         console.error(`QuantAQ preload failed for ${s.sn}:`, error);
         quantCache[s.sn] = quantCache[s.sn] || null;
         quantAveragesCache[s.sn] = quantAveragesCache[s.sn] || null;
       }
-    });
+    }
 
     const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
     const now = Date.now();
 
-    await mapWithConcurrency(C12S, 3, async c => {
+    await mapWithConcurrency(C12S, 2, async c => {
       const [res, averageResponse] = await Promise.all([
         proxyGet({ action: "grove_last", compId: c.compId }),
         proxyGet({ action: "c12_average", compId: c.compId })
@@ -3668,7 +3700,9 @@
         preferredBaseStartsWith: `PM2.5 (${s.sn})`
       });
 
-      createMarker(s.sn, s.lat, s.lon, result.ceaqi, getQuantAQTimestampMs(quantCache[s.sn]), result.baseLabel);
+      const quantLatestTime = getQuantAQTimestampMs(quantCache[s.sn])
+        ?? normalizeTimestampMs(quantAveragesCache[s.sn]?.latest_record);
+      createMarker(s.sn, s.lat, s.lon, result.ceaqi, quantLatestTime, result.baseLabel);
       sel.add(new Option(s.name, s.sn));
     }
 
