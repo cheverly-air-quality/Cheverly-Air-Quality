@@ -1230,8 +1230,8 @@
 
     async function proxyGet(
       params,
-      attempts = 2,
-      timeoutMs = 20000
+      attempts = 3,
+      timeoutMs = 35000
     ) {
       const url =
         API_PROXY +
@@ -1255,27 +1255,52 @@
             cache: "no-store"
           });
 
-          clearTimeout(timeout);
-
           if (response.ok) {
             return await response.json();
           }
-        } catch (error) {
-          clearTimeout(timeout);
+
           console.warn(
-            `Preview request failed for ${url}:`,
-            error
+            `Preview request returned ${response.status} for ${url} on attempt ${attempt}`
           );
+        } catch (error) {
+          const message = error?.name === "AbortError"
+            ? `Preview request timed out for ${url} on attempt ${attempt}`
+            : `Preview request failed for ${url} on attempt ${attempt}`;
+
+          console.warn(message, error);
+        } finally {
+          clearTimeout(timeout);
         }
 
         if (attempt < attempts) {
           await new Promise(resolve =>
-            setTimeout(resolve, 350 * attempt)
+            setTimeout(resolve, 700 * attempt)
           );
         }
       }
 
       return null;
+    }
+
+    // The Vercel API currently uses a very small Postgres connection pool.
+    // Queue SQL-backed preview requests so the home page does not overload it.
+    let previewDatabaseQueue = Promise.resolve();
+
+    function queuedDatabaseGet(
+      params,
+      attempts = 3,
+      timeoutMs = 35000
+    ) {
+      const run = () => proxyGet(
+        params,
+        attempts,
+        timeoutMs
+      );
+
+      const request = previewDatabaseQueue.then(run, run);
+
+      previewDatabaseQueue = request.catch(() => null);
+      return request;
     }
 
     async function resolveMissingQuantCoordinates(sensor) {
@@ -1292,7 +1317,8 @@
           sn: sensor.sn,
           date: today
         },
-        1
+        1,
+        20000
       );
 
       const dataRoot = response?.resolved_sn
@@ -1314,8 +1340,10 @@
         isInsidePreviewArea(sensor.lat, sensor.lon)
       );
 
-      await Promise.all(localSensors.map(async sensor => {
-        const averagesResponse = await proxyGet({
+      // Only the two local QuantAQ sensors are needed for the Cheverly preview.
+      // Their database calls run one at a time.
+      for (const sensor of localSensors) {
+        const averagesResponse = await queuedDatabaseGet({
           action: "quantaq_averages",
           sn: sensor.sn
         });
@@ -1324,85 +1352,82 @@
 
         if (averages) {
           quantAveragesCache[sensor.sn] = averages;
-          return;
+        } else {
+          const latestResponse = await queuedDatabaseGet({
+            action: "quantaq_latest",
+            sn: sensor.sn
+          });
+
+          const latestRows = Array.isArray(latestResponse?.data)
+            ? latestResponse.data
+            : [];
+
+          quantCache[sensor.sn] = latestRows[0] || null;
         }
 
-        const latestResponse = await proxyGet({
-          action: "quantaq_latest",
-          sn: sensor.sn
-        });
-
-        const latestRows = Array.isArray(latestResponse?.data)
-          ? latestResponse.data
-          : [];
-
-        quantCache[sensor.sn] = latestRows[0] || null;
-      }));
+        await new Promise(resolve => setTimeout(resolve, 125));
+      }
     }
 
     async function loadC12Data() {
-      const queue = [...C12S];
-      const workerCount = Math.min(2, queue.length);
+      // Keep one C-12 database average query in flight at a time. GroveStreams
+      // can load alongside it because that request does not use Postgres.
+      for (const sensor of C12S) {
+        const lastPromise = proxyGet(
+          {
+            action: "grove_last",
+            compId: sensor.compId
+          },
+          1,
+          20000
+        );
 
-      async function worker() {
-        while (queue.length) {
-          const sensor = queue.shift();
-          if (!sensor) return;
+        const averageResponse = await queuedDatabaseGet({
+          action: "c12_average",
+          compId: sensor.compId
+        });
 
-          const [lastResponse, averageResponse] = await Promise.all([
-            proxyGet(
-              {
-                action: "grove_last",
-                compId: sensor.compId
-              },
-              1
-            ),
-            proxyGet({
-              action: "c12_average",
-              compId: sensor.compId
-            })
-          ]);
+        const lastResponse = await lastPromise;
 
-          const rows = Array.isArray(lastResponse)
-            ? lastResponse
-            : lastResponse?.data || [];
+        const rows = Array.isArray(lastResponse)
+          ? lastResponse
+          : lastResponse?.data || [];
 
-          const lat = safeNum(
-            rows.find(row => row.streamId === "lat")?.data
-          );
+        const lat = safeNum(
+          rows.find(row => row.streamId === "lat")
+            ?.data
+        );
 
-          const lon = safeNum(
-            rows.find(row => row.streamId === "long")?.data
-          );
+        const lon = safeNum(
+          rows.find(row => row.streamId === "long")
+            ?.data
+        );
 
-          const bcRow = rows.find(
-            row => row.streamId === "880nm"
-          );
+        const bcRow = rows.find(
+          row => row.streamId === "880nm"
+        );
 
-          const bc = activeNum(bcRow?.data);
-          const bcTime = normalizeTimestampMs(bcRow?.time);
-          const bcAverage = activeNum(
-            averageResponse?.data?.bc_available_average
-          );
+        const bc = activeNum(bcRow?.data);
+        const bcTime = normalizeTimestampMs(bcRow?.time);
+        const bcAverage = activeNum(
+          averageResponse?.data?.bc_available_average
+        );
 
-          c12Cache[sensor.compId] = {
-            bc,
-            bcAverage,
-            bcTime,
-            lat,
-            lon
-          };
+        c12Cache[sensor.compId] = {
+          bc,
+          bcAverage,
+          bcTime,
+          lat,
+          lon
+        };
 
-          if (hasValidCoords(lat, lon)) {
-            sensor.lat = lat;
-            sensor.lon = lon;
-          }
+        if (hasValidCoords(lat, lon)) {
+          sensor.lat = lat;
+          sensor.lon = lon;
         }
-      }
 
-      await Promise.all(
-        Array.from({ length: workerCount }, () => worker())
-      );
+        await new Promise(resolve => setTimeout(resolve, 125));
+      }
     }
 
     function clearMiniMarkers() {
@@ -1587,10 +1612,10 @@
       addQuickPurpleAirMarkers();
       fitPreviewMap();
 
-      await Promise.all([
-        loadQuantAQData(),
-        loadC12Data()
-      ]);
+      // Load the SQL-backed groups in sequence so the small database pool
+      // never receives a burst of averages queries from the home page.
+      await loadQuantAQData();
+      await loadC12Data();
 
       clearMiniMarkers();
       addPreviewMarkers();
