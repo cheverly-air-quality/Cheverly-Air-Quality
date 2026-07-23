@@ -2717,10 +2717,6 @@
     const bcValue = activeNum(bc);
     if (bcValue === null) return;
 
-    const basisText = options.isAnnualAverage
-      ? "trailing-year average"
-      : "latest reading";
-
     const meta = {
       canBeBase: options.canBeBase !== false,
       isSupport: options.isSupport === true,
@@ -2735,7 +2731,7 @@
         ...meta,
         concentration: bcValue,
         concentrationUnit: "ng/m³",
-        concentrationLabel: `Black carbon (${basisText})`
+        concentrationLabel: `Black carbon`
       }
     );
 
@@ -2747,7 +2743,7 @@
         ...meta,
         concentration: bcValue * 1.25,
         concentrationUnit: "ng/m³",
-        concentrationLabel: `Calculated DPM (${basisText})`
+        concentrationLabel: `Calculated DPM`
       }
     );
   }
