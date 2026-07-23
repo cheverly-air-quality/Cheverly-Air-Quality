@@ -2718,7 +2718,7 @@
     if (bcValue === null) return;
 
     const basisText = options.isAnnualAverage
-      ? "annual available average"
+      ? "trailing-year average"
       : "latest reading";
 
     const meta = {
@@ -2747,7 +2747,7 @@
         ...meta,
         concentration: bcValue * 1.25,
         concentrationUnit: "ng/m³",
-        concentrationLabel: `Estimated DPM (${basisText})`
+        concentrationLabel: `Calculated DPM (${basisText})`
       }
     );
   }
