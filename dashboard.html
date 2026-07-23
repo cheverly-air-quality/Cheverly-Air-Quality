@@ -1445,10 +1445,10 @@
     <section class="chart-card">
       <div class="card-header">
         <div>
-          <h3>18-hour CE-AQI trend</h3>
-          <p>Selected station compared with the HU-Beltsville reference trend.</p>
+          <h3>Recent station trend</h3>
+          <p>Preliminary trend based on the selected station’s available recent data. This is not the full CE-AQI calculation over time.</p>
         </div>
-        <span class="type-pill">Live trend</span>
+        <span class="type-pill">Preliminary</span>
       </div>
       <div id="chart-box">
         <canvas id="airChart"></canvas>
@@ -1661,24 +1661,16 @@
     data: {
       datasets: [
         {
-          label: "Station CE-AQI",
+          label: "Selected station trend",
           data: [],
           borderColor: "#4477ce",
-          tension: 0.1,
+          borderWidth: 3,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.18,
           fill: true,
           backgroundColor: "rgba(68, 119, 206, 0.1)",
-          spanGaps: true
-        },
-        {
-          label: "HU-Beltsville Reference Trend",
-          data: [],
-          borderColor: "rgba(255, 0, 0, 0.6)",
-          borderDash: [5, 5],
-          tension: 0.3,
-          fill: false,
-          pointRadius: 0,
-          spanGaps: true,
-          borderWidth: 2
+          spanGaps: false
         }
       ]
     },
@@ -1702,7 +1694,13 @@
             source: "auto"
           }
         },
-        y: { beginAtZero: true }
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "Index value"
+          }
+        }
       }
     }
   });
@@ -3362,11 +3360,6 @@
     const nowSec = Math.floor(windowEndMs / 1000);
     const seriesStartSec = Math.floor(stationSeriesCutoffMs(windowEndMs) / 1000);
 
-    // Do not make the selected station wait for the external AirNow reference line.
-    // The station panel and its own trend render first, then the reference line joins.
-    const referencePromise = loadBeltsvilleReferenceTrend(windowEndMs)
-      .catch(error => console.warn("Beltsville reference trend failed:", error));
-
     setChartTimeWindow(windowEndMs);
 
     let { lat: stationLat, lon: stationLon } = getStationCoords(id);
@@ -3574,11 +3567,6 @@
     }
 
     chart.update("none");
-
-    referencePromise.then(() => {
-      setChartTimeWindow(windowEndMs);
-      chart.update("none");
-    });
   }
 
   async function init() {
